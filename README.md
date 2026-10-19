@@ -28,11 +28,11 @@ print(bands)
 
 ```powershell
 python -m pip install -e ".[dev,mcp]"
-python -m pytest -o addopts='' -q
+python -m pytest -o addopts='' -m "not gui" -q
 python -m build --wheel --sdist
 ```
 
-这些测试使用 fake/stub，不要求安装 CST。服务 handler 的最小例子见 [Python 使用指南](docs/guides/python-usage.md)。
+常规测试使用 fake/stub，不要求安装 CST，并排除需要交互式 Windows 桌面的 `gui` 标记测试。桌面集成测试需在可交互的 Windows 会话中显式运行：`python -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py`。服务 handler 的最小例子见 [Python 使用指南](docs/guides/python-usage.md)。
 
 ## 边界
 

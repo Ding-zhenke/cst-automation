@@ -16,28 +16,28 @@ jobs:
       matrix:
         python-version: ["3.9", "3.11"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e ".[dev]"
-      - run: python -m pytest -o addopts='' -q
+      - run: python -m pytest -o addopts='' -m "not gui" -q
 
   mcp-tests:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.11"
       - run: python -m pip install -e ".[dev,mcp]"
-      - run: python -m pytest cst_mcp/tests -o addopts='' -q
+      - run: python -m pytest cst_mcp/tests -o addopts='' -m "not gui" -q
 
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version: "3.11"
       - run: python -m pip install ".[dev]"

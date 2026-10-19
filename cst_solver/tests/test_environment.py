@@ -174,14 +174,15 @@ def test_interpreter_abi_tag_matches_running_interpreter():
     assert tag.startswith('cp')
 
 
-def test_interface_abi_match_is_reported_offline(tmp_path):
+def test_interface_abi_match_is_reported_offline(tmp_path, monkeypatch):
     """有同 ABI 的 .pyd ⇒ abi_match=True，但**不**声称「已验证组合」。"""
-    install = _fake_install(tmp_path, ['cp38', 'cp39', environment.interpreter_abi_tag()])
+    monkeypatch.setattr(environment, 'interpreter_abi_tag', lambda: 'cp39')
+    expected_abis = ['cp38', 'cp39', environment.interpreter_abi_tag()]
+    install = _fake_install(tmp_path, expected_abis)
     info = environment.describe_interface_abi(install)
     assert info['abi_match'] is True
     assert info['matching_abi'] == environment.interpreter_abi_tag()
-    assert info['interfaces'] == sorted(['cp38', 'cp39',
-                                         environment.interpreter_abi_tag()])
+    assert info['interfaces'] == sorted(set(expected_abis))
     assert '已验证组合' in info['note'] and '依赖 DLL' in info['note']
 
 

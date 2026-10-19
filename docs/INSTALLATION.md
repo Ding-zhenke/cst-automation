@@ -22,8 +22,8 @@ python -m pip install -e ".[dev,mcp]"
 
 ```powershell
 python -m pip install -e ".[dev,mcp]"
-python -m pytest -o addopts='' -q
+python -m pytest -o addopts='' -m "not gui" -q
 python -m build --wheel --sdist
 ```
 
-相邻 TPC/em-enclosure 源码可各自在自己的开发环境 editable 安装此仓库。正式依赖通过 PyPI 版本范围声明；不要把 E: 或 D: 盘路径放进已发布配置。
+常规测试排除需要交互式 Windows 桌面的 `gui` 标记测试。可在交互式 Windows 会话中显式运行桌面测试：`python -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py`。相邻 TPC/em-enclosure 源码可各自在自己的开发环境 editable 安装此仓库。正式依赖通过 PyPI 版本范围声明；不要把 E: 或 D: 盘路径放进已发布配置。

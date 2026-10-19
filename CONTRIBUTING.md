@@ -16,11 +16,11 @@ Run the offline suite and build both release artifacts:
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'
-python -B -m pytest -o addopts='' -q
+python -B -m pytest -o addopts='' -m "not gui" -q
 python -B -m build --wheel --sdist
 ```
 
-The test suite must not require a local CST installation, a user-specific absolute path, or an external project checkout. Use stubs/fake backends for SDK and service behavior. Do not describe mocked geometry, result parsing, or solver outcomes as live CST evidence.
+常规离线套件排除 `gui` 标记的真实桌面测试。需要交互式 Windows 会话的 UI Automation 测试应显式运行：`python -B -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py`。常规测试不得要求本机 CST、用户专属绝对路径或外部项目 checkout；使用 stub/fake backend 验证 SDK 与服务行为。不得把模拟几何、结果解析或求解状态描述为真实 CST 证据。
 
 ## API and evidence changes
 

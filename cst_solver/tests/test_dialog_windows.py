@@ -12,6 +12,7 @@ from cst_solver import dialogs
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='需要 Windows 桌面')
+@pytest.mark.gui
 def test_native_body_is_reported_while_message_box_is_open(monkeypatch):
     child = subprocess.Popen([sys.executable, '-c',
         "import ctypes; ctypes.windll.user32.MessageBoxW(None, "

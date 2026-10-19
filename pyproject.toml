@@ -38,4 +38,5 @@ cst_automation = ["py.typed"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "cst_solver/tests", "tpc_service/tests", "cst_mcp/tests"]
 python_files = ["test_*.py"]
-addopts = "-q"
+addopts = "-q -m 'not gui'"
+markers = ["gui: requires an interactive Windows desktop and native UI Automation"]
