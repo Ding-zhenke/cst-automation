@@ -9,4 +9,4 @@ Use the saved project and explicit run ID with `cst_solver.Result`/result helper
 
 The shared `cst_automation.curves` module defines the only contiguous-band and sampled-resonance rules; use it rather than writing a second threshold implementation. Result extraction proves data was read, not that a solve was run in this session or that a device meets a performance claim. Preserve solver output, readback, and interpretation as separate evidence.
 
-See [result APIs](../../../docs/packages/cst_solver.md) and [Python examples](../../../docs/guides/python-usage.md).
+See [result APIs](../../docs/packages/cst_solver.md) and [Python examples](../../docs/guides/python-usage.md).

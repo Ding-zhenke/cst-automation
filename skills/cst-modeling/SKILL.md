@@ -9,4 +9,4 @@ Before constructing or materially changing geometry, derive a preview from the a
 
 Keep units and coordinate conventions explicit. Prefer small, inspectable operations through `cst_solver`; preserve the user's existing project and unrelated work. After each dependent geometry stage, rebuild and record messages, entity counts, and output paths. Treat a clean rebuild as geometry evidence only; it does not establish solver success or device performance.
 
-Read [the API guide](../../../docs/packages/cst_solver.md) when choosing `setup` methods and [Python usage](../../../docs/guides/python-usage.md) for examples.
+Read [the API guide](../../docs/packages/cst_solver.md) when choosing `setup` methods and [Python usage](../../docs/guides/python-usage.md) for examples.

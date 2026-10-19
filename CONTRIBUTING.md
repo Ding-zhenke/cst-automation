@@ -26,7 +26,7 @@ python -B -m build --wheel --sdist
 
 - Keep `cst_solver`, `tpc_service`, and `cst_mcp` import names stable unless the public API contract is deliberately revised.
 - Keep domain code outside this repository. Add extension points and document them in `docs/PUBLIC_API.md`.
-- Keep repository skills under `.github/skills/`, link them from the README and `AGENTS.md`, and direct agents to read the index before selecting a skill. Do not rely on runtime-specific automatic discovery or installation under `.agents/skills`.
+- Keep repository skills under `skills/`, link them from the README and `AGENTS.md`, and direct agents to read the index before selecting a skill. The repository-root `skills/` directory is the single canonical location; route readers through `AGENTS.md`.
 - Record source ownership in `docs/MIGRATION_MAP.md` and observed checks/boundaries in `docs/VALIDATION.md`.
 - Do not add personal installation paths, CST project files, license-server details, credentials, or unreviewed simulation outputs.
 - Keep geometry checks, CST readback, real solver execution, and device-performance claims as separate evidence levels.

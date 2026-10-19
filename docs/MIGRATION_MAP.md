@@ -6,11 +6,11 @@
 
 | 源相对路径 | 本仓库路径 | 处理 |
 |---|---|---|
-| `—` | `.github/skills/README.md` | repository skill index |
-| `—` | `.github/skills/cst-diagnostics/SKILL.md` | new focused repository skill |
-| `—` | `.github/skills/cst-modeling/SKILL.md` | new focused repository skill |
-| `—` | `.github/skills/cst-results/SKILL.md` | new focused repository skill |
-| `—` | `.github/skills/cst-simulation/SKILL.md` | new focused repository skill |
+| `—` | `skills/README.md` | repository skill index |
+| `—` | `skills/cst-diagnostics/SKILL.md` | new focused repository skill |
+| `—` | `skills/cst-modeling/SKILL.md` | new focused repository skill |
+| `—` | `skills/cst-results/SKILL.md` | new focused repository skill |
+| `—` | `skills/cst-simulation/SKILL.md` | new focused repository skill |
 | `—` | `AGENTS.md` | updated repository rules for active migration |
 | `LICENSE` | `LICENSE` | copied MIT license and copyright |
 | `—` | `README.md` | rewritten for standalone package |

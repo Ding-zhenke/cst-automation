@@ -9,4 +9,4 @@ Confirm the target project, solver type, frequency range, ports, boundaries, mes
 
 Inspect real CST dialogs when an SDK call stalls. A timeout, open dialog, or closed dialog is not solver success. Keep offline/fake backend evidence separate from CST execution. Do not infer isolation, topology, or device performance from a successful solver return alone.
 
-See [the CST API](../../../docs/packages/cst_solver.md), [dialog procedure](../../../docs/guides/cst_dialogs.md), and [troubleshooting](../../../docs/guides/troubleshooting.md).
+See [the CST API](../../docs/packages/cst_solver.md), [dialog procedure](../../docs/guides/cst_dialogs.md), and [troubleshooting](../../docs/guides/troubleshooting.md).
