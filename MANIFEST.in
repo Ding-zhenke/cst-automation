@@ -1,0 +1,3 @@
+include AGENTS.md CONTRIBUTING.md
+recursive-include docs *.md
+recursive-include skills *.md

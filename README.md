@@ -47,9 +47,9 @@ python -m build --wheel --sdist
 - [Python 使用](docs/guides/python-usage.md)
 - [MCP 使用](docs/guides/mcp-usage.md)
 - [故障定位](docs/guides/troubleshooting.md)
-- [仓库 skills](.github/skills/README.md)
+- [仓库 skills](skills/README.md)
 - [贡献指南](CONTRIBUTING.md)
 
-使用 Codex 处理本仓库任务时，先打开 [skills 索引](.github/skills/README.md)，再按任务读取对应的 `SKILL.md`。仓库技能保存在 `.github/skills/`；不要假定它们已安装到 `.agents/skills` 或会被运行环境自动发现。
+使用 Codex 处理本仓库任务时，先打开 [skills 索引](skills/README.md)，再按任务读取对应的 `SKILL.md`。仓库技能保存在 `skills/`，由 `AGENTS.md` 指引读取。
 
 本项目按 [MIT License](LICENSE) 发布。

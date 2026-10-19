@@ -23,7 +23,7 @@
 | 2. 通用 CST 底层 | `cst_solver` 全包、测试、通用 CST 文档 | 原导入名 `cst_solver`、类型文件与测试、安装/环境诊断文档 | 完整离线测试通过；安装发现/ABI/失败诊断证据独立记录；无 TPC 源码依赖 |
 | 3. 通用任务服务 | `tpc_service` 状态机、worker、registry/store、backend、原测试 | 独立 `tpc_service`、handler 协议、fake backend 示例 | 状态、取消、串行、超时/弹窗与产物测试；缺 handler 给可操作错误；动态导入扫描无领域依赖 |
 | 4. 通用 MCP | `integrations/cst-mcp/src/cst_mcp` 与测试 | 根级 `cst_mcp`、通用工具注册接口、开发者配置说明 | MCP 协议、写防护、结构化诊断测试；导入及工具不要求 TPC；不修改用户配置 |
-| 5. 技能与说明 | 源 CST skill、开发流程、环境/弹窗文档 | `.github/skills/cst-modeling`、`cst-simulation`、`cst-results`、`cst-diagnostics`；安装、脚本、MCP、故障定位指南 | 每个 skill 有短入口；无 mesh_grid 字体或拓扑手册硬依赖 |
+| 5. 技能与说明 | 源 CST skill、开发流程、环境/弹窗文档 | `skills/cst-modeling`、`cst-simulation`、`cst-results`、`cst-diagnostics`；安装、脚本、MCP、故障定位指南 | 每个 skill 有短入口；无 mesh_grid 字体或拓扑手册硬依赖 |
 | 6. 构建、隔离与交付 | 本仓库代码与相邻仓库公开实现 | `docs/VALIDATION.md`、审阅结果、本地提交；GitHub private 仓库（若账户/权限允许） | 构建 wheel/sdist；干净隔离环境从制品安装并运行导入/API测试；记录真实跨包结果或精确缺口；不运行真实 solver |
 
 ## 技术决策

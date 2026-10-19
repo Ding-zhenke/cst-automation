@@ -5,7 +5,7 @@
 - Python 导入名保留为 `cst_solver`、`tpc_service`、`cst_mcp`；共享数据 API 位于 `cst_automation`。
 - CST 自带的 `cst` 模块不作为 PyPI 依赖。常规导入不连接 CST；真实 SDK 只在执行 CST 操作时加载。
 - 变更跨包协议前先更新 `docs/PUBLIC_API.md`，保持 handler 和 MCP 扩展显式注册。
-- 执行本仓库任务前，先阅读 `.github/skills/README.md`，再按任务读取对应的 `.github/skills/<name>/SKILL.md`。这些是仓库内技能文档；不要假设它们已安装到 `.agents/skills` 或会被环境自动发现。
+- 执行本仓库任务前，先阅读 `skills/README.md`，再按任务读取对应的 `skills/<name>/SKILL.md`。技能统一保存在仓库根目录的 `skills/`，由本文件指引读取。
 - 几何操作先根据真实参数给用户预览并等待审阅；再按依赖阶段 rebuild、读消息和记录产物。
 - 几何检查、结果读取与实际求解分别记录证据，不因迁移、离线测试或 API 调用提高验证等级。
 - CST 弹窗需读取实际标题、正文、按钮和进程归属；不凭等待超时或关闭弹窗推断成功。
