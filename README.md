@@ -53,3 +53,8 @@ python -m build --wheel --sdist
 使用 Codex 处理本仓库任务时，先打开 [skills 索引](.github/skills/README.md)，再按任务读取对应的 `SKILL.md`。仓库技能保存在 `.github/skills/`；不要假定它们已安装到 `.agents/skills` 或会被运行环境自动发现。
 
 本项目按 [MIT License](LICENSE) 发布。
+## Design Studio 扩展状态
+
+`0.2.0.dev0` 增加原理图、电路任务、独立电路结果、依赖清点、服务和 MCP 的显式接口，以及离线真实几何/端口预览。当前完成离线阶段，未进行 CST 实机原理图/联合求解验收。任务完成证据、三维映射、缓存和工程搬运仍采用保守的未验证状态。
+
+见 [电路接口指南](docs/guides/circuit_cosimulation.md) 和 [验证记录](docs/VALIDATION.md)。三维样例须先审阅预览，再建模求解。

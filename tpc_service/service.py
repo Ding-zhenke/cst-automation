@@ -102,6 +102,7 @@ class RunService:
         self._requests: Dict[str, str] = {}
         self._events: Dict[str, threading.Event] = {}
         self._domain_handlers: Dict[str, Callable[..., Any]] = {}
+        self._workflow_handlers: Dict[str, Dict[str, Callable[..., Any]]] = {}
         self.worker = SingleWorker(self._execute, name='cst-automation-worker')
 
         self.recovery: Dict[str, Any] = {'interrupted': [], 'recovered_at': None}
@@ -133,6 +134,17 @@ class RunService:
     # ================================================================
     # 提交与查询
     # ================================================================
+
+    def register_workflow(self, workflow, handlers, *, replace=False):
+        """Atomically compose explicit workflow routes without replacing domain handlers."""
+        if not isinstance(workflow, str) or not workflow or not isinstance(handlers, dict):
+            raise ServiceError('invalid_domain_handler', 'workflow/handlers 无效')
+        if set(handlers) != set(JOB_KINDS) or not all(callable(h) for h in handlers.values()):
+            raise ServiceError('invalid_domain_handler', 'workflow 必须提供 build/solve/study handler')
+        with self._lock:
+            if workflow in self._workflow_handlers or (self._domain_handlers and not replace):
+                raise ServiceError('domain_handler_exists', 'workflow 已注册或已有领域 handler；需显式组合')
+            self._workflow_handlers[workflow] = dict(handlers)
 
     def submit(self, kind: str, *, project_id: Optional[str] = None,
                project_path: Optional[str] = None,
@@ -559,7 +571,9 @@ class RunService:
     def _invoke_backend(self, record: JobRecord) -> Dict[str, Any]:
         """调用后端对应方法（唯一入口，便于统一异常与日志）。"""
         handler_name = _HANDLERS[record.kind]
-        domain_handler = self._domain_handlers.get(record.kind)
+        workflow = record.params.get('workflow')
+        routes = self._workflow_handlers.get(workflow, {}) if isinstance(workflow, str) else {}
+        domain_handler = routes.get(record.kind) or self._domain_handlers.get(record.kind)
         backend_handler = getattr(self.backend, handler_name, None)
         if domain_handler is None and backend_handler is None:
             raise ServiceError('backend_failed',

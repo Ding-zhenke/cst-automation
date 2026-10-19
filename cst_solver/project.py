@@ -217,3 +217,8 @@ class ProjectMixin:
     def activate(self):
         """激活当前 CST 工程为操作目标"""
         self.cst_file.activate()
+
+    def new_circuit_project(self):
+        """Create a Design Studio project through the existing ownership path."""
+        from cst_solver.environment import _load_cst_module
+        self.new_project(_load_cst_module('cst.interface').ProjectType.DS)

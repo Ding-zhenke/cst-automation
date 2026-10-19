@@ -32,6 +32,8 @@ def _build_parser() -> argparse.ArgumentParser:
                         help='服务工作目录（默认 $CST_AUTOMATION_WORKDIR 或 ./cst_automation_work）')
     parser.add_argument('--check', action='store_true',
                         help='只打印能力报告并退出，不启动 MCP 服务')
+    parser.add_argument('--enable-circuit', action='store_true',
+                        help='显式注册 Design Studio 电路扩展；不启动 CST')
     parser.add_argument('--version', action='version',
                         version=f'cst-automation-mcp {__version__}')
     return parser
@@ -47,6 +49,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.workdir:
         runtime.configure(workdir=args.workdir)
+    if args.enable_circuit:
+        from cst_mcp.circuit_tools import register_circuit_tools
+        register_circuit_tools()
 
     if args.check:
         payload = dispatch('get_capabilities', {})

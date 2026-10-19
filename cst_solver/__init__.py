@@ -328,6 +328,19 @@ class setup(
                 logging.getLogger(__name__).exception('打开工程失败后的 CST 会话清理失败')
             raise
 
+    @property
+    def circuit(self):
+        """Return a lazy Design Studio facade; does not connect or load the SDK."""
+        from cst_solver.circuit.api import CircuitAPI
+        # Rebind after project_open/new_project; facade must not retain a previous schematic.
+        project = getattr(self, 'cst_file', None)
+        facade = getattr(self, '_circuit_facade', None)
+        if facade is None or getattr(self, '_circuit_project', None) is not project:
+            facade = CircuitAPI(self)
+            self._circuit_facade = facade
+            self._circuit_project = project
+        return facade
+
     @classmethod
     def attach(cls, pid=None, filename=None):
         """Attach 到一个**已在运行**的 CST DE 会话（不新建实例）。

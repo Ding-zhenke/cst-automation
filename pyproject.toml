@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77.0.3", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cst-automation"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "Reusable CST Studio Suite automation, task services, and MCP integration"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -32,11 +32,11 @@ include = ["cst_solver*", "cst_automation*", "tpc_service*", "cst_mcp*"]
 exclude = ["*.tests", "*.tests.*"]
 
 [tool.setuptools.package-data]
-cst_solver = ["py.typed", "*.pyi", "simulation/*.pyi"]
+cst_solver = ["py.typed", "*.pyi", "simulation/*.pyi", "circuit/*.pyi"]
 cst_automation = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "cst_solver/tests", "tpc_service/tests", "cst_mcp/tests"]
 python_files = ["test_*.py"]
-addopts = "-q -m 'not gui'"
-markers = ["gui: requires an interactive Windows desktop and native UI Automation"]
+addopts = "-q -m 'not gui and not cst_live'"
+markers = ["gui: requires an interactive Windows desktop and native UI Automation", "cst_live: explicit opt-in CST access; never part of offline acceptance"]

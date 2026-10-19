@@ -10,6 +10,7 @@ cst_solver.setup — 类型存根文件
 from typing import Any, List, Dict, Tuple, Optional, Union
 
 import os
+from cst_solver.circuit import CircuitAPI
 
 _PathLike = Union[str, os.PathLike]
 
@@ -33,6 +34,7 @@ class _ProjectMixin:
     def save_as(self, filename: str, include_results: bool = True,
                 allow_overwrite: bool = False) -> str: ...
     def new_project(self, project_type: Optional[Any] = None) -> None: ...
+    def new_circuit_project(self) -> None: ...
     def activate(self) -> None: ...
 
 # ============================================================
@@ -757,6 +759,8 @@ class setup(
     """
 
     def __init__(self, filename: Optional[_PathLike] = None) -> None: ...
+    @property
+    def circuit(self) -> CircuitAPI: ...
     @classmethod
     def attach(pid: Optional[Union[int, str]] = None,
               filename: Optional[_PathLike] = None) -> 'setup': ...
