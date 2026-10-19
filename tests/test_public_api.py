@@ -96,3 +96,12 @@ def test_mcp_has_dynamic_domain_tool_registration():
                   lambda arguments: {"ok": True, "echo": arguments.get("value")})
     assert "example_domain" in tool_names()
     assert dispatch("example_domain", {"value": 9})["echo"] == 9
+
+
+def test_guard_api_is_available_from_stable_module_and_package_root():
+    from cst_solver import get_guard_state as root_get_guard_state
+    from cst_solver.guards import get_guard_state
+
+    owner = type("Owner", (), {})()
+    assert get_guard_state is root_get_guard_state
+    assert get_guard_state(owner) is root_get_guard_state(owner)

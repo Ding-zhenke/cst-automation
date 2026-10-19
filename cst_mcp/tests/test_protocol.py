@@ -1,3 +1,7 @@
+import pytest
+
+pytest.importorskip("mcp", reason="install the mcp extra to run protocol tests")
+
 from mcp import types
 
 from cst_mcp import register_tool

@@ -6,7 +6,7 @@
 
 | 源相对路径 | 本仓库路径 | 处理 |
 |---|---|---|
-| `—` | `.github/skills/README.md` | new skill index |
+| `—` | `.github/skills/README.md` | repository skill index |
 | `—` | `.github/skills/cst-diagnostics/SKILL.md` | new focused repository skill |
 | `—` | `.github/skills/cst-modeling/SKILL.md` | new focused repository skill |
 | `—` | `.github/skills/cst-results/SKILL.md` | new focused repository skill |
@@ -18,6 +18,7 @@
 | `tpc_toolkit/curves.py` | `cst_automation/curves.py` | moved to shared namespace |
 | `—` | `cst_automation/py.typed` | new typing marker |
 | `tpc_toolkit/s2p.py` | `cst_automation/s2p.py` | moved to shared namespace |
+| `—` | `cst_solver/guards.py` | public façade for the stable guard API; `_guards.py` stays internal |
 | `integrations/cst-mcp/src/cst_mcp/__init__.py` | `cst_mcp/__init__.py` | rewritten exports for generic MCP API |
 | `integrations/cst-mcp/src/cst_mcp/__main__.py` | `cst_mcp/__main__.py` | moved to root package |
 | `integrations/cst-mcp/src/cst_mcp/analysis.py` | `cst_mcp/analysis.py` | adapted to cst_automation.curves |

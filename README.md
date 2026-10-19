@@ -1,15 +1,38 @@
 # cst-automation
 
-通用 CST Studio Suite 建模、仿真、结果读取、任务运行和诊断库。保留 `cst_solver`、`tpc_service`、`cst_mcp` 导入名，并提供 CST 无关的数据工具 `cst_automation.curves` 与 `cst_automation.s2p`。
+通用 CST Studio Suite 建模、仿真、结果读取、任务运行和诊断库。保留 `cst_solver`、`tpc_service`、`cst_mcp` 导入名，并提供 CST 无关的数据工具 `cst_automation.curves` 与 `cst_automation.s2p`。核心包支持 Python 3.9+，依赖 NumPy；MCP 服务器 extra 需要 Python 3.10+。
 
 ## 安装
 
 ```powershell
-python -m pip install "cst-automation[mcp]"
+python -m pip install ".[mcp]"
 python -m cst_solver doctor --json
 ```
 
-CST 的 `cst` Python 模块必须由本机 CST Studio Suite 提供，不是 PyPI 依赖。离线工作可以导入/分析数据或用 `FakeBackend` 检查任务工作流。
+CST 的 `cst` Python 模块必须由本机 CST Studio Suite 提供，不是 PyPI 依赖。MCP extra 固定在 SDK 1.x（`mcp>=1.29,<2`），适配当前服务实现。
+
+## 离线使用
+
+下面的曲线分析可在没有 CST 的机器执行：
+
+```python
+from cst_automation.curves import contiguous_bands
+
+freqs_ghz = [1.0, 1.1, 1.2, 1.3]
+s11_db = [-16.0, -18.0, -4.0, -17.0]
+bands = contiguous_bands(freqs_ghz, s11_db, threshold_db=-10.0)
+print(bands)
+```
+
+开发依赖和完整离线测试：
+
+```powershell
+python -m pip install -e ".[dev,mcp]"
+python -m pytest -o addopts='' -q
+python -m build --wheel --sdist
+```
+
+这些测试使用 fake/stub，不要求安装 CST。服务 handler 的最小例子见 [Python 使用指南](docs/guides/python-usage.md)。
 
 ## 边界
 
@@ -25,3 +48,8 @@ CST 的 `cst` Python 模块必须由本机 CST Studio Suite 提供，不是 PyPI
 - [MCP 使用](docs/guides/mcp-usage.md)
 - [故障定位](docs/guides/troubleshooting.md)
 - [仓库 skills](.github/skills/README.md)
+- [贡献指南](CONTRIBUTING.md)
+
+使用 Codex 处理本仓库任务时，先打开 [skills 索引](.github/skills/README.md)，再按任务读取对应的 `SKILL.md`。仓库技能保存在 `.github/skills/`；不要假定它们已安装到 `.agents/skills` 或会被运行环境自动发现。
+
+本项目按 [MIT License](LICENSE) 发布。

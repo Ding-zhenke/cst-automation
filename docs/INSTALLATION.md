@@ -6,10 +6,10 @@
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install "cst-automation[dev,mcp]"
+python -m pip install -e ".[dev,mcp]"
 ```
 
-基础安装带有数值解析所需的 NumPy；MCP SDK 与测试/构建工具由 optional extras 安装。CST 的 `cst` 模块由本机 CST Studio Suite 安装提供，不要尝试 `pip install cst`。
+基础安装带有数值解析所需的 NumPy；MCP SDK 与测试/构建工具由 optional extras 安装。MCP extra 使用 SDK 1.x 且要求 Python 3.10+；Python 3.9 可使用核心包和离线 API。CST 的 `cst` 模块由本机 CST Studio Suite 安装提供，不要尝试 `pip install cst`。
 
 ## CST Studio Suite
 
@@ -22,8 +22,8 @@ python -m pip install "cst-automation[dev,mcp]"
 
 ```powershell
 python -m pip install -e ".[dev,mcp]"
-python -m pytest
-python -m build
+python -m pytest -o addopts='' -q
+python -m build --wheel --sdist
 ```
 
 相邻 TPC/em-enclosure 源码可各自在自己的开发环境 editable 安装此仓库。正式依赖通过 PyPI 版本范围声明；不要把 E: 或 D: 盘路径放进已发布配置。

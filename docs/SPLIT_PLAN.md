@@ -47,6 +47,6 @@
 - [x] 读取拆分决策和本仓库约定；确认源仓库当前未提交工作状态无法由 Git 正常查询。
 - [x] 先明确并公开领域 handler 协议（`docs/PUBLIC_API.md`）。
 - [x] 建立忽略的源状态快照与逐文件迁移清单。
-- [x] 迁移、解耦并完成离线测试（484 passed；9 条默认端口朝向警告）。
+- [x] 迁移、解耦并完成离线测试（485 passed；9 条默认端口朝向警告）。
 - [x] 构建 wheel/sdist 并在隔离目录安装验证（见 `docs/VALIDATION.md`）。
-- [ ] 推送 GitHub private 仓库（本地提交单独记录；推送当前被 `github.com/new` 的 2FA 验证页阻塞，见 `docs/VALIDATION.md`）。
+- [ ] 将本轮本地提交推送到已创建的 GitHub private 仓库（由主会话统一 push；见 `docs/VALIDATION.md`）。

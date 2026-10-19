@@ -12,7 +12,7 @@
 | Simulation setup | `simulation.ports`, `sources`, `monitors`, `boundary`, `solver`; `mesh.MeshMixin` |
 | Import/export | `import_export.IOMixin`; field, pattern, and result export mixins |
 | Results | `Result` / `result` in `_result_core`; S-parameter and 1D/2D/3D tree readers |
-| Safety and diagnostics | `_guards`, `expressions`, `failures`, `run_contract`, `environment`, `dialogs` |
+| Safety and diagnostics | `guards` (public), `expressions`, `failures`, `run_contract`, `environment`, `dialogs` |
 
 Importing the package does not open a project, load a CST DLL, modify `sys.path`, or require CST to be installed. The first real CST operation loads the selected installation through `cst_solver.environment`. The `cst` module is supplied by CST Studio Suite and is not a PyPI dependency.
 

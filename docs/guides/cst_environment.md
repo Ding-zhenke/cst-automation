@@ -63,28 +63,11 @@ diagnose_environment()['interface_abi']   # doctor / 诊断里也带这一段
 
 `get_cst_paths(install_path=...)` 只是查询/推导，不持久改变全局配置。供其他代码兼容的 `CST_INSTALL_PATH/CST_PYTHON_LIB/CST_MATERIAL_LIB` 常量是导入时快照，未发现时为 None；运行入口使用当前配置。
 
-### ⚠️ 新建会话起不来？先排除「沙箱」——**不是许可证问题**（2026-09-24 更正）
+### 会话启动失败
 
-症状：`setup()` / `DesignEnvironment()` 报
-`DesignEnvironmentStartupError: Process with pid: … is gone` 或 `EXITCODE_NOLICENSE`，
-日志停在 `Checking license servers...`。
+`DesignEnvironmentStartupError`、进程提前退出和 license 错误可能有多种原因。先保留 `doctor --json` 输出及异常链，分别核对安装发现、Python ABI、DLL 导入、许可证和进程退出信息；不要仅凭 `EXITCODE_NOLICENSE` 或最后一条日志推断根因。若启动进程被调用环境的作业限制终止，应在允许启动 CST 子进程的环境中复核。
 
-**真因**：**沙箱作业对象**把 `setup()` 自己 spawn 出来的 DE 子进程杀掉了
-（进程起来了、过完 license check 就死）。直接 `subprocess.Popen` / PowerShell
-`Start-Process` 起 DE 也一样死。
-
-- ✅ **首选修法**：换到**非沙箱**终端跑真机脚本；
-- ✅ 确实需要手动起 DE：`explorer.exe "<CST DE exe 全路径>"`（ShellExecute，
-  **脱离作业对象**）拉起后 `setup.attach()`；
-- ❌ **别把这条误判成许可证问题**：本机实测 `lmutil lmstat -a -c 27075@localhost`
-  显示 `lmgrd UP` / `cstd UP` / 各 feature **999 席、0 在用**；
-- ⚠️ 别的 CST 会话在跑求解**不影响**新建 DE（各 999 席），只影响「借那个 DE 建新工程」。
-
-> ⚠️ 本文件原先在这写的是「许可证紧张时新建实例会报 `EXITCODE_NOLICENSE`」——
-> 那个归因是**错的**，已于 2026-09-24 按真机实测更正。
-> 完整判据与排查步骤（`netstat` / `lmstat` / `lmdiag` / `lmhostid` 四步）见
-> [`../../skills/developer/cst-solver-dev.md`](../../skills/developer/cst-solver-dev.md)
-> 的「真机开工前 60 秒检查」与「许可证排查方法论」。
+本仓库没有把特定机器的 license server 状态或 CST/Python 组合当成通用保证。离线和真机验证边界见 [验证记录](../VALIDATION.md)。
 
 ### 复用已有会话：`setup.attach()`（P4/V2，2026-09）
 
@@ -100,7 +83,7 @@ app = setup.attach(filename=r'D:\x.cst')   # attach 后再打开指定工程
 
 attach 后默认绑定当前活动工程（`active_project()`）；远场读取/导出等
 DE 侧操作都走该实例。attach 只借用、不拥有该会话，**不要调用 `close()`**
-替用户关闭。详见 `skills/user/tpc-usage.md` 远场一节。
+替用户关闭。调用约定见 [CST API 指南](../packages/cst_solver.md)。
 
 ## 会话清理
 
@@ -118,4 +101,4 @@ with setup(r'D:\out\working-copy.cst') as app:
 
 `cst_solver` 的项目和材料运行消息使用 logging，默认不往 stdout 写。用户若将日志配置到 stdout，或上层模板/CST 原生输出写 stdout，仍会影响 MCP；MCP 接入层必须单独验证和隔离。
 
-离线测试已覆盖路径、配置、异常链、无 CST 导入与会话清理；真实 CST 生命周期验证保留在 [计划 P4/V8](../next_plan/README.md)。
+离线测试覆盖路径、配置、异常链、无 CST 导入与会话清理；没有据此声称真实 CST 生命周期已验证。参见 [验证记录](../VALIDATION.md)。

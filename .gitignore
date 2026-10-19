@@ -13,7 +13,7 @@ htmlcov/
 work/
 .tox/
 .nox/
-# Host-managed skills live in .agents; this repository's skills are in .github/skills.
+# Host-managed Codex skills directory is read-only in this workspace.
 /.agents/
 .env
 .env.*
