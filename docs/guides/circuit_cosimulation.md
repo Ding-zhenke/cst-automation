@@ -1,6 +1,8 @@
 # Design Studio 接口与当前边界
 
-当前为 `0.2.0.dev0` 开发版。CST 2026.1 已完成纯电路、批准几何/端口和线性 network 定量验证；真实瞬态联合已实跑，但 DS 采样插值警告尚未消除，严格验收保持未验证。分阶段数据见 [实机记录](../CIRCUIT_LIVE_REPORT.md)。
+当前工作重点已调整为功能完善与 skill 建立，专项实机验收留待后续工程逐步开展；见 [开发重点](../CIRCUIT_DEVELOPMENT.md) 与 [场路联合 skill](../../skills/cst-circuit/SKILL.md)。以下已有证据及未验证边界保持原义。
+
+当前为 `0.2.0.dev0` 开发版。CST 2026.1 已完成纯电路、批准几何/端口和线性 network 定量验证。后续真实线性瞬态联合通过实际时间步、三种负载、两侧端口量、独立局部电场积分和普通网络对照。新运行无插值警告，原警告记录仍保留未验证。分阶段数据见 [时间步复核](../CIRCUIT_TIMESTEP_REPORT.md) 与 [首轮实机记录](../CIRCUIT_LIVE_REPORT.md)。
 
 ## 不连接 CST 的使用方式
 
@@ -45,7 +47,7 @@ schema v1 包含 units、parameters、blocks、external_ports、nets、probes、
 ## 当前刻意保留为未验证的能力
 
 - `network` 已校准目标任务新日志、输入完整读回及当前保存曲线的归属。真实路径通常为 `Tasks\\SP\\S-Parameters\\S2,1`；读取 SDK 轴标签单位，S 参数无量纲。run 0 是当前别名，导出 CSV 和审计摘要用于固定本轮数据；已有历史 run ID 不由当前执行证明。
-- `transient_cosim` 还检查新三维日志段、实际任务绑定、原生 SUCCESS，以及每个同工程数字离散端口的带 cosim 标签的电压/电流时域曲线和时长覆盖。当前实测有 DS 插值警告，因此依然返回 `unverified`；不能用 Update 返回、谐波或旧完成日志绕过。与旧目标绑定无法区分的重复运行也保持未验证。
+- `transient_cosim` 还检查新三维日志段、实际任务绑定、原生 SUCCESS，以及每个同工程数字离散端口的带 cosim 标签的电压/电流时域曲线和时长覆盖。本次无警告的新线性运行返回 succeeded；原有插值警告仍返回 `unverified`，没有放宽公共证据谓词。不能用 Update 返回、谐波或旧完成日志绕过。与旧目标绑定无法区分的重复运行也保持未验证。
 - `reuse="verified"` 尚无实机核验缓存来源，拒绝假定命中，不启动重复计算。
 - 本次两离散端口实例已核对坐标、连接、两侧探针方向和加载响应；通用三维 port/mode/reference/polarity、参数映射仍不自动推定通过，`link_em` 返回 `verified=False`。
 - 属性、单位、探针方向等无法查询时列入 unknown。单次 `apply` 的 readback_verified 保持 False；本轮 V1 通过的是另行保存关闭重开的一致性验收，不代表任何一次 apply 都已验收。
@@ -54,6 +56,36 @@ schema v1 包含 units、parameters、blocks、external_ports、nets、probes、
 - 曲线单位来自 SDK Quantity 或明确轴标签；仅 S 参数空纵轴标签可识别为无量纲，其他缺失单位读取失败。电压峰值/RMS、探针方向、FFT 窗口未知时元数据明示 unknown，不自行换算。
 
 二极管/SPICE 非线性、外部 CST 依赖闭包及完整中断恢复仍待验收。`CircuitSemi\\Diode` 是官方类型名称；旧 `CircuitSemiconductor\\Diode` 输入作为别名转换。导入波形的时间采用 SI 秒，Import 的 periodic 参数必须使用小写字符串 `"false"`/`"true"`。
+
+## 实际积分时间与输出采样
+
+常用瞬态任务可通过高层接口配置，不启动求解：
+
+```python
+settings = {
+    "mode": "transient_cosim",
+    "duration": {"value": 40, "unit": "ns"},
+    "sampling": {"method": "simulated", "points": 8001},
+    "integration": {
+        "time_step": {"value": 5, "unit": "ps"},
+        "auto_solver": False,
+    },
+    "max_frequency": {"value": 5, "unit": "GHz"},
+    "accuracy": 1e-6,
+}
+# 已有 transient 任务：
+report = app.circuit.configure_transient_task("TR", settings)
+app.save()
+# 新任务使用 create=True，已有同名任务不会被覆盖。
+```
+
+数量转换到工程当前时间/频率单位，不修改全局单位。接口按正确顺序设置区间和采样，读回可查询的任务属性；`points` 在 Simulated 模式下不表示实际记录点数。返回 `internal_time_step_verified=False`、`output_grid_readback="unsupported"`，请求的 5 ps 仍不能证明真实联合采用了 5 ps。该高层组合接口完成离线边界检查，按当前优先级尚未追加组合接口的实机验收。
+
+任务 `properties` 可以设置 `sampling method="Simulated"`，保存全部实际仿真时间点；`SetSweepData` 会将它重置成 Manual，应在设置输出区间之后再选 Simulated。5 ps 的手工绘图点不能证明内部采用 5 ps 积分。
+
+本次真实联合的内部时钟由三维网格及 `Solver.TimeStepStabilityFactor` 控制，三档实际 DS 时间点间距与 EM 日志分别一致为 0.81894/0.40947/0.20474 ps。三维 `Solver.AutomaticTimeSignalSampling False` 可保存每步端口输出。这些三维稳定因子和每步输出控制仍在验证脚本中调用原生 SDK，尚未提供独立的高层 EM 时钟 API。
+
+局部电场沿批准的 P1→P2 路径积分时，CST 定向端口电压采用正的 `integral E dot dl`，不能误称为相反方向的标量电势差。极性依据官方端口/网格电压定义及实际端点读回固定，不通过反号拟合取得一致性。
 
 ## 服务和 MCP
 
@@ -68,7 +100,7 @@ register_circuit_handlers(service)  # 不打开 CST；仅安装路由
 
 `params.workflow="circuit"` 与合法 operation 才进入电路分支；其他任务仍使用原实现。所有 SDK 访问由同一 worker 执行，工作工程/导出路径限制在服务 workdir 内。
 
-MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册六个工具，不改用户全局配置。注册不创建服务；首个需要队列的调用才启用对应服务路由。`compose_handlers=True` 用于明确与已有领域 handler 组合。预览也遵守已配置的工作目录。
+MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册七个工具，不改用户全局配置。新增 `configure_circuit_transient_task` 将 `task_name/settings/create` 交给 service 的 `build / configure_transient_task`，仅配置保存；实际求解仍须另行明确调用 `run_circuit_task`。注册不创建服务；首个需要队列的调用才启用对应服务路由。`compose_handlers=True` 用于明确与已有领域 handler 组合。预览也遵守已配置的工作目录。
 
 命令行可显式启用：`python -m cst_mcp --enable-circuit --workdir work/circuit-service`。本轮通过独立 stdio 客户端检查 initialize、list_tools 和离线 preview 调用；该传输测试不连接 CST。
 

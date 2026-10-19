@@ -107,3 +107,38 @@ def test_partial_build_saves_audit_and_project_before_close(tmp_path):
         assert out["artifacts"] and out["result_summary"]["partial_build"]["readback"]["blocks"][0]["name"] == "first"
     finally:
         service.shutdown()
+
+
+@pytest.mark.parametrize('partial', [False, True])
+def test_transient_configuration_is_worker_only_and_saves_partial_evidence(tmp_path, partial):
+    from cst_solver.circuit.adapter import CircuitError
+    events = []
+    def configure(name, settings, *, create):
+        events.append(('configured', threading.current_thread().name, name, create))
+        if partial: raise CircuitError('circuit_build_partial', 'sampling readback failed', stage='configure_transient_task')
+        return {'solver_verified': False, 'task_name': name}
+    app = SimpleNamespace(circuit=SimpleNamespace(configure_transient_task=configure, inspect=lambda: {'tasks': []}),
+                          save=lambda: events.append('saved'), close=lambda: events.append('closed'), get_messages=lambda: [])
+    service = RunService(str(tmp_path), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda path: app)
+    try:
+        path = tmp_path/'p.cst'; path.write_text('fixture')
+        job = service.submit('build', project_path=str(path), copy=False,
+            params={'workflow':'circuit','operation':'configure_transient_task','task_name':'TR','create':True,
+                    'settings':{'mode':'transient_cosim','duration':{'value':40,'unit':'ns'}}})
+        out = service.wait(job['job_id'], timeout=3)
+        assert out['status'] == ('failed' if partial else 'succeeded')
+        assert events == [('configured','cst-automation-worker','TR',True),'saved','closed']
+        if partial: assert out['result_summary']['partial_build']['stage']=='configure_transient_task'
+    finally: service.shutdown()
+
+
+def test_invalid_transient_settings_do_not_open_project(tmp_path):
+    service = RunService(str(tmp_path), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda path: pytest.fail('Must validate before SDK'))
+    try:
+        path=tmp_path/'p.cst';path.write_text('fixture')
+        job=service.submit('build',project_path=str(path),copy=False,params={'workflow':'circuit','operation':'configure_transient_task','task_name':'TR','settings':{'mode':'transient_cosim','duration':{'value':40,'unit':'V'}}})
+        out=service.wait(job['job_id'],timeout=3)
+        assert out['status']=='failed' and out['error']['code']=='circuit_spec_invalid'
+    finally:service.shutdown()

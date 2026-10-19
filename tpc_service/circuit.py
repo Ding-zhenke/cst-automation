@@ -23,7 +23,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "inspect", "read_results", "package"},
+    allowed = {"build": {"configure", "configure_transient_task", "inspect", "read_results", "package"},
                "solve": {"run_task"}, "study": {"parameter_sequence"}}
 
     def handle(*, project, params, job, backend):
@@ -36,6 +36,12 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             if operation == "configure":
                 from cst_automation.circuit_schema import validate_circuit_spec
                 validate_circuit_spec(params.get("spec"))
+            if operation == 'configure_transient_task':
+                from cst_automation.circuit_tasks import transient_settings
+                transient_settings(params.get('settings'))
+                name = params.get('task_name')
+                if not isinstance(name, str) or not name.strip() or any(c in name for c in '\r\n\x00') or type(params.get('create', False)) is not bool:
+                    raise CircuitError('circuit_spec_invalid', 'Explicit task name and boolean create required')
             if operation in ("read_results", "package"):
                 contained(service.workdir, params["destination"])
             if operation in ("run_task", "parameter_sequence"):
@@ -55,9 +61,10 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             api = app.circuit
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})
-            if operation == "configure":
+            if operation in ("configure", 'configure_transient_task'):
                 try:
-                    report = api.apply(params["spec"])
+                    report = (api.apply(params['spec']) if operation == 'configure' else
+                              api.configure_transient_task(params['task_name'], params['settings'], create=params.get('create', False)))
                 except CircuitError as exc:
                     if exc.code != "circuit_build_partial":
                         raise

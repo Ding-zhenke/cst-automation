@@ -55,6 +55,8 @@ python -m build --wheel --sdist
 本项目按 [MIT License](LICENSE) 发布。
 ## Design Studio 扩展状态
 
-`0.2.0.dev0` 增加原理图、电路任务、独立电路结果、依赖清点、服务和 MCP 的显式接口。CST 2026.1 已实测纯电路、批准的三维样例及三种线性 network 负载。真实瞬态联合取得两侧运行和波形证据，但采样插值警告未消除，严格验收仍未通过；非线性、通用映射、缓存及外部工程搬运不推定支持。详见 [分阶段实机记录](docs/CIRCUIT_LIVE_REPORT.md)。
+`0.2.0.dev0` 增加原理图、电路任务、独立电路结果、依赖清点、服务和 MCP 的显式接口。CST 2026.1 已实测纯电路、批准的三维样例和三种线性 network 负载。后续复核通过真实线性瞬态联合的实际时间步收敛、两侧端口量、局部电场积分及普通网络对照；Simulated 采样的新运行无插值警告。非线性、通用映射、缓存及外部工程搬运仍按各自证据判定。详见 [时间步复核](docs/CIRCUIT_TIMESTEP_REPORT.md) 和 [首轮实机记录](docs/CIRCUIT_LIVE_REPORT.md)。
 
 见 [电路接口指南](docs/guides/circuit_cosimulation.md) 和 [验证记录](docs/VALIDATION.md)。三维样例须先审阅预览，再建模求解。
+
+常用瞬态任务设置已封装为 `app.circuit.configure_transient_task(...)`，并接入 service/MCP；配置不会启动求解。当前按用户确认优先完善功能和 [场路联合 skill](skills/cst-circuit/SKILL.md)，暂缓追加专项实机验证。非线性现有失败及未验证项保留在 [非线性记录](docs/CIRCUIT_NONLINEAR_REPORT.md)。

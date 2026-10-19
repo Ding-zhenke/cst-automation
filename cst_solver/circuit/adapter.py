@@ -32,6 +32,17 @@ def native_block_type(kind):
     return {'CircuitSemiconductor\\Diode': 'CircuitSemi\\Diode'}.get(kind, kind)
 
 
+BERKELEY_DIODE_SCHEMA = {
+    'Initial State': 'integer',
+    **dict.fromkeys(('Relative Device Area', 'Temperature', 'Nominal temperature',
+        'Saturation current temperature exponent', 'Saturation current', 'Emission coefficient',
+        'Reverse breakdown voltage', 'Current at breakdown voltage',
+        'Idealty factor for reverse breakdown', 'Zero-bias depletion capacitance',
+        'Built-in junction potential', 'Junction grading coefficient', 'Transit time',
+        'Series resistance'), 'double'),
+}
+
+
 def create_net(obj, name, endpoints):
     """CST creates an unnamed net, then permits renaming the generated name."""
     obj.Reset()
@@ -80,6 +91,51 @@ class NativeAdapter:
                  "port_index": ports.get(str(obj.GetPinName(i))), "reference": "unknown", "mode": "unknown"}
                 for i in range(int(obj.GetNumberOfPins()))]
 
+    def property_readback(self, name):
+        """Complete native property enumeration with actual strings and units."""
+        obj = self.select('Block', name)
+        obj.StartPropertyIteration()
+        props, metadata = {}, {}
+        for _ in range(10000):
+            row = obj.GetNextProperty()
+            if row == ('', '', ''):
+                break
+            if not isinstance(row, (tuple, list)) or len(row) != 3 or not all(isinstance(v, str) for v in row):
+                raise CircuitError('circuit_result_read_failed', 'Invalid native property row')
+            key, kind, value = row
+            if not key or key in props:
+                raise CircuitError('circuit_result_read_failed', 'Empty or duplicate native property', property=key)
+            unit = obj.GetUnitForProperty(key)
+            if not isinstance(unit, str):
+                raise CircuitError('circuit_result_read_failed', 'Native property unit unreadable', property=key)
+            props[key] = value
+            metadata[key] = {'type': kind, 'unit': unit}
+        else:
+            raise CircuitError('circuit_result_read_failed', 'Native property iterator did not terminate')
+        return {'properties': props, 'property_metadata': metadata}
+
+    def diode_readback(self, name):
+        """Identity from calibrated schema, never an echoed requested enum."""
+        if str(self.select('Block', name).GetTypeName()) != 'Diode':
+            raise CircuitError('circuit_result_read_failed', 'Not a calibrated intrinsic diode')
+        actual = self.property_readback(name)
+        if {key: item['type'] for key, item in actual['property_metadata'].items()} != BERKELEY_DIODE_SCHEMA:
+            raise CircuitError('circuit_result_read_failed', 'Unsupported or incomplete intrinsic diode model schema')
+        return {**actual,
+                'model_identity': {'name': 'Berkeley SPICE', 'evidence': 'documented_native_property_schema'}}
+
+    def spice_readback(self, name):
+        obj = self.select('Block', name)
+        if str(obj.GetTypeName()).lower() not in ('spice', 'spice block', 'spice file block'):
+            raise CircuitError('circuit_result_read_failed', 'Not a native SPICE block')
+        source_file = obj.GetFile()
+        if not isinstance(source_file, str) or not source_file.strip():
+            raise CircuitError('circuit_result_read_failed', 'Inline SPICE source readback is not calibrated')
+        model, dialect = obj.GetSpiceModel(), obj.GetSpiceFilter()
+        if not isinstance(model, str) or not model.strip() or not isinstance(dialect, str) or not dialect.strip():
+            raise CircuitError('circuit_result_read_failed', 'SPICE model or dialect unreadable')
+        return {**self.property_readback(name), 'spice_model': model, 'spice_filter': dialect}
+
     def inspect(self):
         unknown = []
         def query(label, fn):
@@ -100,7 +156,18 @@ class NativeAdapter:
             dimension = {"resistor": "Resistance", "capacitor": "Capacitance", "inductor": "Inductance"}.get(base)
             if dimension:
                 props[dimension] = query(f"{name}.{dimension}", lambda: obj.GetProperty(dimension))
-            blocks.append({"name": name, "type": kind, "properties": props,
+            extra = {}
+            if base == 'diode':
+                actual = query(name + '.diode_model', lambda: self.diode_readback(name))
+                if actual is not None:
+                    props = actual['properties']
+                    extra = {k: v for k, v in actual.items() if k != 'properties'}
+            elif base in ('spice', 'spice block', 'spice file block'):
+                actual = query(name + '.spice_model', lambda: self.spice_readback(name))
+                if actual is not None:
+                    props = actual['properties']
+                    extra = {k: v for k, v in actual.items() if k != 'properties'}
+            blocks.append({"name": name, "type": kind, "properties": props, **extra,
                            "pins": query(name + ".pins", lambda: self.pins(name)),
                            "files": query(name + ".files", lambda: block_files(obj, kind))})
         ports = []
@@ -135,14 +202,89 @@ class NativeAdapter:
             props["circuit simulator"] = str(task.GetProperty("circuit simulator"))
         return {"name": name, "type": kind, "properties": props}
 
+    def configure_transient_task(self, name, settings, *, create=False):
+        """Common settings only. Recording interval is separate from integration."""
+        import math
+        task = self.select('SimulationTask', name)
+        exists = bool(task.DoesExist())
+        if create and exists:
+            raise CircuitError('circuit_topology_invalid', 'Task name conflict; refusing overwrite', task_name=name)
+        if not create and (not exists or str(task.GetTypeForTask(name)).lower() != 'transient'):
+            raise CircuitError('circuit_topology_invalid', 'An existing transient task is required', task_name=name)
+        dimensions = ['Time'] + (['Frequency'] if 'max_frequency_si' in settings else [])
+        units = {d: str(self.schematic.Units.GetUnit(d)) for d in dimensions}
+        factors = {}
+        for dimension, unit in units.items():
+            actual_dimension, factor = unit_info(unit)
+            if actual_dimension != dimension:
+                raise CircuitError('circuit_result_read_failed', 'Native task unit has wrong dimension')
+            factors[dimension] = factor
+        props = {'circuit simulator': 'cosimulation' if settings['mode'] == 'transient_cosim' else 'cst',
+                 'tmax': format(settings['duration_si'] / factors['Time'], '.17g')}
+        numeric = {'tmax'}
+        if 'requested_time_step_si' in settings:
+            props.update({'time stepping': 'fixed', 'time step': format(settings['requested_time_step_si'] / factors['Time'], '.17g')})
+            numeric.add('time step')
+        if 'auto_solver' in settings:
+            props['auto solver'] = 'TRUE' if settings['auto_solver'] else 'FALSE'
+        if 'max_frequency_si' in settings:
+            props.update({'fmax estimator': 'manual fmax', 'manual fmax': format(settings['max_frequency_si'] / factors['Frequency'], '.17g')})
+            numeric.add('manual fmax')
+        if 'accuracy' in settings:
+            props['transient accuracy'] = format(settings['accuracy'], '.17g')
+            numeric.add('transient accuracy')
+        try:
+            if create:
+                task.Reset(); task.Type('transient'); task.Name(name); task.Create()
+            for key, value in props.items():
+                task.SetProperty(key, value)
+            task.SetSweepData('0', props['tmax'], str(settings['output_points']))
+            # SetSweepData resets Manual. Always set recording mode last.
+            task.SetProperty('sampling method', settings['sampling_method'])
+            props['sampling method'] = settings['sampling_method']
+            actual = {key: task.GetProperty(key) for key in props}
+            for key, expected in props.items():
+                if key in numeric:
+                    number = float(actual[key])
+                    valid = math.isfinite(number) and number > 0 and math.isclose(number, float(expected), rel_tol=1e-10, abs_tol=0.)
+                else:
+                    valid = str(actual[key]).casefold() == expected.casefold()
+                if not valid:
+                    raise RuntimeError(f'Native task property did not match requested {key!r}')
+            if any(str(self.schematic.Units.GetUnit(d)) != units[d] for d in dimensions):
+                raise RuntimeError('Native task units changed during configuration')
+        except Exception as exc:
+            raise CircuitError('circuit_build_partial', f'Transient configuration write/readback failed: {exc}',
+                               stage='configure_transient_task', task_name=name) from exc
+        return {'task_name': name, 'created': create, 'readback': {'properties': actual, 'units': units},
+                'requested_output_points': settings['output_points'], 'output_grid_readback': 'unsupported',
+                'requested_time_step_si': settings.get('requested_time_step_si'),
+                'internal_time_step_verified': False, 'readback_verified': False, 'solver_verified': False}
+
     def properties(self, name, props, units, parameters=None):
         obj = self.select("Block", name)
+        intrinsic_diode = str(obj.GetTypeName()) == 'Diode'
+        diode_model = 'Model Type' in props and intrinsic_diode
+        if diode_model and (type(props['Model Type']) is not int or props['Model Type'] != 2 or 'Model Type' in units):
+            raise CircuitError('circuit_spec_invalid', 'Only intrinsic Berkeley SPICE model enum 2 is calibrated')
         values = {}
-        for key, value in props.items():
+        ordered = list(props.items())
+        if diode_model:
+            ordered.sort(key=lambda item: item[0] != 'Model Type')
+        for key, value in ordered:
+            if key == 'Model Type' and diode_model:
+                obj.SetIntegerProperty(key, str(value))
+                actual = self.diode_readback(name)
+                values[key] = {'requested_enum': value, 'model_identity': actual['model_identity']}
+                continue
             if key in units:
                 dim, _ = unit_info(units[key])
                 number, _ = evaluate_quantity(value, units[key], parameters or {})
-                obj.SetLocalUnitForProperty(key, SI_UNITS[dim])
+                if dim == 'Dimensionless':
+                    if obj.GetUnitForProperty(key) != '':
+                        raise CircuitError('circuit_spec_invalid', 'Native property is not dimensionless', property=key)
+                else:
+                    obj.SetLocalUnitForProperty(key, SI_UNITS[dim])
                 # Freeze the safely evaluated SI value. Original expression remains in the spec/audit.
                 obj.SetDoubleProperty(key, format(number, ".17g"))
             elif type(value) is bool:
@@ -156,6 +298,11 @@ class NativeAdapter:
             else:
                 raise CircuitError("circuit_spec_invalid", "Unsupported property value", property=key)
             values[key] = obj.GetProperty(key)
+        if intrinsic_diode:
+            actual = self.diode_readback(name)
+            for key in values:
+                if key != 'Model Type':
+                    values[key] = actual['properties'][key]
         return values
 
     def apply(self, spec):

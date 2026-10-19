@@ -69,6 +69,20 @@ class CircuitAPI:
             self._spec = None  # No verified cache remains after any attempted mutation.
         return {"block_name": block_name, "readback": result, "invalidated": "all_dependent_circuit_tasks", "resolved_si": data["resolved_si"]}
 
+    def configure_transient_task(self, task_name, settings, *, create=False):
+        from cst_automation.circuit_tasks import transient_settings
+        data = transient_settings(settings)  # Invalid data must not load/access the SDK.
+        if not isinstance(task_name, str) or not task_name.strip() or any(c in task_name for c in '\r\n\x00') or type(create) is not bool:
+            raise CircuitError('circuit_spec_invalid', 'Explicit task name and boolean create required')
+        self._spec = None
+        try:
+            return self.adapter.configure_transient_task(task_name, data, create=create)
+        except CircuitError:
+            raise
+        except Exception as exc:
+            raise CircuitError('circuit_build_partial', f'Transient configuration interrupted: {exc}',
+                               stage='configure_transient_task', task_name=task_name) from exc
+
     def validate(self, *, task_name):
         task = self.adapter.task(task_name)
         dependencies = self.inspect_dependencies()

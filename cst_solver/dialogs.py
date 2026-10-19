@@ -195,13 +195,17 @@ def _is_scripting_control(window):
 
 
 def _is_startup_controller(window):
-    """CST 2026 briefly shows its empty application controller on MWS creation."""
+    """Recognize observed controller/save progress; never dismiss a window."""
+    body = window.get('body', '').strip()
+    known_save = body == 'Saving model' or body.splitlines() == ['Saving model', '100%']
     return (window.get('class', '').startswith('Qt') and
             window.get('class', '').endswith('QWindowIcon') and
             window.get('title') == 'CST DESIGN ENVIRONMENT 2026' and
             window.get('owner_class', '').endswith('QWindowIcon') and
             window.get('owner_pid') == window.get('pid') and
-            not window.get('buttons') and window.get('body', '').strip() in ('', 'Saving model') and
+            not window.get('buttons') and known_save and
+            window.get('text_readable') is True and window.get('text_complete') is True and
+            not window.get('truncated') and
             not window.get('read_errors'))
 
 
@@ -370,6 +374,10 @@ def list_dialogs(only_cst=True, *, pid=None):
             buttons = []
             dialog['read_errors'].append(str(exc))
         dialog['buttons'] = buttons or content.get('buttons', [])
+        # A short save-progress window may disappear while UIA reads it.
+        # This is only a current-window check, never evidence of SDK/solver success.
+        if not _user32.IsWindowVisible(dialog['hwnd']):
+            continue
         dialog['text_complete'] = bool(dialog.get('text_complete', dialog['text_readable']) and
                                        not dialog['read_errors'])
         progress = (content.get('has_progress', False) and not dialog['read_errors'] and

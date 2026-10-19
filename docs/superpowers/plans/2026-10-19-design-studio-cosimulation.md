@@ -1,5 +1,7 @@
 # Design Studio 场路联合仿真实施计划（待审阅）
 
+> 当前优先级更新（2026-10-19）：按用户最新安排，先完善功能和 skill，后续实际工程中逐步验证。本文早期阶段顺序及待审阅文字保留历史含义；当前执行范围见 [开发重点](../../CIRCUIT_DEVELOPMENT.md)，实际进展以 [验证记录](../../VALIDATION.md) 为准，不再以完成专项验收矩阵作为继续功能开发的前置条件。
+
 2026-10-19 更新：用户已批准接口与离线阶段。当前交付为 `0.2.0.dev0`；V1–V7 实机验证及三维建模/求解仍待预览审阅。下方原始清单保留总体目标，不因离线通过而勾选实机步骤。
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task in the main session. Steps use checkbox (`- [ ]`) syntax for tracking.

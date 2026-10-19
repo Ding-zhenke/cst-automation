@@ -8,17 +8,24 @@
 - `cst_automation.circuit_preview.preview_circuit(spec, output_dir)` 离线输出 SVG、连接表、参数与输入摘要，不加载 CST。
 - `setup.circuit` 为惰性 `CircuitAPI`；`setup.new_circuit_project()` 创建 DS 工程。现有三维接口默认行为不变。
 - `cst_solver.circuit.circuit_capabilities(probe='static', app=None)` 静态发现不加载 SDK；live 仅使用显式传入的会话。发现、离线验证、实机读回、solver 验收分别报告。
-- `CircuitAPI` 提供 `inspect/list_block_types/list_pins/apply/set_properties/validate/link_em/inspect_dependencies/bundle/run_checked`；仅运行指定任务，不运行所有任务。
+- `CircuitAPI` 提供 `inspect/list_block_types/list_pins/apply/set_properties/configure_transient_task/validate/link_em/inspect_dependencies/bundle/run_checked`；仅运行指定任务，不运行所有任务。
 - `CircuitResult(path)` 选择 `get_schematic()`，读取结果必须显式指定实际树路径和 run ID；复数 CSV 分实虚列并附元数据。
 - CST 2026 实测电路树路径为 `Tasks\\<task_name>\\...`；任务筛选/运行同时兼容原先离线规格的 `<task_name>\\...`，不改写返回的真实路径。结果原始数组无 Quantity 时，单位读取 SDK 的轴标签；仅明确的 S 参数树及空纵轴标签可识别为无量纲，其他缺失单位继续报错。
 - `run_checked(task_name, *, mode, expected_results, reuse='never', note='')` 区分 `network` 与 `transient_cosim`，缺目标执行、模式、归属或两侧耦合证据时返回 `unverified`。未实测的证据提取不得推定成功。
-- `register_circuit_handlers(service, *, replace=False)` 显式安装路由；已有 handler 默认冲突，显式 replace 时组合旧路由。`params.workflow='circuit'` 才进入电路实现。`build` 对应 configure/inspect/read_results/package，`solve` 对应 run_task，`study` 对应 parameter_sequence。
+- `register_circuit_handlers(service, *, replace=False)` 显式安装路由；已有 handler 默认冲突，显式 replace 时组合旧路由。`params.workflow='circuit'` 才进入电路实现。`build` 对应 configure/configure_transient_task/inspect/read_results/package，`solve` 对应 run_task，`study` 对应 parameter_sequence。
 - `RunService.register_workflow(workflow, handlers, *, replace=False)` 原子注册按 workflow 分流的 build/solve/study handler；显式 replace 允许与已有领域 handler 共存，未匹配 workflow 的任务仍走原 handler，不读取/覆盖其私有状态。
 - 保留现有任务 kind/status；电路 `unverified` 映射服务 failed，错误 `circuit_result_unverified`；失败返回可携带 artifacts/run_identity/result_summary/saved，旧默认值不变。
-- `cst_mcp.circuit_tools.register_circuit_tools()` 显式注册六个工具；SDK 操作一律进入唯一 worker。预览写文件也限制在服务工作目录。
+- `cst_mcp.circuit_tools.register_circuit_tools()` 显式注册七个工具；SDK 操作一律进入唯一 worker。预览写文件也限制在服务工作目录。
 - 错误码：`circuit_unavailable/spec_invalid/topology_invalid/mode_unsupported/dependency_missing/build_partial/result_unverified/result_read_failed`（每项完整前缀 `circuit_`）。
 - 对 SDK 尚不能可靠查询/重定位的属性、依赖或任务完成状态，明确报告 unknown/unsupported，不能以缓存或空值替代。
 - 二极管原生类型为 `CircuitSemi\\Diode`；保留离线阶段的 `CircuitSemiconductor\\Diode` 作为兼容输入别名，创建时转换为原生名称。列出类型不代表其非线性求解已经验收。
+- CST 2026 内置 `Diode` 的 Berkeley SPICE 模型（请求枚举 2）使用原生完整参数枚举读回。`inspect` 为该块增加 `property_metadata`（实际类型和 `GetUnitForProperty` 单位）及 `model_identity`。身份仅在原生类型及十五项名称/类型完整匹配时返回 `{name: 'Berkeley SPICE', evidence: 'documented_native_property_schema'}`；这不是原生枚举 getter。`set_properties` 的 `Model Type` 返回 `{requested_enum: 2, model_identity: ...}`，不把请求值冒充读回值。其他二极管模型、缺项、额外项、重复项、类型或单位读取失败均保留 unknown/报错，不能提升运行证据等级。普通参数仍返回实际原生值。
+- 同一次内置二极管属性写入总是先切换模型，再写普通参数，最后统一读回最终状态，与输入字典顺序无关。显式单位 `1` 只有在原生单位确为空时才按无量纲数值写入，不调用局部单位 setter；读单位失败不会当作无量纲。
+- 原生文件型 SPICE 块的 `inspect` 另外读回 `spice_model`、`spice_filter` 及完整可枚举属性/类型/单位；模型名不可读、空模型名、枚举失败均进入 unknown。没有可读取外部文件的内嵌 SPICE 源码尚未校准，保持 unknown。外部模型文件摘要与依赖清点另记，选中模型名不代表文件搬运或器件等价已经验收。
+- `run_checked` 在任务执行后重新清点外部文件依赖，与提交前的绝对路径和 SHA-256 比较；缺失、变化或无法完整清点时不得 succeeded。工程自身保存会改变二进制文件，不参与外部文件摘要比较；其项目路径和实际输入读回仍由既有执行证据检查。
+- `CircuitAPI.configure_transient_task(task_name, settings, *, create=False)` 配置一个明确的瞬态任务，不执行求解。`settings` 包含 `mode`（network/transient_cosim）、带 value/unit 的 `duration`，可选 `sampling={method: simulated/manual, points: 整数}`、`integration={time_step: 数量, auto_solver: 布尔}`、`max_frequency` 数量及 `accuracy`。数值转成工程当前时间/频率单位，不改全局单位；先 `SetSweepData(0, duration, points)`，最后才设置采样方式。积分步长是请求值，返回 `internal_time_step_verified=False`；Simulated 的 points 只用于设置区间，不代表实际点数。实际采样和内部时钟仍须从运行证据确认。
+- `create=True` 只创建不存在的目标名；默认仅配置已有 transient 任务，拒绝其他任务类型和名称冲突。返回实际可读任务属性与单位，输出网格点数不能完整查询时不声称全量读回已验证。部分写入失败使用 `circuit_build_partial`，清除依赖缓存并保留现场。
+- 服务显式增加 `build / configure_transient_task`，参数为 `task_name/settings/create`；对应 MCP 工具 `configure_circuit_transient_task` 显式注册到同一 worker。配置任务只写入保存，不自动求解，不改变 `unverified` 的服务映射。
 - `bundle` 先显式保存工程；副本不包含工程根目录的会话锁 `Model.lok`。其他复制错误仍保留失败产物并报错。返回的 staging 标志不自动提升为链接搬运验收通过。
 - 实机兼容修正：`set_units()` 使用 CST 2026 的 `Units.SetUnit`，不下发 `Reset/Length`；温度别名 Celsius/Kelvin/Fahrenheit 对应 degC/K/degF，电路量单位由关联 schematic 设置。`create_discrete_port` 使用明确坐标（非拾取点）及官方 `Voltage/Current` 命令；CST 无 `DiscretePort.Folder`，非空 `folder` 在提交前报错，空默认值不下发该命令。
 - 运行记录保留消息原始对象；明确的 `type=INFO` 是信息，警告、错误或无法识别的非空消息仍要求审阅。电路原生完成证据须同时包含本次指定任务的新日志段、必要输入完整读回且一致、该任务保存后的当前曲线（run 0）；旧历史 run ID 不由当前执行证明。仅有旧完成日志加无关追加、读取失败的相同未知值、同秒未变化日志均不能证明新执行；真实瞬态联合模式继续要求两侧独立执行证据。

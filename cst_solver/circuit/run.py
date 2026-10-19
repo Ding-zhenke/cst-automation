@@ -55,8 +55,21 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
             persist()
             proof = api.adapter.execution_evidence(task_name, token)
             out["execution_evidence"] = proof
+            after_dependencies = api.inspect_dependencies()
+            def external_files(manifest):
+                return {str(Path(f['path']).resolve()): f.get('sha256') for f in manifest['files']
+                        if Path(f['path']).resolve() != path}
+            before_files, after_files = external_files(validation['dependencies']), external_files(after_dependencies)
+            dependencies_unchanged = (after_dependencies.get('complete') is True and not after_dependencies.get('unknown')
+                                      and before_files == after_files and all(before_files.values()))
+            proof['external_dependencies_unchanged'] = bool(dependencies_unchanged)
+            out['dependencies_after'] = after_dependencies
+            if not dependencies_unchanged:
+                out['errors'].append({'code': 'circuit_result_unverified',
+                                      'message': 'External model dependencies changed or became unreadable during execution'})
             valid = (proof.get("completed") is True and proof.get("task_name") == task_name and proof.get("run_token") == token
-                     and proof.get("mode") == mode and (mode != "transient_cosim" or proof.get("em_completed") is True))
+                     and proof.get("mode") == mode and dependencies_unchanged
+                     and (mode != "transient_cosim" or proof.get("em_completed") is True))
             observed = {(r.get("tree_path"), r.get("run_id")) for r in proof.get("circuit_runs", [])}
             valid = valid and all((r["tree_path"], r["run_id"]) in observed for r in expected_results)
             if mode == "transient_cosim":

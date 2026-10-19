@@ -157,7 +157,7 @@ def test_target_completion_without_matching_result_run_is_unverified(env, monkey
 
 def test_native_properties_use_si_local_units_without_changing_existing_global_units():
     stored, units = {}, {}
-    obj = SimpleNamespace(Reset=lambda: None, Name=lambda n: None, SetLocalUnitForProperty=lambda k,u: units.update({k:u}),
+    obj = SimpleNamespace(Reset=lambda: None, Name=lambda n: None, GetTypeName=lambda: 'Capacitor', SetLocalUnitForProperty=lambda k,u: units.update({k:u}),
                           SetDoubleProperty=lambda k,v: stored.update({k:v}), GetProperty=lambda k: stored[k])
     native = NativeAdapter(SimpleNamespace(cst_file=SimpleNamespace(schematic=SimpleNamespace(Block=obj, Units=SimpleNamespace(SetUnit=lambda *a: pytest.fail("Existing global units must not change"))))))
     native.properties("C1", {"Capacitance": "2*Cval"}, {"Capacitance": "pF"}, {"Cval": {"value": 1, "unit": "pF"}})
@@ -171,6 +171,24 @@ def test_incomplete_dependency_closure_prevents_submission(env):
     adapter.dependencies = lambda: {"files": [], "unknown": [{"reason": "cycle"}], "complete": False}
     result = api.run_checked("T", mode="transient_cosim", expected_results=[{"tree_path": "T\\V", "run_id": 4}])
     assert result["status"] != "succeeded" and adapter.updated == []
+
+
+def test_external_model_changed_during_execution_cannot_be_accepted(env):
+    api, adapter, _ = env
+    raw = raw_spec()
+    raw['tasks'][0]['type'] = 's-parameters'
+    raw['external_ports'] = [{'name': '1'}]
+    api.apply(raw)
+    version = {'sha': 'before'}
+    adapter.dependencies = lambda: {'files': [{'path': 'model.cir', 'exists': True, 'sha256': version['sha']}], 'unknown': [], 'complete': True}
+    def execute(name):
+        adapter.updated.append(name)
+        version['sha'] = 'after'
+    adapter.update_task = execute
+    adapter.execution_evidence = lambda name, token: {'completed': True, 'task_name': name, 'run_token': token, 'mode': 'network', 'circuit_runs': [{'tree_path': 'T\\V', 'run_id': 0}]}
+    result = api.run_checked('T', mode='network', expected_results=[{'tree_path': 'T\\V', 'run_id': 0}])
+    assert result['status'] == 'unverified'
+    assert result['execution_evidence']['external_dependencies_unchanged'] is False
 
 
 def test_existing_and_unreadable_parameters_are_not_overwritten(env):

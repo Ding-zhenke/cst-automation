@@ -56,6 +56,17 @@ def test_run_tool_queues_selected_workflow_without_direct_sdk(circuit_tools):
     assert queued["params"]["operation"] == "run_task" and queued["params"]["task_name"] == "T"
 
 
+def test_transient_configuration_tool_queues_build_without_running_solver(circuit_tools):
+    service=runtime.get_service();service.autostart=False
+    path=circuit_tools/'p.cst';path.write_text('fixture')
+    settings={'mode':'transient_cosim','duration':{'value':40,'unit':'ns'}}
+    out=tools.dispatch('configure_circuit_transient_task',{'project_path':str(path),'task_name':'TR','settings':settings,'create':True})
+    assert out['ok']
+    job=service.get(out['job']['job_id'])
+    assert job['kind']=='build' and job['params']['operation']=='configure_transient_task'
+    assert job['params']['settings']==settings and job['params']['create'] is True
+
+
 def test_circuit_stdio_handshake_and_offline_preview(tmp_path):
     pytest.importorskip("mcp")
     import subprocess
