@@ -92,6 +92,7 @@ class CircuitAPI:
 
     def bundle(self, destination):
         from .links import bundle_project
+        self.app.save()
         return bundle_project(self.app.cst_file.filename(), self.inspect_dependencies(), destination)
 
     def run_checked(self, task_name, *, mode, expected_results, reuse="never", note=""):

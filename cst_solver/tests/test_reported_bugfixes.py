@@ -358,3 +358,21 @@ def test_save_with_explicit_path_returns_that_path(host, tmp_path):
     assert out == os.path.abspath(str(tmp_path / 'wg_AB.cst'))
     args, kwargs = host.cst_file.saved[-1]
     assert args == (out,)
+
+def test_units_does_not_emit_unsupported_reset():
+    from types import SimpleNamespace
+    from cst_solver.units import UnitsMixin
+    calls=[]
+    obj=SimpleNamespace(cst_file=SimpleNamespace(model3d=SimpleNamespace(add_to_history=lambda label,code:calls.append(code))))
+    UnitsMixin.set_units(obj)
+    assert '.Reset' not in calls[0]
+
+def test_units_uses_cst_2026_setunit_and_schematic_electrical_units():
+    from types import SimpleNamespace
+    from cst_solver.units import UnitsMixin
+    calls=[]; electrical=[]
+    obj=SimpleNamespace(cst_file=SimpleNamespace(model3d=SimpleNamespace(add_to_history=lambda label,code:calls.append(code)),schematic=SimpleNamespace(Units=SimpleNamespace(SetUnit=lambda d,u:electrical.append((d,u))))))
+    UnitsMixin.set_units(obj)
+    assert '.SetUnit "Length", "mm"' in calls[0]
+    assert '.SetUnit "Temperature", "degC"' in calls[0]
+    assert ('Capacitance','pF') in electrical

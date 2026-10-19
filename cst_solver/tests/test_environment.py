@@ -230,3 +230,12 @@ def test_doctor_reports_interface_abi(config, tmp_path):
     assert abi['interfaces'] == ['cp311']
     assert abi['interpreter_abi'] == environment.interpreter_abi_tag()
     assert abi['abi_match'] == (environment.interpreter_abi_tag() == 'cp311')
+
+def test_doctor_accepts_documented_json_flag_without_starting_cst(monkeypatch,capsys):
+    import json
+    import sys
+    import cst_solver.__main__ as cli
+    monkeypatch.setattr(sys,'argv',['cst_solver','doctor','--json'])
+    monkeypatch.setattr(cli,'diagnose_environment',lambda **kw:{'status':'not_probed','probe':kw['probe']})
+    assert cli.main()==0
+    assert json.loads(capsys.readouterr().out)=={'status':'not_probed','probe':False}

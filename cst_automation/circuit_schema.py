@@ -29,7 +29,7 @@ SI_UNITS = {dim: unit for unit, (dim, factor) in UNITS.items() if factor == 1}
 PROPERTY_DIMENSIONS = {"Resistance": "Resistance", "Capacitance": "Capacitance",
                        "Inductance": "Inductance", "Voltage": "Voltage", "Current": "Current"}
 BLOCK_TYPES = ("CircuitBasic\\Resistor", "CircuitBasic\\Capacitor", "CircuitBasic\\Inductor", "Ground",
-               "CircuitSemiconductor\\Diode", "CSTMWS", "CSTMWSFile", "SPICE", "SPICEImport", "Touchstone")
+               "CircuitSemi\\Diode", "CircuitSemiconductor\\Diode", "CSTMWS", "CSTMWSFile", "SPICE", "SPICEImport", "Touchstone")
 TASK_TYPES = ("s-parameters", "dc", "ac", "transient")
 
 

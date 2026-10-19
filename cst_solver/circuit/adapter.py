@@ -18,6 +18,31 @@ def iterate(obj, start, next_name):
     raise CircuitError("circuit_result_read_failed", "SDK iterator did not terminate")
 
 
+def block_files(obj, kind):
+    """GetFile is valid for intrinsic blocks; GetNumberOfFiles is not."""
+    primary = str(obj.GetFile())
+    if not primary:
+        return []
+    if kind.lower() in ("touchstone", "touchstone file"):
+        return [str(obj.GetFilePath(i)) for i in range(int(obj.GetNumberOfFiles()))]
+    return [primary]
+
+
+def native_block_type(kind):
+    return {'CircuitSemiconductor\\Diode': 'CircuitSemi\\Diode'}.get(kind, kind)
+
+
+def create_net(obj, name, endpoints):
+    """CST creates an unnamed net, then permits renaming the generated name."""
+    obj.Reset()
+    generated = str(obj.AddComponentPorts('', endpoints, False))
+    if not generated:
+        raise CircuitError('circuit_build_partial', 'CST returned no created net name')
+    if generated != name:
+        obj.Rename(generated, name)
+    obj.Apply()
+
+
 class NativeAdapter:
     """Use documented schematic objects, with no unrestricted VBA entry point."""
     def __init__(self, app):
@@ -77,7 +102,7 @@ class NativeAdapter:
                 props[dimension] = query(f"{name}.{dimension}", lambda: obj.GetProperty(dimension))
             blocks.append({"name": name, "type": kind, "properties": props,
                            "pins": query(name + ".pins", lambda: self.pins(name)),
-                           "files": query(name + ".files", lambda: [str(obj.GetFilePath(i)) for i in range(int(obj.GetNumberOfFiles()))])})
+                           "files": query(name + ".files", lambda: block_files(obj, kind))})
         ports = []
         for name in list(iterate(self.schematic.ExternalPort, "StartPortNameIteration", "GetNextPortName")):
             obj = self.select("ExternalPort", name)
@@ -91,7 +116,8 @@ class NativeAdapter:
                 name = str(obj.GetNetNameByIndex(index))
                 nets.append({"name": name, "subnets": [obj.GetComponentPorts(name, i) for i in range(int(obj.GetNumberOfSubnets(name)))]})
         query("nets", read_nets)
-        probes = query("probes", lambda: [{"name": n, "direction": "unknown"} for n in iterate(self.schematic.CircuitProbe, "StartProbeNameIteration", "GetNextProbeName")])
+        probes = query("probes", lambda: [{"name": n, "direction": "normal" if self.select("CircuitProbe", n).NormalDirection() else "reversed"}
+                                          for n in list(iterate(self.schematic.CircuitProbe, "StartProbeNameIteration", "GetNextProbeName"))])
         tasks = [self.task(n) for n in iterate(self.schematic.SimulationTask, "StartTaskNameIteration", "GetNextTaskName")]
         parameters = query("parameters", lambda: {str(self.schematic.GetParameterName(i)): str(self.schematic.GetParameterSValue(i))
                                                  for i in range(int(self.schematic.GetNumberOfParameters()))})
@@ -103,7 +129,7 @@ class NativeAdapter:
         task = self.select("SimulationTask", name)
         if not task.DoesExist():
             raise CircuitError("circuit_topology_invalid", "Task does not exist", task_name=name)
-        kind = str(task.GetTypeForTask(name))
+        kind = str(task.GetTypeForTask(name)).lower()
         props = {}
         if kind == "transient":
             props["circuit simulator"] = str(task.GetProperty("circuit simulator"))
@@ -145,7 +171,7 @@ class NativeAdapter:
         for block in spec["blocks"]:
             obj = s.Block
             obj.Reset()
-            obj.Type(block["type"])
+            obj.Type(native_block_type(block["type"]))
             obj.Name(block["name"])
             if "position" in block:
                 obj.Position(*block["position"])
@@ -172,9 +198,7 @@ class NativeAdapter:
             obj.Create()
         for net in spec["nets"]:
             endpoints = [self.endpoint([p["component_kind"], p["component_name"], p["pin_name"]]) for p in net["endpoints"]]
-            s.Net.Reset()
-            s.Net.AddComponentPorts(net["name"], endpoints, False)
-            s.Net.Apply()
+            create_net(s.Net, net["name"], endpoints)
         for probe in spec["probes"]:
             ep = probe["endpoint"]
             obj = s.CircuitProbe
@@ -194,11 +218,58 @@ class NativeAdapter:
                 obj.SetPortSignal(port_name, excitation["type"], [str(v) for v in excitation["values"]])
 
     def update_task(self, name):
+        from pathlib import Path
+        path = Path(self.app.cst_file.filename()).resolve()
+        logfile = path.with_suffix('') / 'Result' / 'DS' / 'Model.log'
+        self._last_update = {'path': str(path), 'task_name': name,
+                             'configuration': self.inspect(),
+                             'prior_messages': self.app.get_messages(),
+                             'log_path': str(logfile),
+                             'log_before': logfile.read_text(encoding='utf-8-sig', errors='replace') if logfile.is_file() else ''}
+        self._last_update['returned'] = False
+        em_log = path.with_suffix('') / 'Result' / 'Model.log'
+        self._last_update['em_log_before'] = em_log.read_text(encoding='utf-8-sig', errors='replace') if em_log.is_file() else ''
+        em_output = path.with_suffix('') / 'Result' / 'output.txt'
+        self._last_update['em_output_before'] = em_output.read_text(encoding='utf-8-sig', errors='replace') if em_output.is_file() else ''
+        self.select("SimulationTask", name).ValidateSetup()
         self.select("SimulationTask", name).Update()
+        self._last_update['returned'] = True
 
     def execution_evidence(self, task, token):
-        return {"status": "unknown", "reason": "Task.Update returned; task-specific completion/run identity requires live validation",
-                "task_name": task, "run_token": token}
+        from pathlib import Path
+        from .evidence import log_completion, configuration_complete
+        from .results import CircuitResult
+        last = getattr(self, '_last_update', {})
+        proof = {'completed': False, 'task_name': task, 'run_token': token,
+                 'mode': 'network', 'circuit_runs': [], 'em_completed': False,
+                 'reason': 'Fresh target log, unchanged input and saved task results required'}
+        if not last.get('returned') or last.get('task_name') != task:
+            return proof
+        logfile = Path(last['log_path'])
+        after = logfile.read_text(encoding='utf-8-sig', errors='replace') if logfile.is_file() else ''
+        proof.update(log_completion(last['log_before'], after, task))
+        proof['log_path'] = str(logfile)
+        proof['prior_messages'] = last['prior_messages']
+        current = self.inspect()
+        proof['configuration_readable'] = configuration_complete(last['configuration']) and configuration_complete(current)
+        proof['configuration_unchanged'] = proof['configuration_readable'] and last['configuration'] == current
+        proof['project_unchanged'] = last['path'] == str(Path(self.app.cst_file.filename()).resolve())
+        actual = self.task(task)
+        if actual['type'] == 'transient' and actual['properties'].get('circuit simulator', '').lower() == 'cosimulation':
+            from .evidence import cosim_evidence
+            proof['mode'] = 'transient_cosim'
+            proof.update(cosim_evidence(self.app, current, task, last))
+            proof['completed'] = bool(proof['completed'] and proof['em_completed'])
+        proof['completed'] = bool(proof['completed'] and proof['configuration_unchanged'] and proof['project_unchanged'])
+        if proof['completed']:
+            reader = CircuitResult(last['path'])
+            # CST run 0 denotes this saved current state. Historical runs cannot
+            # be attributed to the submitted input using this log alone.
+            proof['circuit_runs'] = [{'tree_path': p, 'run_id': 0} for p in reader.get_tree_items(task_name=task)
+                                     if 0 in reader.get_run_ids(p)]
+            proof['completed'] = bool(proof['circuit_runs'])
+            proof['reason'] = 'Selected task returned with fresh task-scoped completion log and saved result identities'
+        return proof
 
     def dependencies(self):
         from .links import dependency_manifest
@@ -207,7 +278,7 @@ class NativeAdapter:
     def link_em(self, *, block_name, source, port_map, parameter_map):
         snapshot = self.inspect()
         if source == "self":
-            candidates = [b for b in snapshot["blocks"] if b["name"] == block_name and b["type"].lower() in ("cstmws", "cst microwave studio")]
+            candidates = [b for b in snapshot["blocks"] if b["name"] == block_name and b["type"].lower() in ("cstmws", "cst microwave studio", "cst microwave studio schematic block")]
             if len(candidates) != 1:
                 raise CircuitError("circuit_topology_invalid", "Select the actual existing CSTMWS block; no duplicate self block will be created")
         else:

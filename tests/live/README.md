@@ -8,4 +8,4 @@
 .venv/Scripts/python.exe -B -m pytest tests/live -o addopts='' -m cst_live -q
 ```
 
-工程只使用本仓库 `work/` 中的副本。V1 原理图写入/保存重开、V2 电路求解、V3/V4 场路执行证据和 V5–V7 仍待后续实机阶段实现/校准；没有用跳过的测试冒充验收通过。
+工程只使用本仓库 `work/` 中的副本。2026-10-19 的阶段脚本和原始证据位于 `work/circuit-validation/20261019-live/`，V1/V2/V3 已实际执行，V4 因 DS 采样插值警告保持严格未验证，V5 未启动，V6/V7 仅部分范围通过。参见 [实机记录](../../docs/CIRCUIT_LIVE_REPORT.md)。本文件的 pytest 用例只证明已保存曲线可以读取，没有用它或跳过的测试冒充求解完成。

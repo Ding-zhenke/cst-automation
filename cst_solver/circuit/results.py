@@ -9,10 +9,10 @@ from cst_solver.environment import _load_cst_module
 from .adapter import CircuitError
 
 
-def quantity_values(values):
+def quantity_values(values, explicit_unit=None):
     units = set()
     numbers = []
-    array_unit = getattr(values, "unit", None)
+    array_unit = getattr(values, "unit", explicit_unit)
     for item in values:
         unit = getattr(item, "unit", array_unit)
         if unit is None:
@@ -25,6 +25,21 @@ def quantity_values(values):
     if len(units) != 1 or not numbers:
         raise CircuitError("circuit_result_read_failed", "Empty curve or inconsistent units")
     return numbers, units.pop()
+
+
+def task_result_path(path, task_name):
+    return path.startswith((task_name + '\\', 'Tasks\\' + task_name + '\\'))
+
+
+def axis_unit(item, axis, tree_path):
+    label = str(getattr(item, axis + 'label', '')).strip()
+    if ' / ' in label:
+        unit = label.rsplit(' / ', 1)[1].strip()
+        if unit:
+            return unit
+    if axis == 'y' and not label and '\\S-Parameters\\' in tree_path:
+        return '1'
+    return None
 
 
 class CircuitResult:
@@ -41,7 +56,7 @@ class CircuitResult:
     def get_tree_items(self, *, task_name=None):
         try:
             items = [str(item) for item in self.module.get_tree_items()]
-            return [p for p in items if task_name is None or p.startswith(task_name + "\\")]
+            return [p for p in items if task_name is None or task_result_path(p, task_name)]
         except Exception as exc:
             raise CircuitError("circuit_result_read_failed", str(exc)) from exc
 
@@ -63,8 +78,8 @@ class CircuitResult:
             raise CircuitError("circuit_result_read_failed", "Requested run is unavailable", tree_path=tree_path, run_id=run_id)
         try:
             item = self.module.get_result_item(tree_path, run_id=run_id)
-            x, xu = quantity_values(item.get_xdata())
-            y, yu = quantity_values(item.get_ydata())
+            x, xu = quantity_values(item.get_xdata(), axis_unit(item, 'x', tree_path))
+            y, yu = quantity_values(item.get_ydata(), axis_unit(item, 'y', tree_path))
             if len(x) != len(y) or any(v.imag != 0 for v in x):
                 raise CircuitError("circuit_result_read_failed", "Axis mismatch or complex x axis")
             samples = [[a.real, b.real, b.imag] for a, b in zip(x, y)]

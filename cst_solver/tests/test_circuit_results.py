@@ -56,3 +56,17 @@ def test_export_refuses_metadata_collision_before_writing_curve(reader, tmp_path
     Path(str(target) + ".json").write_text("preserve", encoding="utf-8")
     with pytest.raises(CircuitError): reader.export_csv("T\\Voltages\\V1", str(target), run_id=4)
     assert not target.exists()
+
+def test_real_cst_plain_arrays_use_explicit_axis_labels(reader):
+    item=SimpleNamespace(get_xdata=lambda:[.1,.2],get_ydata=lambda:[1j,2j],xlabel='Frequency / GHz',ylabel='')
+    reader.module.get_tree_items=lambda:['Tasks\\SP\\S-Parameters\\S2,1']
+    reader.module.get_result_item=lambda *a,**k:item
+    curve=reader.read_curve('Tasks\\SP\\S-Parameters\\S2,1',run_id=7)
+    assert curve['x_unit']=='GHz' and curve['y_unit']=='1'
+    assert reader.get_tree_items(task_name='SP') == ['Tasks\\SP\\S-Parameters\\S2,1']
+
+
+def test_plain_arrays_with_unidentified_axis_are_rejected(reader):
+    item=SimpleNamespace(get_xdata=lambda:[1],get_ydata=lambda:[1],xlabel='Time / ns',ylabel='')
+    reader.module.get_result_item=lambda *a,**k:item
+    with pytest.raises(CircuitError):reader.read_curve('T\\Voltages\\V1',run_id=7)

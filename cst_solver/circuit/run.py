@@ -4,6 +4,8 @@ from pathlib import Path
 from uuid import uuid4
 
 from .adapter import CircuitError
+from .results import task_result_path
+from .evidence import information_only
 
 
 def run_checked(api, task_name, *, mode, expected_results, reuse="never", note=""):
@@ -29,7 +31,7 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
         if not isinstance(task_name, str) or not task_name or not isinstance(expected_results, list) or not expected_results:
             raise CircuitError("circuit_spec_invalid", "Target task and required expected_results must be explicit")
         for expected in expected_results:
-            if not isinstance(expected, dict) or not isinstance(expected.get("tree_path"), str) or not expected["tree_path"].startswith(task_name + "\\") or type(expected.get("run_id")) is not int:
+            if not isinstance(expected, dict) or not isinstance(expected.get("tree_path"), str) or not task_result_path(expected["tree_path"], task_name) or type(expected.get("run_id")) is not int:
                 raise CircuitError("circuit_spec_invalid", "Each expected result needs target task path and explicit integer run_id")
         validation = api.validate(task_name=task_name)
         if not validation["ok"]:
@@ -48,7 +50,7 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
             api.adapter.update_task(task_name)
             api.app.save()
             out["saved"] = True
-            out["messages"] = [str(m) for m in api.app.get_messages()]
+            out["messages"] = list(api.app.get_messages())
             out["stage"] = "saved_messages_captured"
             persist()
             proof = api.adapter.execution_evidence(task_name, token)
@@ -70,7 +72,7 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
                     if expected.get("parameters") is not None and expected["parameters"] != curve["parameters"]:
                         raise CircuitError("circuit_result_unverified", "Result parameters differ from requested input")
                     out["expected_results"].append({k: v for k, v in curve.items() if k not in ("x", "y")})
-                if not out["messages"]:
+                if information_only(out["messages"]):
                     out["status"] = "succeeded"
                 else:
                     out["errors"].append({"code": "circuit_result_unverified", "message": "CST messages require review"})

@@ -1,8 +1,8 @@
 # cst-automation 与领域包的公共接口
 
-## Design Studio 电路扩展（0.2 接口，实机尚未验收）
+## Design Studio 电路扩展（0.2 开发接口，分阶段实测）
 
-用户已批准 2026-10-19 场路联合设计。本轮实现接口与离线验证；实机和三维样例须遵守单独预览审批。
+用户已批准 2026-10-19 场路联合设计及真实几何/端口预览；本轮已分阶段实测。具体通过范围和未通过项以 `docs/VALIDATION.md`、`docs/CIRCUIT_LIVE_REPORT.md` 为准。
 
 - `cst_automation.circuit_schema.validate_circuit_spec(spec)` 返回独立、规范化的 JSON 规格；数值元件属性须附显式单位，表达式仅允许安全算术与已声明参数。
 - `cst_automation.circuit_preview.preview_circuit(spec, output_dir)` 离线输出 SVG、连接表、参数与输入摘要，不加载 CST。
@@ -10,6 +10,7 @@
 - `cst_solver.circuit.circuit_capabilities(probe='static', app=None)` 静态发现不加载 SDK；live 仅使用显式传入的会话。发现、离线验证、实机读回、solver 验收分别报告。
 - `CircuitAPI` 提供 `inspect/list_block_types/list_pins/apply/set_properties/validate/link_em/inspect_dependencies/bundle/run_checked`；仅运行指定任务，不运行所有任务。
 - `CircuitResult(path)` 选择 `get_schematic()`，读取结果必须显式指定实际树路径和 run ID；复数 CSV 分实虚列并附元数据。
+- CST 2026 实测电路树路径为 `Tasks\\<task_name>\\...`；任务筛选/运行同时兼容原先离线规格的 `<task_name>\\...`，不改写返回的真实路径。结果原始数组无 Quantity 时，单位读取 SDK 的轴标签；仅明确的 S 参数树及空纵轴标签可识别为无量纲，其他缺失单位继续报错。
 - `run_checked(task_name, *, mode, expected_results, reuse='never', note='')` 区分 `network` 与 `transient_cosim`，缺目标执行、模式、归属或两侧耦合证据时返回 `unverified`。未实测的证据提取不得推定成功。
 - `register_circuit_handlers(service, *, replace=False)` 显式安装路由；已有 handler 默认冲突，显式 replace 时组合旧路由。`params.workflow='circuit'` 才进入电路实现。`build` 对应 configure/inspect/read_results/package，`solve` 对应 run_task，`study` 对应 parameter_sequence。
 - `RunService.register_workflow(workflow, handlers, *, replace=False)` 原子注册按 workflow 分流的 build/solve/study handler；显式 replace 允许与已有领域 handler 共存，未匹配 workflow 的任务仍走原 handler，不读取/覆盖其私有状态。
@@ -17,6 +18,11 @@
 - `cst_mcp.circuit_tools.register_circuit_tools()` 显式注册六个工具；SDK 操作一律进入唯一 worker。预览写文件也限制在服务工作目录。
 - 错误码：`circuit_unavailable/spec_invalid/topology_invalid/mode_unsupported/dependency_missing/build_partial/result_unverified/result_read_failed`（每项完整前缀 `circuit_`）。
 - 对 SDK 尚不能可靠查询/重定位的属性、依赖或任务完成状态，明确报告 unknown/unsupported，不能以缓存或空值替代。
+- 二极管原生类型为 `CircuitSemi\\Diode`；保留离线阶段的 `CircuitSemiconductor\\Diode` 作为兼容输入别名，创建时转换为原生名称。列出类型不代表其非线性求解已经验收。
+- `bundle` 先显式保存工程；副本不包含工程根目录的会话锁 `Model.lok`。其他复制错误仍保留失败产物并报错。返回的 staging 标志不自动提升为链接搬运验收通过。
+- 实机兼容修正：`set_units()` 使用 CST 2026 的 `Units.SetUnit`，不下发 `Reset/Length`；温度别名 Celsius/Kelvin/Fahrenheit 对应 degC/K/degF，电路量单位由关联 schematic 设置。`create_discrete_port` 使用明确坐标（非拾取点）及官方 `Voltage/Current` 命令；CST 无 `DiscretePort.Folder`，非空 `folder` 在提交前报错，空默认值不下发该命令。
+- 运行记录保留消息原始对象；明确的 `type=INFO` 是信息，警告、错误或无法识别的非空消息仍要求审阅。电路原生完成证据须同时包含本次指定任务的新日志段、必要输入完整读回且一致、该任务保存后的当前曲线（run 0）；旧历史 run ID 不由当前执行证明。仅有旧完成日志加无关追加、读取失败的相同未知值、同秒未变化日志均不能证明新执行；真实瞬态联合模式继续要求两侧独立执行证据。
+- CST 2026 的同工程离散端口瞬态联合，还须匹配三维日志中的实际任务名、新的三维求解开始/完成记录、原生 `SUCCESS` 状态，以及每个三维端口带 `[cosim <task>]` 标识的电压/电流时域曲线。曲线必须覆盖任务时长；未能校准的外部工程或端口形式继续返回未验证。run 0 始终是保存工程的当前别名，审计摘要和导出的 CSV 用于保留本次数据，不能当作不可变历史编号。
 
 详细签名、规格和验收门槛见 `docs/superpowers/specs/2026-10-19-design-studio-cosimulation-design.md`。本段是扩展协议；能力实测状态以 `docs/VALIDATION.md` 为准。
 

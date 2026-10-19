@@ -50,8 +50,8 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                 return ok_result(saved=True, result_summary=report["metadata"], artifacts=[artifact(p) for p in report["artifacts"]])
             app = app_factory(str(path))
             if getattr(backend, "dialog_monitoring", False):
-                pid = getattr(getattr(app, "project", None), "pid", None)
-                backend.dialog_pid = pid if type(pid) is int else None
+                from cst_solver.environment import environment_pid
+                backend.dialog_pid = environment_pid(getattr(app, "project", None))
             api = app.circuit
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})

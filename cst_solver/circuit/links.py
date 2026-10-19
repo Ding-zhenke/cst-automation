@@ -79,7 +79,8 @@ def bundle_project(project_path, manifest, destination):
         shutil.copy2(source, target / source.name)
         companion = source.with_suffix("")
         if companion.is_dir():
-            shutil.copytree(companion, target / companion.name)
+            shutil.copytree(companion, target / companion.name,
+                            ignore=lambda folder, names: {'Model.lok'} if Path(folder) == companion else set())
         for entry in manifest["files"]:
             path = Path(entry["path"]).resolve()
             if path == source:

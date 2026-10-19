@@ -1,6 +1,6 @@
 # Design Studio 接口与当前边界
 
-当前为 `0.2.0.dev0` 开发版。已实现接口、保守的 CST 2026 原理图适配层、离线测试和真实参数预览；尚未执行实机建模/求解验收。
+当前为 `0.2.0.dev0` 开发版。CST 2026.1 已完成纯电路、批准几何/端口和线性 network 定量验证；真实瞬态联合已实跑，但 DS 采样插值警告尚未消除，严格验收保持未验证。分阶段数据见 [实机记录](../CIRCUIT_LIVE_REPORT.md)。
 
 ## 不连接 CST 的使用方式
 
@@ -44,15 +44,16 @@ schema v1 包含 units、parameters、blocks、external_ports、nets、probes、
 
 ## 当前刻意保留为未验证的能力
 
-- `NativeAdapter.execution_evidence()` 尚未取得实机校准的目标任务完成标识；`Update()` 返回后，`run_checked` 保存并记录消息，但会返回 `unverified`，不会把现有曲线冒充本轮成功。
+- `network` 已校准目标任务新日志、输入完整读回及当前保存曲线的归属。真实路径通常为 `Tasks\\SP\\S-Parameters\\S2,1`；读取 SDK 轴标签单位，S 参数无量纲。run 0 是当前别名，导出 CSV 和审计摘要用于固定本轮数据；已有历史 run ID 不由当前执行证明。
+- `transient_cosim` 还检查新三维日志段、实际任务绑定、原生 SUCCESS，以及每个同工程数字离散端口的带 cosim 标签的电压/电流时域曲线和时长覆盖。当前实测有 DS 插值警告，因此依然返回 `unverified`；不能用 Update 返回、谐波或旧完成日志绕过。与旧目标绑定无法区分的重复运行也保持未验证。
 - `reuse="verified"` 尚无实机核验缓存来源，拒绝假定命中，不启动重复计算。
-- 三维 port/mode/reference/polarity 与参数映射仍需实机读回；`link_em` 结果明确 `verified=False`。
-- 属性、单位、探针方向等无法查询时列入 unknown；`apply` 的 readback_verified 保持 False，不能称为 V1 验收通过。
+- 本次两离散端口实例已核对坐标、连接、两侧探针方向和加载响应；通用三维 port/mode/reference/polarity、参数映射仍不自动推定通过，`link_em` 返回 `verified=False`。
+- 属性、单位、探针方向等无法查询时列入 unknown。单次 `apply` 的 readback_verified 保持 False；本轮 V1 通过的是另行保存关闭重开的一致性验收，不代表任何一次 apply 都已验收。
 - `bundle` 当前仅清点依赖并复制到新目录。它不编辑二进制 CST，不自动假定链接已重定位；返回 `portable_verified=False`。服务打包任务会保留副本产物并报告未验证。
 - SPICE 仅识别 UTF-8 简单 `.include/.inc` 依赖；`.lib` 区段、动态路径、未知格式及外部 CST 闭包未解析时明确拒绝可搬运性声明。
-- 曲线必须带 SDK 返回的单位；没有单位时读取失败。电压峰值/RMS、探针方向、FFT 窗口未知时元数据明示 unknown，不自行换算。
+- 曲线单位来自 SDK Quantity 或明确轴标签；仅 S 参数空纵轴标签可识别为无量纲，其他缺失单位读取失败。电压峰值/RMS、探针方向、FFT 窗口未知时元数据明示 unknown，不自行换算。
 
-上述是后续实机阶段的具体接续点，不是已通过的功能验收。
+二极管/SPICE 非线性、外部 CST 依赖闭包及完整中断恢复仍待验收。`CircuitSemi\\Diode` 是官方类型名称；旧 `CircuitSemiconductor\\Diode` 输入作为别名转换。导入波形的时间采用 SI 秒，Import 的 periodic 参数必须使用小写字符串 `"false"`/`"true"`。
 
 ## 服务和 MCP
 

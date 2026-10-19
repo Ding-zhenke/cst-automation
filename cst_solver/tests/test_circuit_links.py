@@ -47,3 +47,16 @@ def test_bundle_does_not_overwrite_source_or_claim_cst_relocation(tmp_path):
     assert out["portable_verified"] is False
     assert Path(out["project"]).read_text() == "original"
     assert out["relocation_required"]
+
+def test_bundle_omits_runtime_project_lock_but_preserves_model_data(tmp_path):
+    from cst_solver.circuit.links import bundle_project,dependency_manifest
+    source=tmp_path/'model.cst';source.write_text('saved')
+    companion=source.with_suffix('');companion.mkdir()
+    (companion/'Model.lok').write_text('runtime owner lock')
+    (companion/'geometry.bin').write_bytes(b'actual model data')
+    target=tmp_path/'relocated'
+    result=bundle_project(source,dependency_manifest(source,{'blocks':[]}),target)
+    assert not (target/'model/Model.lok').exists()
+    assert (target/'model/geometry.bin').read_bytes()==b'actual model data'
+    assert (companion/'Model.lok').read_text()=='runtime owner lock'
+    assert result['portable_verified'] is False

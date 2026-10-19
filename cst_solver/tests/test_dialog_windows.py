@@ -14,7 +14,10 @@ from cst_solver import dialogs
 @pytest.mark.skipif(os.name != 'nt', reason='需要 Windows 桌面')
 @pytest.mark.gui
 def test_native_body_is_reported_while_message_box_is_open(monkeypatch):
-    child = subprocess.Popen([sys.executable, '-c',
+    # The Windows venv launcher spawns another interpreter PID; query the process
+    # that actually owns the test window, as the monitor does for the CST SDK.
+    executable = getattr(sys, '_base_executable', sys.executable) if os.name == 'nt' else sys.executable
+    child = subprocess.Popen([executable, '-c',
         "import ctypes; ctypes.windll.user32.MessageBoxW(None, "
         "'Undefined variable: Ls', 'TPC guard native test', 0x10)"],
         creationflags=0x08000000)

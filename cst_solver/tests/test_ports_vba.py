@@ -143,3 +143,14 @@ def test_create_waveguide_port_forwards_kwargs():
 def test_free_port_requires_at_least_one_range():
     with pytest.raises(ValueError, match='至少需要给出一个方向的范围'):
         _capture('create_waveguide_port_free', 1)
+
+def test_discrete_port_uses_documented_commands_and_explicit_points():
+    from types import SimpleNamespace
+    from cst_solver.simulation.ports import PortMixin
+    calls=[]
+    obj=SimpleNamespace(cst_file=SimpleNamespace(model3d=SimpleNamespace(add_to_history=lambda label,code:calls.append(code))))
+    PortMixin.create_discrete_port(obj,1,[-9.5,0,0],[-9.5,0,.8])
+    code=calls[0]
+    assert '.Voltage "1.0"' in code and '.Current "1.0"' in code
+    assert '.SetP1 "False"' in code and '.SetP2 "False"' in code
+    assert '.Folder' not in code
