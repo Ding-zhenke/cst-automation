@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cst-automation"
+version = "0.1.0"
+description = "Reusable CST Studio Suite automation, task services, and MCP integration"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Ding-zhenke" }]
+keywords = ["CST", "electromagnetics", "simulation", "automation"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: Microsoft :: Windows",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]
+plot = ["matplotlib>=3.5"]
+dev = ["pytest>=7.0", "build>=1.0"]
+
+[project.urls]
+Repository = "https://github.com/Ding-zhenke/cst-automation"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cst_solver*", "cst_automation*", "tpc_service*", "cst_mcp*"]
+exclude = ["*.tests", "*.tests.*"]
+
+[tool.setuptools.package-data]
+cst_solver = ["py.typed", "*.pyi", "simulation/*.pyi"]
+cst_automation = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "cst_solver/tests", "tpc_service/tests", "cst_mcp/tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
