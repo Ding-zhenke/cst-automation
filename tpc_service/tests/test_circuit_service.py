@@ -142,3 +142,75 @@ def test_invalid_transient_settings_do_not_open_project(tmp_path):
         out=service.wait(job['job_id'],timeout=3)
         assert out['status']=='failed' and out['error']['code']=='circuit_spec_invalid'
     finally:service.shutdown()
+
+
+@pytest.mark.parametrize('partial', [False, True])
+def test_em_time_settings_are_worker_only_save_and_keep_partial_audit(tmp_path, partial):
+    from cst_solver.simulation.em_time import EMTimeConfigurationError
+    events = []
+    settings = {'stability_factor': .5, 'output_sampling': 'every_step'}
+    def configure(data):
+        events.append(('configured', threading.current_thread().name, data))
+        if partial:
+            raise EMTimeConfigurationError('em_time_configuration_partial', 'history interrupted',
+                stage='configure_em_time_settings', requested=data, history_submitted=None,
+                native_commands=['Solver.TimeStepStabilityFactor 0.5'])
+        return {'solver_verified': False, 'internal_time_step_verified': False}
+    # No schematic or circuit property: generic EM settings must not depend on DS.
+    app = SimpleNamespace(configure_em_time_settings=configure, save=lambda: events.append('saved'),
+                          close=lambda: events.append('closed'), get_messages=lambda: ['native diagnostic'])
+    service = RunService(str(tmp_path), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda path: app)
+    try:
+        path = tmp_path / 'p.cst'; path.write_text('fixture')
+        job = service.submit('build', project_path=str(path), copy=False,
+            params={'workflow': 'circuit', 'operation': 'configure_em_time_settings', 'settings': settings})
+        out = service.wait(job['job_id'], timeout=3)
+        assert out['status'] == ('failed' if partial else 'succeeded')
+        assert events == [('configured', 'cst-automation-worker', settings), 'saved', 'closed']
+        if partial:
+            evidence = out['result_summary']['partial_build']
+            assert evidence['stage'] == 'configure_em_time_settings'
+            assert evidence['requested'] == settings
+            assert evidence['native_commands']
+            assert evidence['readback_status'] == 'unsupported'
+            assert evidence['messages'] == ['native diagnostic']
+            assert out['error']['code'] == 'circuit_build_partial' and out['artifacts']
+        else:
+            assert out['result_summary']['internal_time_step_verified'] is False
+    finally:
+        service.shutdown()
+
+
+def test_invalid_em_time_settings_rejected_before_opening_project(tmp_path):
+    service = RunService(str(tmp_path), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda path: pytest.fail('Invalid settings must not open CST'))
+    try:
+        path = tmp_path / 'p.cst'; path.write_text('fixture')
+        job = service.submit('build', project_path=str(path), copy=False,
+            params={'workflow': 'circuit', 'operation': 'configure_em_time_settings', 'settings': {'stability_factor': 2}})
+        out = service.wait(job['job_id'], timeout=3)
+        assert out['status'] == 'failed' and out['error']['code'] == 'circuit_spec_invalid'
+    finally:
+        service.shutdown()
+
+
+def test_unavailable_em_domain_is_explicit_and_never_saved(tmp_path):
+    from cst_solver.simulation.em_time import EMTimeConfigurationError
+    events = []
+    def configure(data):
+        raise EMTimeConfigurationError('em_time_unavailable', 'No model3d',
+                                       stage='configure_em_time_settings', history_submitted=False)
+    app = SimpleNamespace(configure_em_time_settings=configure,
+                          save=lambda: pytest.fail('No mutation, no save'), close=lambda: events.append('closed'))
+    service = RunService(str(tmp_path), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda path: app)
+    try:
+        path = tmp_path / 'p.cst'; path.write_text('fixture')
+        job = service.submit('build', project_path=str(path), copy=False,
+            params={'workflow': 'circuit', 'operation': 'configure_em_time_settings', 'settings': {'output_sampling': 'every_step'}})
+        out = service.wait(job['job_id'], timeout=3)
+        assert out['status'] == 'failed' and out['error']['code'] == 'circuit_unavailable'
+        assert events == ['closed']
+    finally:
+        service.shutdown()

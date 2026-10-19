@@ -83,7 +83,35 @@ app.save()
 
 任务 `properties` 可以设置 `sampling method="Simulated"`，保存全部实际仿真时间点；`SetSweepData` 会将它重置成 Manual，应在设置输出区间之后再选 Simulated。5 ps 的手工绘图点不能证明内部采用 5 ps 积分。
 
-本次真实联合的内部时钟由三维网格及 `Solver.TimeStepStabilityFactor` 控制，三档实际 DS 时间点间距与 EM 日志分别一致为 0.81894/0.40947/0.20474 ps。三维 `Solver.AutomaticTimeSignalSampling False` 可保存每步端口输出。这些三维稳定因子和每步输出控制仍在验证脚本中调用原生 SDK，尚未提供独立的高层 EM 时钟 API。
+本次真实联合的内部时钟由三维网格及 `Solver.TimeStepStabilityFactor` 控制，三档实际 DS 时间点间距与 EM 日志分别一致为 0.81894/0.40947/0.20474 ps。这些是既有原生脚本的运行证据；以下新封装本轮只做离线验证。
+
+### EM 时间步与每步输出配置
+
+在已打开、已审阅的三维工程上使用：
+
+```python
+em_report = app.configure_em_time_settings({
+    "stability_factor": 0.5,
+    "output_sampling": "every_step",
+})
+app.save()  # Python 配置接口不自动保存或求解
+```
+
+`stability_factor` 是三维允许时间步的无量纲倍数，范围 `(0, 1]`；不接受 bool、字符串、绝对 ps 或大于 1 的因子。稳定步长受网格等条件影响，不能从因子推断实际 ps。`output_sampling="every_step"` 下发 `Solver.AutomaticTimeSignalSampling False`，要求时域信号以每个积分步落盘；`automatic` 对应 True，允许自动降采样。它不设置三维场监视器、探针位置或 DS 采样。需要 DS 全部实际时间点时，另外配置 DS 的 `sampling.method="simulated"`。
+
+两字段均可省略其中之一，省略项不改，空字典会被拒绝。接口只提交一个历史块，不 Reset、不改变求解器类型/单位、不重建、不运行任务，也不修改外部 EM 链接工程。调用方应将它用于支持上述命令的当前三维时域 Solver（既有依据为 CST 2026 六面体瞬态场路样例）；不因此宣称其他求解器已兼容。
+
+返回的 `requested` 与 `native_commands` 是请求记录，`history_submitted=True` 仅表示提交调用返回；`readback=None`、`readback_status="unsupported"`，`readback_verified/internal_time_step_verified/output_sampling_verified/solver_verified` 均为 False。没有伪造 getter；未来工程仍需独立核对实际日志、原始时间点与每步输出。失败时 `EMTimeConfigurationError` 保留阶段和请求；`em_time_configuration_partial` 的 `history_submitted=None` 表示可能部分写入，不自动回滚或重试。缺少 model3d 为 `em_time_unavailable`。
+
+服务只配置保存的调用方式：
+
+```python
+job = service.submit("build", project_path="work/circuit-service/reviewed.cst",
+    params={"workflow": "circuit", "operation": "configure_em_time_settings",
+            "settings": {"stability_factor": 0.5, "output_sampling": "every_step"}})
+```
+
+`project_path` 使用服务 workdir 内的工程绝对路径或当前工作目录下的有效路径。对应 MCP 工具名也是 `configure_em_time_settings`，接受 `project_id/project_path/request_id/settings`，不要求 DS task_name。两者都进入唯一 worker 并保存，部分提交失败保留失败审计、消息和工程；成功状态仅表示配置保存，不证明实际时钟或物理收敛。
 
 局部电场沿批准的 P1→P2 路径积分时，CST 定向端口电压采用正的 `integral E dot dl`，不能误称为相反方向的标量电势差。极性依据官方端口/网格电压定义及实际端点读回固定，不通过反号拟合取得一致性。
 
@@ -100,7 +128,7 @@ register_circuit_handlers(service)  # 不打开 CST；仅安装路由
 
 `params.workflow="circuit"` 与合法 operation 才进入电路分支；其他任务仍使用原实现。所有 SDK 访问由同一 worker 执行，工作工程/导出路径限制在服务 workdir 内。
 
-MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册七个工具，不改用户全局配置。新增 `configure_circuit_transient_task` 将 `task_name/settings/create` 交给 service 的 `build / configure_transient_task`，仅配置保存；实际求解仍须另行明确调用 `run_circuit_task`。注册不创建服务；首个需要队列的调用才启用对应服务路由。`compose_handlers=True` 用于明确与已有领域 handler 组合。预览也遵守已配置的工作目录。
+MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册八个工具，不改用户全局配置。`configure_circuit_transient_task` 将 `task_name/settings/create` 交给 service 的 `build / configure_transient_task`；`configure_em_time_settings` 配置当前工程的 EM 时间控制。两者仅配置保存；实际求解仍须另行明确调用 `run_circuit_task`。注册不创建服务；首个需要队列的调用才启用对应服务路由。`compose_handlers=True` 用于明确与已有领域 handler 组合。预览也遵守已配置的工作目录。
 
 命令行可显式启用：`python -m cst_mcp --enable-circuit --workdir work/circuit-service`。本轮通过独立 stdio 客户端检查 initialize、list_tools 和离线 preview 调用；该传输测试不连接 CST。
 

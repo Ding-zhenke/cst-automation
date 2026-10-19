@@ -21,6 +21,7 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 | 静态能力发现 | `cst_solver.circuit.circuit_capabilities()`，不连接 CST |
 | 配置与读回 | `app.circuit.inspect/apply/set_properties/list_pins` |
 | 常用瞬态任务配置，不求解 | `app.circuit.configure_transient_task`；`create=True` 仅创建新名称 |
+| 当前三维工程的稳定因子/时间信号采样 | `app.configure_em_time_settings`，独立于 DS task |
 | 三维连接 | `app.circuit.link_em` |
 | 依赖检查与副本收集 | `inspect_dependencies/bundle` |
 | 指定任务运行 | `app.circuit.run_checked` |
@@ -47,7 +48,9 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 - `transient_cosim` 要求实际 transient 任务的 `circuit simulator` 为 `cosimulation`，由运行契约检查目标任务和三维侧证据。不要改用裸 `Update` 绕过失败。
 - 读取电路结果用 `CircuitResult` 的 schematic 域，先列树路径与 run ID，再读取/导出。保留单位、参数、摘要、工程路径；幅值约定、电流方向或 FFT 窗口未知时保持 unknown。
 - 常用瞬态设置优先使用 `configure_transient_task(task_name, settings, create=False)`，显式指定 mode、带 value/unit 的 duration；sampling、integration、max_frequency、accuracy 按指南提供。接口转换到已有工程单位，先设置区间、最后选采样方式；不自动求解。
-- 输出采样间隔不能证明内部积分步长。`Simulated` 的 points 不代表实际点数；配置接口始终返回 `internal_time_step_verified=False`。三维稳定因子和每步输出控制仍按当前源码/本机帮助确定调用，不虚构已封装的高层 EM 时钟接口。
+- EM 时间控制使用 `app.configure_em_time_settings({"stability_factor": 0.5, "output_sampling": "every_step"})`。因子为 `(0,1]` 内的有限数字，输出采样可选 every_step/automatic；非空稀疏字典只修改提供的字段。作用域仅当前工程 model3d，不改变 DS 采样或外部链接，不 Reset/重建/求解；Python 调用后显式保存。
+- 输出采样间隔不能证明内部积分步长。`Simulated` 的 points 不代表实际点数；EM 因子也不是绝对 ps。两种配置接口均保留 `internal_time_step_verified=False`。EM 接口无可靠 getter，`readback=None/readback_status="unsupported"`，不把历史提交当作原生设置读回或每步输出证明。此组合封装本轮只有离线验证；未来工程从实际日志/原始点核验。
+- EM 历史提交失败可能部分写入，保留错误中的 requested/native_commands 和阶段，不重试整段或自动回滚；service 会保存部分工程及失败审计。缺少 model3d 不回退到 schematic。
 - 内置二极管的模型身份可来自明确标注的原生参数模式证据，不能把请求枚举当作原生 getter。SPICE 选中模型名、方言和源文件摘要分别保留；若求解后模型名变化（包括出现前缀），不要自行删除前缀或忽略配置差异。
 - 修改现代六面体网格时核对实际生成网格；部分旧 Mesh 命令在新生成器中无效。需要校准命令时参考本机官方 MeshSettings 示例，不凭下发命令即声称加密。
 - `unverified` 不等于已成功；服务将其映射为 failed / `circuit_result_unverified`。保留原审计和产物，再按当次工程需要补证。
@@ -59,11 +62,11 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 | kind | operation |
 |---|---|
-| `build` | `configure`、`configure_transient_task`、`inspect`、`read_results`、`package` |
+| `build` | `configure`、`configure_transient_task`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
 | `solve` | `run_task` |
 | `study` | `parameter_sequence` |
 
-MCP 当前七个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/run_circuit_task/read_circuit_results/package_circuit_project`。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
+MCP 当前八个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。EM 时间工具使用 settings 与工程标识，不需 task_name；只配置保存。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
 
 新增功能优先沉淀到通用 Python 接口，再接 service/MCP；跨包协议先更新 `PUBLIC_API.md`。共享数据放 `cst_automation`，SDK 在执行时惰性加载，不引入 TPC 或 em-enclosure 依赖。
 

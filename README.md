@@ -60,3 +60,5 @@ python -m build --wheel --sdist
 见 [电路接口指南](docs/guides/circuit_cosimulation.md) 和 [验证记录](docs/VALIDATION.md)。三维样例须先审阅预览，再建模求解。
 
 常用瞬态任务设置已封装为 `app.circuit.configure_transient_task(...)`，并接入 service/MCP；配置不会启动求解。当前按用户确认优先完善功能和 [场路联合 skill](skills/cst-circuit/SKILL.md)，暂缓追加专项实机验证。非线性现有失败及未验证项保留在 [非线性记录](docs/CIRCUIT_NONLINEAR_REPORT.md)。
+
+EM 稳定因子和时间信号每步输出可用 `app.configure_em_time_settings({"stability_factor": 0.5, "output_sampling": "every_step"})` 配置，service/MCP 同名入口只配置保存。新封装仅完成离线验证；请求因子不代表实际积分步长，历史提交不代表原生读回或物理验收。

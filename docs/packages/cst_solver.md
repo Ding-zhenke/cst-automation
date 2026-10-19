@@ -55,6 +55,8 @@ Shared band/resonance criteria are implemented once in `cst_automation.curves`. 
 
 ## Service integration
 
+`app.configure_em_time_settings(settings)` configures current-project EM transient stability factor and time-signal output sampling without resetting or running the solver. Sparse keys are `stability_factor` (finite numeric `(0,1]`) and `output_sampling` (`every_step`/`automatic`); Python callers save explicitly. Native readback is unsupported, and actual timestep/output verification remains False. The opt-in circuit service/MCP route of the same name queues configuration and save on the single worker. See [the time-control guide](../guides/circuit_cosimulation.md#em-时间步与每步输出配置) for examples and evidence limits.
+
 `tpc_service` serializes task execution, persists status/events, constrains artifacts to its work directory, and records dialog diagnostics. `CstBackend` solves existing project files. Domain-specific build and study workflows register handlers through `RunService.register_handler`; this package does not import a domain modeler. See [the public service API](../PUBLIC_API.md) for signatures and lifecycle behavior.
 
 ## Extension rules

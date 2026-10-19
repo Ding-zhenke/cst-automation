@@ -23,7 +23,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "configure_transient_task", "inspect", "read_results", "package"},
+    allowed = {"build": {"configure", "configure_transient_task", "configure_em_time_settings", "inspect", "read_results", "package"},
                "solve": {"run_task"}, "study": {"parameter_sequence"}}
 
     def handle(*, project, params, job, backend):
@@ -42,6 +42,9 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                 name = params.get('task_name')
                 if not isinstance(name, str) or not name.strip() or any(c in name for c in '\r\n\x00') or type(params.get('create', False)) is not bool:
                     raise CircuitError('circuit_spec_invalid', 'Explicit task name and boolean create required')
+            if operation == 'configure_em_time_settings':
+                from cst_automation.em_time import normalize_em_time_settings
+                normalize_em_time_settings(params.get('settings'))
             if operation in ("read_results", "package"):
                 contained(service.workdir, params["destination"])
             if operation in ("run_task", "parameter_sequence"):
@@ -58,25 +61,39 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             if getattr(backend, "dialog_monitoring", False):
                 from cst_solver.environment import environment_pid
                 backend.dialog_pid = environment_pid(getattr(app, "project", None))
-            api = app.circuit
+            # EM configuration must also work on a plain 3D project without schematic access.
+            api = app.circuit if operation != 'configure_em_time_settings' else None
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})
-            if operation in ("configure", 'configure_transient_task'):
+            if operation in ("configure", 'configure_transient_task', 'configure_em_time_settings'):
                 try:
-                    report = (api.apply(params['spec']) if operation == 'configure' else
-                              api.configure_transient_task(params['task_name'], params['settings'], create=params.get('create', False)))
+                    if operation == 'configure_em_time_settings':
+                        from cst_solver.simulation.em_time import EMTimeConfigurationError
+                        try:
+                            report = app.configure_em_time_settings(params['settings'])
+                        except EMTimeConfigurationError as exc:
+                            code = 'circuit_build_partial' if exc.code == 'em_time_configuration_partial' else 'circuit_unavailable'
+                            raise CircuitError(code, str(exc), **exc.details) from exc
+                    elif operation == 'configure':
+                        report = api.apply(params['spec'])
+                    else:
+                        report = api.configure_transient_task(params['task_name'], params['settings'], create=params.get('create', False))
                 except CircuitError as exc:
                     if exc.code != "circuit_build_partial":
                         raise
                     token = uuid4().hex
-                    partial = {"stage": exc.details.get("stage", "apply"), "error": str(exc), "saved": False}
+                    partial = dict(exc.details)
+                    partial.update(stage=exc.details.get('stage', 'apply'), error=str(exc), saved=False)
                     try:
                         app.save()
                         partial["saved"] = True
                     except Exception as save_error:
                         partial["save_error"] = str(save_error)
-                    try: partial["readback"] = api.inspect()
-                    except Exception as read_error: partial["readback_error"] = str(read_error)
+                    if api is None:
+                        partial.update(readback=None, readback_status='unsupported')
+                    else:
+                        try: partial["readback"] = api.inspect()
+                        except Exception as read_error: partial["readback_error"] = str(read_error)
                     try: partial["messages"] = [str(m) for m in app.get_messages()]
                     except Exception as message_error: partial["message_error"] = str(message_error)
                     audit = path.parent / path.stem / "circuit_failures" / (token + ".json")

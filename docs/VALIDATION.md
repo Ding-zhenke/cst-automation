@@ -1,5 +1,15 @@
 # 验证记录
 
+## 2026-10-19：EM 时间控制高层接口（仅离线）
+
+- 新增通用 `setup.configure_em_time_settings(settings)`：非空稀疏字典支持 `stability_factor`（有限数字 `(0,1]`）和 `output_sampling`（every_step/automatic）。纯数据校验先于工程访问；只提交当前 model3d 的历史块，不 Reset、不切换求解器、不重建、不修改 DS 或外部链接、不自动保存或求解。
+- service `build / configure_em_time_settings` 和同名 MCP 工具已显式接入唯一 worker，配置后保存；部分提交失败保留请求、原生命令、消息和失败审计。没有三维域时明确拒绝，不回退到 schematic。MCP 电路工具总数为八个。
+- 命令语义来自本机 CST 2026 官方 `special_vbasolver_solver_object.htm`：TimeStepStabilityFactor 乘到允许时间步，AutomaticTimeSignalSampling False 表示每个时间步落盘。该来源及既有脚本不构成本次高层组合接口的实机验收。
+- 完整离线回归 **642 passed，2 deselected，9 既有 warnings**；包含 MCP stdio 工具列表和普通离线预览，未运行 gui/cst_live。独立只读代码复核未发现阻塞问题。受限进程的握手超时保留日志，以正常本机子进程权限通过回归，没有延长测试时限。
+- wheel/sdist 构建、独立目标安装和四包导入通过，未加载 CST SDK；新 EM 模块及两个类型声明均在 wheel 中，两份更新 skill 均在 sdist 中。发行 Python 源码通过 Python 3.9 语法解析，未包含 CST 工程、DLL、锁或 work 产物；两份 skill 格式校验通过。
+- 返回 `readback=None/readback_status='unsupported'`，readback、实际积分时钟、每步输出和 solver 验证标志全为 False；没有伪造 getter 或从请求值推导实际 ps。本轮没有启动 CST、实机读回或求解；既有线性/非线性状态不变。
+- 日志、来源摘要和制品检查置于 `work/em-time-api/`；使用方法见 [EM 配置指南](guides/circuit_cosimulation.md#em-时间步与每步输出配置)，仓库场路及 simulation skill 已同步。
+
 ## 2026-10-19：功能与 skill 优先的离线收尾
 
 - 按用户最新确认，先完成功能和 skill，暂缓追加实机验证；未再启动新的 CST 会话、读回或求解。此前已运行的非线性失败及 SPICE 未验证状态原样保留。

@@ -99,7 +99,7 @@ def test_circuit_stdio_handshake_and_offline_preview(tmp_path):
             assert reply(1)["result"]["serverInfo"]["name"] == "cst-automation-mcp"
             send({"jsonrpc": "2.0", "method": "notifications/initialized"})
             send({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
-            assert "run_circuit_task" in {t["name"] for t in reply(2)["result"]["tools"]}
+            assert {'run_circuit_task', 'configure_em_time_settings'} <= {t["name"] for t in reply(2)["result"]["tools"]}
             send({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "preview_circuit", "arguments": {"spec": {"schema_version": 1}, "destination": str(tmp_path / "preview")}}})
             result = reply(3)["result"]
             assert not result.get("isError")
@@ -113,3 +113,15 @@ def test_circuit_stdio_handshake_and_offline_preview(tmp_path):
             proc.stdin.close()
             proc.stdout.close()
             thread.join(timeout=1)
+
+
+def test_em_time_settings_tool_queues_build_and_preserves_explicit_settings(circuit_tools):
+    service = runtime.get_service(); service.autostart = False
+    path = circuit_tools / 'em.cst'; path.write_text('fixture')
+    settings = {'stability_factor': .5, 'output_sampling': 'every_step'}
+    out = tools.dispatch('configure_em_time_settings', {'project_path': str(path), 'settings': settings})
+    assert out['ok']
+    queued = service.get(out['job']['job_id'])
+    assert queued['kind'] == 'build'
+    assert queued['params'] == {'workflow': 'circuit', 'operation': 'configure_em_time_settings', 'settings': settings}
+    assert 'configure_em_time_settings' in tools.WRITE_TOOLS

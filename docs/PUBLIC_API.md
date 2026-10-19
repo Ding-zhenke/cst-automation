@@ -12,10 +12,10 @@
 - `CircuitResult(path)` 选择 `get_schematic()`，读取结果必须显式指定实际树路径和 run ID；复数 CSV 分实虚列并附元数据。
 - CST 2026 实测电路树路径为 `Tasks\\<task_name>\\...`；任务筛选/运行同时兼容原先离线规格的 `<task_name>\\...`，不改写返回的真实路径。结果原始数组无 Quantity 时，单位读取 SDK 的轴标签；仅明确的 S 参数树及空纵轴标签可识别为无量纲，其他缺失单位继续报错。
 - `run_checked(task_name, *, mode, expected_results, reuse='never', note='')` 区分 `network` 与 `transient_cosim`，缺目标执行、模式、归属或两侧耦合证据时返回 `unverified`。未实测的证据提取不得推定成功。
-- `register_circuit_handlers(service, *, replace=False)` 显式安装路由；已有 handler 默认冲突，显式 replace 时组合旧路由。`params.workflow='circuit'` 才进入电路实现。`build` 对应 configure/configure_transient_task/inspect/read_results/package，`solve` 对应 run_task，`study` 对应 parameter_sequence。
+- `register_circuit_handlers(service, *, replace=False)` 显式安装路由；已有 handler 默认冲突，显式 replace 时组合旧路由。`params.workflow='circuit'` 才进入电路实现。`build` 对应 configure/configure_transient_task/configure_em_time_settings/inspect/read_results/package，`solve` 对应 run_task，`study` 对应 parameter_sequence。
 - `RunService.register_workflow(workflow, handlers, *, replace=False)` 原子注册按 workflow 分流的 build/solve/study handler；显式 replace 允许与已有领域 handler 共存，未匹配 workflow 的任务仍走原 handler，不读取/覆盖其私有状态。
 - 保留现有任务 kind/status；电路 `unverified` 映射服务 failed，错误 `circuit_result_unverified`；失败返回可携带 artifacts/run_identity/result_summary/saved，旧默认值不变。
-- `cst_mcp.circuit_tools.register_circuit_tools()` 显式注册七个工具；SDK 操作一律进入唯一 worker。预览写文件也限制在服务工作目录。
+- `cst_mcp.circuit_tools.register_circuit_tools()` 显式注册八个工具；SDK 操作一律进入唯一 worker。预览写文件也限制在服务工作目录。
 - 错误码：`circuit_unavailable/spec_invalid/topology_invalid/mode_unsupported/dependency_missing/build_partial/result_unverified/result_read_failed`（每项完整前缀 `circuit_`）。
 - 对 SDK 尚不能可靠查询/重定位的属性、依赖或任务完成状态，明确报告 unknown/unsupported，不能以缓存或空值替代。
 - 二极管原生类型为 `CircuitSemi\\Diode`；保留离线阶段的 `CircuitSemiconductor\\Diode` 作为兼容输入别名，创建时转换为原生名称。列出类型不代表其非线性求解已经验收。
@@ -26,6 +26,9 @@
 - `CircuitAPI.configure_transient_task(task_name, settings, *, create=False)` 配置一个明确的瞬态任务，不执行求解。`settings` 包含 `mode`（network/transient_cosim）、带 value/unit 的 `duration`，可选 `sampling={method: simulated/manual, points: 整数}`、`integration={time_step: 数量, auto_solver: 布尔}`、`max_frequency` 数量及 `accuracy`。数值转成工程当前时间/频率单位，不改全局单位；先 `SetSweepData(0, duration, points)`，最后才设置采样方式。积分步长是请求值，返回 `internal_time_step_verified=False`；Simulated 的 points 只用于设置区间，不代表实际点数。实际采样和内部时钟仍须从运行证据确认。
 - `create=True` 只创建不存在的目标名；默认仅配置已有 transient 任务，拒绝其他任务类型和名称冲突。返回实际可读任务属性与单位，输出网格点数不能完整查询时不声称全量读回已验证。部分写入失败使用 `circuit_build_partial`，清除依赖缓存并保留现场。
 - 服务显式增加 `build / configure_transient_task`，参数为 `task_name/settings/create`；对应 MCP 工具 `configure_circuit_transient_task` 显式注册到同一 worker。配置任务只写入保存，不自动求解，不改变 `unverified` 的服务映射。
+- `setup.configure_em_time_settings(settings)` 配置当前工程三维 transient Solver 的时间步及落盘采样，不修改 DS 任务或外部链接工程。`settings` 为非空字典，可含 `stability_factor`（有限数字，`0 < factor <= 1`，拒绝布尔/字符串）和 `output_sampling`（`every_step` / `automatic`）；省略字段保持不变。稳定因子为无量纲倍数，不接收绝对时间步。两字段分别生成 `Solver.TimeStepStabilityFactor` 与 `Solver.AutomaticTimeSignalSampling False/True`，通过一次历史块提交；不 Reset、不切换求解器、不重建、不保存或求解。
+- 返回 `requested/native_commands/history_submitted/scope`，其中 scope 为 `current_project_model3d`；无可靠原生 getter 时 `readback=None`、`readback_status='unsupported'`，`readback_verified/internal_time_step_verified/output_sampling_verified/solver_verified` 全为 False。成功提交历史不代表设置读回、实际时钟或每步输出已验收。参数错误在访问工程前抛 ValueError；没有 model3d 抛 `EMTimeConfigurationError(code='em_time_unavailable')`；历史提交失败为 `em_time_configuration_partial`，保留 requested/native_commands，可能部分写入，不自动回滚或重试。
+- 服务新增 `build / configure_em_time_settings`，只接受上述 settings 并在打开工程前检查，经唯一 worker 调用 setup 方法并保存；部分提交失败映射 `circuit_build_partial`、保留现场审计。新增显式 MCP `configure_em_time_settings`，参数 `project_id/project_path/request_id/settings`；不含 task_name，不自动提交求解。电路工具总数增为八个。适用的 EM Solver 命令依据本机 CST 2026 官方帮助与既有脚本；本次组合封装只做离线验证。
 - `bundle` 先显式保存工程；副本不包含工程根目录的会话锁 `Model.lok`。其他复制错误仍保留失败产物并报错。返回的 staging 标志不自动提升为链接搬运验收通过。
 - 实机兼容修正：`set_units()` 使用 CST 2026 的 `Units.SetUnit`，不下发 `Reset/Length`；温度别名 Celsius/Kelvin/Fahrenheit 对应 degC/K/degF，电路量单位由关联 schematic 设置。`create_discrete_port` 使用明确坐标（非拾取点）及官方 `Voltage/Current` 命令；CST 无 `DiscretePort.Folder`，非空 `folder` 在提交前报错，空默认值不下发该命令。
 - 运行记录保留消息原始对象；明确的 `type=INFO` 是信息，警告、错误或无法识别的非空消息仍要求审阅。电路原生完成证据须同时包含本次指定任务的新日志段、必要输入完整读回且一致、该任务保存后的当前曲线（run 0）；旧历史 run ID 不由当前执行证明。仅有旧完成日志加无关追加、读取失败的相同未知值、同秒未变化日志均不能证明新执行；真实瞬态联合模式继续要求两侧独立执行证据。
