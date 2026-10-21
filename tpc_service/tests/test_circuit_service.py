@@ -10,6 +10,61 @@ from tpc_service.circuit import register_circuit_handlers
 from tpc_service.errors import ServiceError
 
 
+@pytest.mark.parametrize('operation,payload', [
+    ('configure_task_ports', {'task_name': 'TR', 'ports': {'1': {'source_type': 'none',
+        'impedance': {'real': {'value': 50, 'unit': 'Ohm'}}}}}),
+    ('configure_nonlinear_model', {'block_name': 'D1', 'settings': {'kind': 'berkeley_diode'}, 'create': True}),
+])
+@pytest.mark.parametrize('partial', [False, True])
+def test_common_configuration_runs_only_on_worker_and_preserves_partial(tmp_path, operation, payload, partial):
+    from cst_solver.circuit.adapter import CircuitError
+    events = []
+    def configure(*args, **kwargs):
+        events.append(threading.current_thread().name)
+        if partial:
+            raise CircuitError('circuit_build_partial', 'native write stopped', stage=operation, requested=payload)
+        return {'solver_verified': False, 'readback_verified': False}
+    app = SimpleNamespace(circuit=SimpleNamespace(**{operation: configure}, inspect=lambda: {'blocks': []}),
+        save=lambda: events.append('saved'), close=lambda: events.append('closed'), get_messages=lambda: [])
+    service = RunService(str(tmp_path), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda p: app)
+    path = tmp_path/'p.cst'; path.write_text('fixture')
+    try:
+        job = service.submit('build', project_path=str(path), copy=False,
+            params=dict(workflow='circuit', operation=operation, **payload))
+        out = service.wait(job['job_id'], timeout=3)
+        assert out['status'] == ('failed' if partial else 'succeeded')
+        assert events == ['cst-automation-worker', 'saved', 'closed']
+        if partial:
+            assert out['result_summary']['partial_build']['requested'] == payload
+            assert out['artifacts']
+        else:
+            assert out['result_summary']['solver_verified'] is False
+    finally:
+        service.shutdown()
+
+
+@pytest.mark.parametrize('operation,payload', [
+    ('configure_task_ports', {'task_name': 'TR', 'ports': {'1': {'source_type': 'voltage',
+        'signal': {'type': 'import', 'file': '../outside.csv'}}}}),
+    ('configure_nonlinear_model', {'block_name': 'D1', 'settings': {'kind': 'spice', 'model': 'D', 'file': '../outside.cir'}}),
+    ('configure_task_ports', {'task_name': 'TR', 'ports': {}}),
+    ('configure_nonlinear_model', {'block_name': 'D1', 'settings': {'kind': 'berkeley_diode'}, 'create': 'true'}),
+])
+def test_configuration_bad_input_or_path_never_opens_sdk(tmp_path, operation, payload):
+    service = RunService(str(tmp_path), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda p: pytest.fail('Must not open SDK'))
+    path = tmp_path/'p.cst'; path.write_text('fixture')
+    try:
+        job = service.submit('build', project_path=str(path), copy=False,
+            params=dict(workflow='circuit', operation=operation, **payload))
+        out = service.wait(job['job_id'], timeout=3)
+        assert out['status'] == 'failed'
+        assert out['error']['code'] == 'circuit_spec_invalid'
+    finally:
+        service.shutdown()
+
+
 def test_failed_result_preserves_artifacts_and_identity():
     out = fail_result("circuit_result_unverified", "unverified", artifacts=[{"path": "audit.json"}],
                       run_identity={"run_token": "T"}, result_summary={"evidence": "unverified"}, saved=True)

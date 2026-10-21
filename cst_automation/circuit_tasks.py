@@ -28,11 +28,29 @@ def transient_settings(settings):
     result = {'mode': settings['mode'], 'duration_si': duration,
               'sampling_method': 'Simulated' if method == 'simulated' else 'Manual', 'output_points': points}
     integration = settings.get('integration', {})
-    require(isinstance(integration, dict) and not set(integration) - {'time_step', 'auto_solver'}, 'Invalid integration settings')
+    require(isinstance(integration, dict) and not set(integration) - {
+        'time_step', 'auto_solver', 'stepping', 'minimum_time_step', 'method', 'order'}, 'Invalid integration settings')
+    stepping = integration.get('stepping', 'fixed' if 'time_step' in integration else None)
+    require(stepping is None or stepping in ('automatic', 'adaptive', 'fixed'), 'Invalid time stepping mode')
+    if stepping is not None:
+        result['time_stepping'] = stepping
+    require(stepping != 'automatic' or not {'time_step', 'minimum_time_step'} & set(integration),
+            'Automatic stepping cannot have explicit time steps')
     if 'time_step' in integration:
         step = quantity(integration['time_step'], 'Time')
         require(step <= duration, 'Requested time step exceeds duration')
         result['requested_time_step_si'] = step
+    if 'minimum_time_step' in integration:
+        require(stepping == 'adaptive' and 'time_step' in integration, 'Minimum step requires adaptive maximum step')
+        minimum = quantity(integration['minimum_time_step'], 'Time')
+        require(minimum <= result['requested_time_step_si'], 'Minimum step exceeds maximum step')
+        result['minimum_time_step_si'] = minimum
+    if 'method' in integration:
+        require(integration['method'] in ('adams', 'gear'), 'Integration method must be adams/gear')
+        result['integration_method'] = integration['method']
+    if 'order' in integration:
+        require(type(integration['order']) is int and 1 <= integration['order'] <= 4, 'Integration order must be integer 1..4')
+        result['integration_order'] = integration['order']
     if 'auto_solver' in integration:
         require(type(integration['auto_solver']) is bool, 'auto_solver must be boolean')
         result['auto_solver'] = integration['auto_solver']

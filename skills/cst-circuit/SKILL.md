@@ -21,6 +21,8 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 | 静态能力发现 | `cst_solver.circuit.circuit_capabilities()`，不连接 CST |
 | 配置与读回 | `app.circuit.inspect/apply/set_properties/list_pins` |
 | 常用瞬态任务配置，不求解 | `app.circuit.configure_transient_task`；`create=True` 仅创建新名称 |
+| 端口激励、内阻、终端阻抗 | `app.circuit.configure_task_ports`，Sine/Import；实际 ExternalPort 名称 |
+| 内置二极管/SPICE 模型 | `app.circuit.configure_nonlinear_model`，默认只更新；不自动连线 |
 | 当前三维工程的稳定因子/时间信号采样 | `app.configure_em_time_settings`，独立于 DS task |
 | 三维连接 | `app.circuit.link_em` |
 | 依赖检查与副本收集 | `inspect_dependencies/bundle` |
@@ -48,6 +50,10 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 - `transient_cosim` 要求实际 transient 任务的 `circuit simulator` 为 `cosimulation`，由运行契约检查目标任务和三维侧证据。不要改用裸 `Update` 绕过失败。
 - 读取电路结果用 `CircuitResult` 的 schematic 域，先列树路径与 run ID，再读取/导出。保留单位、参数、摘要、工程路径；幅值约定、电流方向或 FFT 窗口未知时保持 unknown。
 - 常用瞬态设置优先使用 `configure_transient_task(task_name, settings, create=False)`，显式指定 mode、带 value/unit 的 duration；sampling、integration、max_frequency、accuracy 按指南提供。接口转换到已有工程单位，先设置区间、最后选采样方式；不自动求解。
+- integration 支持 stepping=automatic/adaptive/fixed、method=adams/gear、整数 order=1..4。adaptive 的 minimum_time_step 不得超过 time_step，automatic 不接收显式步长。普通网络瞬态显式算法建议同时设 auto_solver=False；真实联合的算法和时钟仍须运行证据，不用 DS 请求选项取代 EM 时间控制。
+- 端口源优先用 `configure_task_ports`。voltage/current 配置带单位 Sine，或两列 SI 秒与 V/A 的 CSV Import；periodic 为布尔值。Voltage 的 resistance 与 none 终端的 impedance 不混用；none 会清除旧激励。当前不封装电流源内电导。信号完整参数/终端阻抗读回标记 unsupported，文件摘要仅代表配置时快照。
+- 模型优先用 `configure_nonlinear_model`。kind=berkeley_diode 的 parameters 接受 IS/N/RS/CJO/TT/BV/IBV/VJ/M/XTI/AREA；物理量显式 value/unit，其他为无量纲数值。新建时先选模型、再写参数；已有兼容模型只改提供的项，不再次选择 Model Type 重置未指定值。create=True 拒绝重名，默认拒绝缺失或不兼容块。
+- kind=spice 使用调用方提供的 file/model，可选 dialect=AUTOMATIC/SPICE3/PSPICE/HSPICE；不生成模型、不猜引脚、不自动接线。检查返回的 pins_before/pins_after；换模型后需重查原连接。service 输入文件在 workdir 内，相对路径按 workdir 解析。
 - EM 时间控制使用 `app.configure_em_time_settings({"stability_factor": 0.5, "output_sampling": "every_step"})`。因子为 `(0,1]` 内的有限数字，输出采样可选 every_step/automatic；非空稀疏字典只修改提供的字段。作用域仅当前工程 model3d，不改变 DS 采样或外部链接，不 Reset/重建/求解；Python 调用后显式保存。
 - 输出采样间隔不能证明内部积分步长。`Simulated` 的 points 不代表实际点数；EM 因子也不是绝对 ps。两种配置接口均保留 `internal_time_step_verified=False`。EM 接口无可靠 getter，`readback=None/readback_status="unsupported"`，不把历史提交当作原生设置读回或每步输出证明。此组合封装本轮只有离线验证；未来工程从实际日志/原始点核验。
 - EM 历史提交失败可能部分写入，保留错误中的 requested/native_commands 和阶段，不重试整段或自动回滚；service 会保存部分工程及失败审计。缺少 model3d 不回退到 schematic。
@@ -56,17 +62,26 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 - `unverified` 不等于已成功；服务将其映射为 failed / `circuit_result_unverified`。保留原审计和产物，再按当次工程需要补证。
 - 若 SDK 停滞，转用 `cst-diagnostics`，读取实际弹窗标题、正文、按钮及进程归属；超时或窗口消失不证明成功。
 
+### HB 与瞬态结果对照
+
+- 先说明两种结果回答的问题不同：HB 按输入频率逐点扫描，可形成频率响应；单频瞬态给出该输入频率下的时域响应。对单频瞬态做 FFT 得到的谐波或混频边带，不是其他输入频率的扫频点，也不能拼成 HB 式频响曲线。
+- 计划瞬态频扫时，明确频点数、传播方向和偏置/泵浦状态；按“频点数 × 方向数 × 状态数”估算运行次数，并用已观察到的单次耗时估算总时间。若瞬态只覆盖中心频率，应将其标为单点交叉核验，不暗示覆盖整段频带。
+- 声称 HB 与瞬态一致前，必须有可审阅的同工况对照表或图；在图表或其说明中注明两侧实际结果树路径/run ID、共同观测量、归一化方式、提取时间窗、差值及判定门槛。没有事先约定且有依据的门槛时只报告数值差，不给通过/一致结论。HB 全频扫描加一个瞬态频点至多支持该匹配频点的比较，不能外推为整段瞬态验证。若尚无直接对照产物，明确写“尚未建立直接对照”。
+- 只有在输入频率、方向、偏置/泵浦、端口和负载、可用入射功率或电压、器件状态及归一化定义一致时，才把两种方法作数值对照。瞬态提取量若不满足 S 参数的功率波定义与归一化，就标为输出基波或端口响应，不称作 S21。
+- 报告中直接叠画 HB 频率曲线与实际完成的瞬态频点；在共同频点并列幅值和相位，并另画差值及预先声明的判定门槛。保留两侧复数原值、单位、工况和数据来源。相位差用圆周差 `arg(S_TR / S_HB)`，幅值差用 `20 log10(|S_TR| / |S_HB|)`；避免对已包裹的相位角直接相减。
+- 瞬态结果用于基波对照时，记录舍弃渐启后的分析时间窗、稳态周期检查、FFT/拟合方法及时间步证据；HB 则记录收敛状态和谐波设置。若差值超限，只能先报告两种提取结果不一致；继续核对端口归一化、源与器件端电压、偏置状态、时间窗、步长和 HB 收敛，不能仅凭差值断定某一种方法正确。
+
 ## 服务和扩展开发
 
 所有 CST 访问经同一服务 worker；显式注册，不改全局 MCP 配置。服务 `params.workflow="circuit"` 的现有路由为：
 
 | kind | operation |
 |---|---|
-| `build` | `configure`、`configure_transient_task`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
+| `build` | `configure`、`configure_transient_task`、`configure_task_ports`、`configure_nonlinear_model`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
 | `solve` | `run_task` |
 | `study` | `parameter_sequence` |
 
-MCP 当前八个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。EM 时间工具使用 settings 与工程标识，不需 task_name；只配置保存。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
+MCP 当前十个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
 
 新增功能优先沉淀到通用 Python 接口，再接 service/MCP；跨包协议先更新 `PUBLIC_API.md`。共享数据放 `cst_automation`，SDK 在执行时惰性加载，不引入 TPC 或 em-enclosure 依赖。
 

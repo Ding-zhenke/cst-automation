@@ -67,6 +67,23 @@ def test_transient_configuration_tool_queues_build_without_running_solver(circui
     assert job['params']['settings']==settings and job['params']['create'] is True
 
 
+@pytest.mark.parametrize('tool,operation,payload', [
+    ('configure_circuit_task_ports', 'configure_task_ports', {'task_name': 'TR', 'ports': {'1': {
+        'source_type': 'none', 'impedance': {'real': {'value': 50, 'unit': 'Ohm'}}}}}),
+    ('configure_circuit_nonlinear_model', 'configure_nonlinear_model', {
+        'block_name': 'D1', 'settings': {'kind': 'berkeley_diode'}, 'create': True}),
+])
+def test_common_configuration_tools_queue_build_and_are_write_tools(circuit_tools, tool, operation, payload):
+    service = runtime.get_service(); service.autostart = False
+    path = circuit_tools/'p.cst'; path.write_text('fixture')
+    out = tools.dispatch(tool, dict(project_path=str(path), **payload))
+    assert out['ok']
+    queued = service.get(out['job']['job_id'])
+    assert queued['kind'] == 'build'
+    assert queued['params'] == dict(workflow='circuit', operation=operation, **payload)
+    assert tool in tools.WRITE_TOOLS
+
+
 def test_circuit_stdio_handshake_and_offline_preview(tmp_path):
     pytest.importorskip("mcp")
     import subprocess

@@ -83,6 +83,35 @@ class CircuitAPI:
             raise CircuitError('circuit_build_partial', f'Transient configuration interrupted: {exc}',
                                stage='configure_transient_task', task_name=task_name) from exc
 
+    def configure_task_ports(self, task_name, ports):
+        from cst_automation.circuit_ports import task_port_settings
+        from cst_automation.circuit_configuration import configuration_name
+        configuration_name(task_name)
+        data = task_port_settings(ports)
+        self._spec = None
+        try:
+            return self.adapter.configure_task_ports(task_name, data)
+        except CircuitError:
+            raise
+        except Exception as exc:
+            raise CircuitError('circuit_build_partial', f'Port configuration interrupted: {exc}',
+                               stage='configure_task_ports', task_name=task_name, requested=data) from exc
+
+    def configure_nonlinear_model(self, block_name, settings, *, create=False):
+        from cst_automation.circuit_models import nonlinear_model_settings
+        from cst_automation.circuit_configuration import configuration_name, require
+        configuration_name(block_name)
+        require(type(create) is bool, 'create must be boolean')
+        data = nonlinear_model_settings(settings)
+        self._spec = None
+        try:
+            return self.adapter.configure_nonlinear_model(block_name, data, create=create)
+        except CircuitError:
+            raise
+        except Exception as exc:
+            raise CircuitError('circuit_build_partial', f'Model configuration interrupted: {exc}',
+                               stage='configure_nonlinear_model', block_name=block_name, requested=data) from exc
+
     def validate(self, *, task_name):
         task = self.adapter.task(task_name)
         dependencies = self.inspect_dependencies()

@@ -1,6 +1,7 @@
 """Explicit Design Studio routes running exclusively on RunService's worker."""
 import logging
 import json
+import copy
 from pathlib import Path
 from uuid import uuid4
 
@@ -23,7 +24,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "configure_transient_task", "configure_em_time_settings", "inspect", "read_results", "package"},
+    allowed = {"build": {"configure", "configure_transient_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "inspect", "read_results", "package"},
                "solve": {"run_task"}, "study": {"parameter_sequence"}}
 
     def handle(*, project, params, job, backend):
@@ -45,6 +46,26 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             if operation == 'configure_em_time_settings':
                 from cst_automation.em_time import normalize_em_time_settings
                 normalize_em_time_settings(params.get('settings'))
+            if operation == 'configure_task_ports':
+                from cst_automation.circuit_configuration import configuration_name
+                from cst_automation.circuit_ports import task_port_settings
+                configuration_name(params.get('task_name'))
+                configuration_ports = copy.deepcopy(params.get('ports'))
+                if isinstance(configuration_ports, dict):
+                    for row in configuration_ports.values():
+                        signal = row.get('signal') if isinstance(row, dict) else None
+                        if isinstance(signal, dict) and signal.get('type') == 'import' and isinstance(signal.get('file'), str):
+                            signal['file'] = str(contained(service.workdir, signal['file']))
+                task_port_settings(configuration_ports)
+            if operation == 'configure_nonlinear_model':
+                from cst_automation.circuit_configuration import configuration_name, require
+                from cst_automation.circuit_models import nonlinear_model_settings
+                configuration_name(params.get('block_name'))
+                require(type(params.get('create', False)) is bool, 'create must be boolean')
+                configuration_settings = copy.deepcopy(params.get('settings'))
+                if isinstance(configuration_settings, dict) and configuration_settings.get('kind') == 'spice' and isinstance(configuration_settings.get('file'), str):
+                    configuration_settings['file'] = str(contained(service.workdir, configuration_settings['file']))
+                nonlinear_model_settings(configuration_settings)
             if operation in ("read_results", "package"):
                 contained(service.workdir, params["destination"])
             if operation in ("run_task", "parameter_sequence"):
@@ -65,7 +86,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             api = app.circuit if operation != 'configure_em_time_settings' else None
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})
-            if operation in ("configure", 'configure_transient_task', 'configure_em_time_settings'):
+            if operation in ("configure", 'configure_transient_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
                 try:
                     if operation == 'configure_em_time_settings':
                         from cst_solver.simulation.em_time import EMTimeConfigurationError
@@ -76,6 +97,10 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                             raise CircuitError(code, str(exc), **exc.details) from exc
                     elif operation == 'configure':
                         report = api.apply(params['spec'])
+                    elif operation == 'configure_task_ports':
+                        report = api.configure_task_ports(params['task_name'], configuration_ports)
+                    elif operation == 'configure_nonlinear_model':
+                        report = api.configure_nonlinear_model(params['block_name'], configuration_settings, create=params.get('create', False))
                     else:
                         report = api.configure_transient_task(params['task_name'], params['settings'], create=params.get('create', False))
                 except CircuitError as exc:

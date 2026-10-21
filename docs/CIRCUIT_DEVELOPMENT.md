@@ -18,13 +18,13 @@
 | 工作项 | 已有基础 | 后续功能重点 |
 |---|---|---|
 | 原理图与元件 | schema、预览、apply、属性修改、引脚读回 | 完善常用元件/模型的配置、读回及清晰错误提示 |
-| 任务设置 | `configure_transient_task` 与 `configure_em_time_settings` | DS 常用设置、EM 稳定因子和每步输出已有高层入口；实际时钟和输出仍须独立核验 |
+| 任务设置 | `configure_transient_task` 与 `configure_em_time_settings`；DS 自动/自适应/固定步进及 Gear/Adams 阶数 | 实际算法、时钟和输出仍须工程中独立核验 |
 | 三维连接 | 同工程/外部 source、显式端口与参数映射 | 完善映射检查和外部链接操作；不假定未核对的端口已匹配 |
-| 非线性与激励 | 二极管、SPICE 适配及既有原生脚本 | 沉淀模型、波形、单位、依赖配置流程；物理指标留待工程验证 |
+| 非线性与激励 | `configure_nonlinear_model`、`configure_task_ports` 已覆盖内置二极管、文件 SPICE、Sine/Import 和终端阻抗 | 按需扩展其他器件、温度与信号类型；物理指标留待工程验证 |
 | 结果 | schematic 树、run ID、曲线及 CSV/元数据 | 按工程需求补充电压、电流、频谱使用流程与派生量入口 |
 | 参数化 | 显式逐点属性更新与运行 | 完善序列编排与结果归档，明确与原生参数扫描的区别 |
 | 依赖与搬运 | 依赖清点及副本收集 | 外部 CST/SPICE 闭包、链接重定位和中断恢复 |
-| service/MCP | 显式串行路由和八个电路工具 | 新增接口同步接入，保持错误和证据语义一致 |
+| service/MCP | 显式串行路由和十个电路工具 | 新增接口同步接入，保持错误和证据语义一致 |
 | skill | 新增 `skills/cst-circuit/SKILL.md` | 随真实使用补充已确认的操作，不把单个样例经验泛化为验收结论 |
 
 具体功能开发以当次明确需求为单位推进；上述列表不表示本轮已全部实现。已有实现和验收状态分别查阅 [使用指南](guides/circuit_cosimulation.md)、[公共协议](PUBLIC_API.md) 与 [验证记录](VALIDATION.md)。早期 [设计](superpowers/specs/2026-10-19-design-studio-cosimulation-design.md) 和 [实施计划](superpowers/plans/2026-10-19-design-studio-cosimulation.md) 保留目标与历史标准，执行优先级以本页为准。
@@ -32,3 +32,5 @@
 本轮补充 `build / configure_transient_task` 与 MCP `configure_circuit_transient_task`，均只配置保存。二极管/SPICE 原生身份读回及执行前后外部文件摘要保护已加入；SPICE 原生名称变化仍保持未验证。配置接口和 skill 的实机组合验收后置，没有启动新的专项求解来填充验收表。
 
 后续 EM 配置扩展为通用 `app.configure_em_time_settings(settings)`，service/MCP 同名路由只配置保存；依据本机官方命令封装稳定因子及 every_step/automatic。无可靠 getter 的读回继续标记 unsupported，实际积分步长与每步输出均未由配置接口验证。本轮只开展离线检查。
+
+2026-10-20：继续将验证脚本中的源与模型设置沉淀为通用接口；扩展已有瞬态积分配置，增加 configure_task_ports/configure_nonlinear_model 的 Python、service/MCP 入口和对应 skill。新接口只配置，不自动开展实机验证；保留请求与读回的区分、文件快照、未完整查询项和部分失败现场。

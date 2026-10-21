@@ -67,6 +67,7 @@ settings = {
     "duration": {"value": 40, "unit": "ns"},
     "sampling": {"method": "simulated", "points": 8001},
     "integration": {
+        "stepping": "fixed",
         "time_step": {"value": 5, "unit": "ps"},
         "auto_solver": False,
     },
@@ -80,6 +81,92 @@ app.save()
 ```
 
 数量转换到工程当前时间/频率单位，不修改全局单位。接口按正确顺序设置区间和采样，读回可查询的任务属性；`points` 在 Simulated 模式下不表示实际记录点数。返回 `internal_time_step_verified=False`、`output_grid_readback="unsupported"`，请求的 5 ps 仍不能证明真实联合采用了 5 ps。该高层组合接口完成离线边界检查，按当前优先级尚未追加组合接口的实机验收。
+
+普通网络瞬态可显式请求 Gear 二阶及自适应步长。例如将上例的 `mode` 改为 `network`，并使用以下 integration；`method/order` 也支持 `adams` 及 1–4 阶。省略字段沿用已有设置；显式算法建议配合 `auto_solver=False`，读回的算法选项仍不证明真实联合采用该算法。
+
+```python
+settings["mode"] = "network"
+settings["integration"] = {
+    "stepping": "adaptive",
+    "time_step": {"value": 5, "unit": "ps"},
+    "minimum_time_step": {"value": 0.5, "unit": "ps"},
+    "method": "gear", "order": 2, "auto_solver": False,
+}
+report = app.circuit.configure_transient_task("TR", settings)
+app.save()
+```
+
+`automatic` 不接受显式 time_step；minimum_time_step 仅用于 adaptive 且不得超过最大步长。以上均只配置，不提交求解。
+
+### 端口激励、源阻抗和无源负载
+
+在已有 transient 任务及实际读回的 ExternalPort 上配置。以下端口名 1、2 须与当前工程一致：
+
+```python
+source_report = app.circuit.configure_task_ports("TR", {
+    "1": {
+        "source_type": "voltage",
+        "signal": {
+            "type": "sine",
+            "amplitude": {"value": 1, "unit": "V"},
+            "frequency": {"value": 1, "unit": "GHz"},
+            "offset": {"value": 0, "unit": "V"},
+            "delay": {"value": 2, "unit": "ns"},
+        },
+        "resistance": {"value": 50, "unit": "Ohm"},
+    },
+    "2": {"source_type": "none", "impedance": {
+        "real": {"value": 50, "unit": "Ohm"},
+        "imag": {"value": 0, "unit": "Ohm"},
+    }},
+})
+app.save()
+```
+
+`source_type="current"` 的正弦幅值/偏置使用电流单位，本轮未封装电流源内电导。已有 voltage 源的 resistance 可以省略；无源负载会先清除旧激励，再设置常数阻抗。所有端口名和输入数据在第一次写入前检查。
+
+验证脚本中的渐启、调制或任意采样波形可由 Import 入口配置，无需再直接操作原生 task：
+
+```python
+source_report = app.circuit.configure_task_ports("TR", {
+    "1": {"source_type": "voltage", "resistance": {"value": 50, "unit": "Ohm"},
+          "signal": {"type": "import", "file": "work/engineering/source.csv", "periodic": False}},
+})
+app.save()
+```
+
+文件为 UTF-8 两列 CSV，无表头，列为 SI 秒与 V（电流源为 A），至少两点、时间非负严格递增、数值有限。不根据工程 ns/mV 单位重解释文件。periodic 布尔值转换为原生小写字符串；返回配置时文件摘要。信号完整参数和终端阻抗尚无已校准的完整 getter，因此返回 unsupported，整体 `readback_verified=False/solver_verified=False`，不把请求值当作读回。
+
+### 内置二极管和外部 SPICE 子电路
+
+以下只示范配置语法，参数是示例输入，不能代替器件模型或非线性物理验收：
+
+```python
+model_report = app.circuit.configure_nonlinear_model("D1", {
+    "kind": "berkeley_diode",
+    "parameters": {
+        "IS": {"value": 1e-14, "unit": "A"}, "N": 1.0,
+        "RS": {"value": 1, "unit": "Ohm"},
+        "CJO": {"value": 0, "unit": "pF"},
+        "TT": {"value": 0, "unit": "ns"},
+    },
+}, create=True)
+app.save()
+```
+
+create=True 拒绝已有同名块，默认只更新已有兼容块。已有二极管须能完整读回为受支持的 Berkeley 参数模式；此时只修改指定参数，不重新选择模型以免重置其他值。新建时先设置模型，后写参数。支持 IS/N/RS/CJO/TT/BV/IBV/VJ/M/XTI/AREA；未提供项使用模型自身值。温度及其他器件族本轮未新增专用高层入口。
+
+```python
+model_report = app.circuit.configure_nonlinear_model("Dspice", {
+    "kind": "spice", "file": "work/engineering/known_diode.cir",
+    "model": "KNOWN_DIODE", "dialect": "PSPICE",
+}, create=True)
+app.save()
+```
+
+SPICE 文件由调用方提供；接口不生成虚构模型。方言支持 AUTOMATIC/SPICE3/PSPICE/HSPICE，省略时沿用原生设置。返回原生 file/model/filter、属性及前后 pins，改变子电路可能改变引脚，调用方须据此重新核对连线。仅创建/配置块，不自动接线。模型名前缀等差异不自动忽略；读回不一致保留部分失败。外部依赖闭包和可搬运性仍使用既有依赖接口独立判定。
+
+Python 配置方法不自动保存。service 的 `build` 操作 `configure_task_ports/configure_nonlinear_model` 则配置并保存，参数分别为 task_name/ports 和 block_name/settings/create。文件路径按 service workdir 解析并限制在其内，不按原始工程目录猜测；MCP 对应 `configure_circuit_task_ports/configure_circuit_nonlinear_model`，仍需工程标识。新工具保持显式注册、单 worker 和失败审计，不能隐式触发 `run_circuit_task`。
 
 任务 `properties` 可以设置 `sampling method="Simulated"`，保存全部实际仿真时间点；`SetSweepData` 会将它重置成 Manual，应在设置输出区间之后再选 Simulated。5 ps 的手工绘图点不能证明内部采用 5 ps 积分。
 

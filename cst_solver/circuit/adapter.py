@@ -222,9 +222,18 @@ class NativeAdapter:
         props = {'circuit simulator': 'cosimulation' if settings['mode'] == 'transient_cosim' else 'cst',
                  'tmax': format(settings['duration_si'] / factors['Time'], '.17g')}
         numeric = {'tmax'}
+        if 'time_stepping' in settings:
+            props['time stepping'] = settings['time_stepping']
         if 'requested_time_step_si' in settings:
-            props.update({'time stepping': 'fixed', 'time step': format(settings['requested_time_step_si'] / factors['Time'], '.17g')})
+            props['time step'] = format(settings['requested_time_step_si'] / factors['Time'], '.17g')
             numeric.add('time step')
+        if 'minimum_time_step_si' in settings:
+            props['minimum time step'] = format(settings['minimum_time_step_si'] / factors['Time'], '.17g')
+            numeric.add('minimum time step')
+        if 'integration_method' in settings:
+            props['integration method'] = settings['integration_method']
+        if 'integration_order' in settings:
+            props['integration order'] = str(settings['integration_order'])
         if 'auto_solver' in settings:
             props['auto solver'] = 'TRUE' if settings['auto_solver'] else 'FALSE'
         if 'max_frequency_si' in settings:
@@ -260,6 +269,14 @@ class NativeAdapter:
                 'requested_output_points': settings['output_points'], 'output_grid_readback': 'unsupported',
                 'requested_time_step_si': settings.get('requested_time_step_si'),
                 'internal_time_step_verified': False, 'readback_verified': False, 'solver_verified': False}
+
+    def configure_task_ports(self, name, settings):
+        from .configuration import configure_task_ports
+        return configure_task_ports(self, name, settings)
+
+    def configure_nonlinear_model(self, name, settings, *, create=False):
+        from .configuration import configure_nonlinear_model
+        return configure_nonlinear_model(self, name, settings, create=create)
 
     def properties(self, name, props, units, parameters=None):
         obj = self.select("Block", name)

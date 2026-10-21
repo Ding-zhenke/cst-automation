@@ -1,5 +1,17 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-10-20：通用任务与非线性配置扩展（仅离线检查）
+
+以下为 `0.2.0.dev0` 的新增配置协议，均不自动 rebuild、运行或提高验证等级。
+
+- `configure_transient_task` 的 `integration` 增加 `stepping=automatic/adaptive/fixed`、`method=adams/gear`、整数 `order=1..4`、带 value/unit 的 `minimum_time_step`。省略项保持原设置；仅提供 time_step 时兼容原行为，选择 fixed。automatic 与显式时间步冲突；minimum_time_step 仅用于 adaptive，且不大于最大 time_step。算法、阶数及时间步是请求配置，真实联合时钟仍由实际运行证据判定。
+- `CircuitAPI.configure_task_ports(task_name, ports)` 配置已有 transient 任务的外部端口。ports 为非空映射，键为实际 ExternalPort 名称。每项 `source_type=voltage/current/none`；激励端口要求 `signal`，支持 `type=sine`（带单位 amplitude/frequency，可选 offset/delay）或 `type=import`（file、布尔 periodic，默认 False）。Voltage 可提供 resistance 数量；Current 暂不提供内阻配置。none 要求 `impedance={real: 电阻数量, imag: 可选电阻数量}`，并清除旧激励。全部输入和文件在第一次写入前检查；名称不存在、任务类型错误时不写入。
+- Import 文件使用两列 CSV：SI 秒及 V/A，至少两个有限实数点，时间非负且严格递增。不在接口中隐式缩放文件。原生 Import periodic 使用小写字符串。返回文件绝对路径和配置时 SHA-256，不声称后续依赖搬运或求解身份已验证。Sine 的单位转换到已有工程单位，保留全局单位。
+- `CircuitAPI.configure_nonlinear_model(block_name, settings, *, create=False)` 配置已有兼容类型块；create=True 仅创建新名称。`kind=berkeley_diode` 使用 `parameters` 中的常用 SPICE 名称 IS/N/RS/CJO/TT/BV/IBV/VJ/M/XTI/AREA。IS/RS/CJO/TT/BV/IBV/VJ 为带 value/unit 的数量，其余为无量纲数值；未提供参数沿用模型自身值，不注入样例默认值。新建模型先选原生 enum 2，再写参数；已有块须能读回为兼容 Berkeley 模型，仅改提供的参数，避免重新选择 Model Type 重置其余值。最后读回值和单位；身份继续由原生参数模式标注，不伪造枚举 getter。
+- `kind=spice` 要求 file、model，dialect 可选 AUTOMATIC/SPICE3/PSPICE/HSPICE。只提供文件型子电路配置，不自动生成器件模型或猜测引脚；改变模型可能改变引脚，返回前后 pins 供调用方重查连接。文件需存在且可读，返回配置时摘要和原生 file/model/filter/属性；模型名差异不做去前缀等宽松归一化。新增纯数据规范化入口位于 `cst_automation.circuit_models`、`circuit_ports`，不加载 CST。
+- 上述新方法返回 requested、readback、readback_verified=False、solver_verified=False，不能完整查询的信号参数/阻抗保留 unknown。原生部分写入或读回不一致为 `circuit_build_partial`，保留请求、阶段和失败现场，不自动重试/回滚。Python 调用后显式 save。
+- service 新增 `build / configure_task_ports`（task_name/ports）及 `build / configure_nonlinear_model`（block_name/settings/create）；文件输入受 service workdir 约束，在打开 CST 前检查。均在唯一 worker 配置并保存，失败沿用部分工程及审计机制。对应显式 MCP 工具 `configure_circuit_task_ports`、`configure_circuit_nonlinear_model`，电路工具增至十个。原有求解入口及证据判据不变。
+
 ## Design Studio 电路扩展（0.2 开发接口，分阶段实测）
 
 用户已批准 2026-10-19 场路联合设计及真实几何/端口预览；本轮已分阶段实测。具体通过范围和未通过项以 `docs/VALIDATION.md`、`docs/CIRCUIT_LIVE_REPORT.md` 为准。

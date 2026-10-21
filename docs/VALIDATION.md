@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-10-20：任务、端口源和非线性模型通用封装（仅离线）
+
+- 扩展瞬态任务的自动/自适应/固定步进、Gear/Adams 算法与阶数、最小步长；新增 `configure_task_ports` 和 `configure_nonlinear_model`，接入 service 的串行 build 路由及两个显式 MCP 工具。
+- 相关离线套件 **179 passed，1 deselected**：覆盖配置单位与范围、源文件检查、原生调用顺序、模型稀疏更新、读回不一致、部分失败审计、worker 保存/关闭和 MCP 排队。排除的是既有 stdio 子进程传输检查，本轮没有新增传输协议。
+- 检查使用 fake/stub 原生边界；没有连接 CST、打开真实工程、rebuild 或执行求解。新组合接口的实机行为、积分时钟、信号完整参数、SPICE 器件等价、非线性物理指标均未由本轮离线通过证明。原有 `unverified` 判据和历史证据不变。
+- 公共协议、使用示例、开发重点和 `skills/cst-circuit/SKILL.md` 已同步；新 skill 格式检查通过。后续按实际工程需要验证，不主动追加专项实机矩阵。
+
 ## 2026-10-19：EM 时间控制高层接口（仅离线）
 
 - 新增通用 `setup.configure_em_time_settings(settings)`：非空稀疏字典支持 `stability_factor`（有限数字 `(0,1]`）和 `output_sampling`（every_step/automatic）。纯数据校验先于工程访问；只提交当前 model3d 的历史块，不 Reset、不切换求解器、不重建、不修改 DS 或外部链接、不自动保存或求解。
