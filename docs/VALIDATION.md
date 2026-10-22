@@ -1,5 +1,20 @@
 # 验证记录
 
+## 2026-10-23：T 求解器原生磁 Gyrotropic 接口（仅离线）
+
+- 新增 `setup.create_material_gyrotropic`，Normal + Gyrotropic + SI 模式；Larmor/旋磁角频率为 `larmor_omega/gyrotropic_omega`，单位 rad/s，避免与完整 Tensor formula 的 `f`（Hz）混淆。两个频率、阻尼、高频相对磁导率、电导率、介电常数及三分量方向均支持项目参数表达式。数值范围和单位方向校验先于访问工程；仅提交一个历史块。
+- 新增 30 项 Gyrotropic 测试，覆盖 SI 命令映射、单位刻度、默认与反向偏置、表达式保留、角频率不隐式换算、颜色及非法输入。材料相关及表达式/失败/环境回归共 **218 passed**。类型存根语法及 `git diff --check` 另行检查。
+- 全库默认离线检查为 **728 passed，1 failed，2 deselected**；唯一失败是 `test_circuit_stdio_handshake_and_offline_preview` 的 8 秒初始化超时。该项单独复测仍失败；从 `HEAD=4a19c4b` 导出的只读基线副本运行同一测试也复现，不能归为本轮材料变更回归。排除此项后全库为 **728 passed，3 deselected**（`-k 'not test_circuit_stdio_handshake_and_offline_preview'`）；没有修改该 MCP 测试或用延长超时掩盖问题。
+- 本机 Help 的 Dispersion 页明确区分 rad/s 角频率与 1/s 阻尼，HF Overview 将两个旋磁频率定义为 omega_l/omega_m；官方 One-way Transmission Device 为磁 Gyrotropic 的瞬态示例。接口未自动选择 T 求解器。
+- 偏置场来源模式仍沿用 CST Reset 默认；未猜测 `SetMagnetostaticDepSourceField` 的 Automatic/Homogeneous 枚举。在已有磁静态场源的工程中，实际来源需原生检查为 Homogeneous field 后才能依赖所给方向。没有执行原生材料读回、rebuild、来源切换、求解或性能测量；`readback_verified=False`、`solver_verified=False`。
+
+## 2026-10-23：完整复数磁导率张量接口（仅离线）
+
+- 新增 `setup.create_material_tensor`，覆盖全部九个复数常量分量，以及实部/虚部分离的 CST 参数与频率表达式；自动转换 `TensorFormulaImag` 所需的负虚部。同步公共协议、类型存根和 `docs/guides/material_tensors.md`。
+- `.venv/Scripts/python.exe -m pytest cst_solver/tests/test_material_tensor.py cst_solver/tests/test_material_dispersion.py cst_solver/tests/test_material_color.py cst_solver/tests/test_expressions.py cst_solver/tests/test_failures.py cst_solver/tests/test_environment.py`：**188 passed**。其中新增张量测试 19 项，覆盖九项索引与复数符号、完整表达式保留、颜色、非法矩阵/非有限数/冲突参数及提交前拒绝。`git diff --check` 通过。
+- 核对本机 CST 2026 Help：Tensor formula 仅四面体通用频域，不支持 T；原生磁 Gyrotropic/Polder 模型另有官方瞬态示例。计算开销说明为工程推断，无基准数据。
+- 未加载 CST、未修改真实工程、未做 rebuild/原生读回/求解或性能测量。参数表达式由 CST 实际解析及重建的行为仍待实机确认；`readback_verified=False`、`solver_verified=False`。
+
 ## 2026-10-20：任务、端口源和非线性模型通用封装（仅离线）
 
 - 扩展瞬态任务的自动/自适应/固定步进、Gear/Adams 算法与阶数、最小步长；新增 `configure_task_ports` 和 `configure_nonlinear_model`，接入 service 的串行 build 路由及两个显式 MCP 工具。

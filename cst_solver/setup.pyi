@@ -13,6 +13,12 @@ import os
 from cst_solver.circuit import CircuitAPI
 
 _PathLike = Union[str, os.PathLike]
+_TensorEntry = Union[float, complex, str]
+_TensorRow = Union[List[_TensorEntry], Tuple[_TensorEntry, ...]]
+_TensorMatrix = Union[List[_TensorRow], Tuple[_TensorRow, ...]]
+_TensorRealEntry = Union[float, str]
+_TensorRealRow = Union[List[_TensorRealEntry], Tuple[_TensorRealEntry, ...]]
+_TensorRealMatrix = Union[List[_TensorRealRow], Tuple[_TensorRealRow, ...]]
 
 # ============================================================
 # CST 项目操作 (ProjectMixin)
@@ -317,6 +323,26 @@ class _FaceOpsMixin:
 # 材料与组件 (MaterialMixin)
 # ============================================================
 class _MaterialMixin:
+    def create_material_gyrotropic(
+            self, name: str, epsilon: Union[float, str], *,
+            larmor_omega: Union[float, str],
+            gyrotropic_omega: Union[float, str],
+            damping: Union[float, str],
+            bias_direction: Union[List[Union[float, str]],
+                                  Tuple[Union[float, str], ...]] = (0, 0, 1),
+            mu_infinity: Union[float, str] = 1,
+            kappa: Union[float, str] = 0,
+            color: Optional[Union[str, Tuple[float, float, float],
+                                  List[float]]] = None,
+            colour: Optional[Union[str, Tuple[float, float, float],
+                                   List[float]]] = None) -> None: ...
+    def create_material_tensor(self, name: str, epsilon: Union[float, str],
+                               mu_tensor: _TensorMatrix, *,
+                               mu_imag: Optional[_TensorRealMatrix] = None,
+                               color: Optional[Union[str, Tuple[float, float, float],
+                                                     List[float]]] = None,
+                               colour: Optional[Union[str, Tuple[float, float, float],
+                                                      List[float]]] = None) -> None: ...
     def new_material(self, name: str) -> None: ...
     def create_material(self, name: str) -> None: ...
     def create_material_custom(self, name: str, epsilon: Union[float, str],

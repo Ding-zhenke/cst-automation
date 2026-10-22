@@ -1,5 +1,20 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-10-23：原生 Gyrotropic 铁氧体（仅离线验证）
+
+- `setup.create_material_gyrotropic(name, epsilon, *, larmor_omega, gyrotropic_omega, damping, bias_direction=(0,0,1), mu_infinity=1, kappa=0, color=None, colour=None)` 创建 Normal 类型、磁 `DispModelMu "Gyrotropic"` 的饱和偏置铁氧体。采用 SI 输入模式；两个 omega 参数为 **rad/s 角频率**，从普通 Hz 转换需 `2*pi*f_hz`。材料频率刻度固定为 Hz（基本 1/s 刻度），不改变模型参数的角频率含义、不改变工程全局单位。`DispCoeff1Mu/2Mu/3Mu` 分别为 Larmor 角频率、旋磁角频率及无量纲阻尼，`DispCoeff4MuX/Y/Z` 为无量纲单位偏置方向。
+- 物理参数及方向分量均接受有限实数或 CST 参数/表达式字符串，原样写入，不在 Python 中求值。常量频率、阻尼及电导率必须非负，高频相对磁导率为正；纯数值方向需为单位向量。含表达式的方向由调用方保证求值后归一化，常量范围与参数存在/单位/扫参范围需调用方负责。
+- 输入完全校验后只提交一个 `Material: <name>` 历史块，不自动保存/rebuild/选择求解器/读回/求解。此模型的 T 求解器材料路线有官方瞬态示例依据；本轮接口仅离线验证，不等于实机验收。它不是任意九项张量公式，不支持时间变量 `t` 或 Tensor formula 的频率占位符 `f`：原生模型自身生成频率响应，输入表达式应引用已定义的项目参数。
+- 无新增 service/MCP 操作；标量色散和完整 Tensor formula 接口不变。用法、原生命令依据与边界见 `docs/guides/material_tensors.md`。
+- 偏置场来源选择沿用 CST Reset 默认值，不调用来源导入或来源切换。官方 Help 没有给出 `SetMagnetostaticDepSourceField` 切换 Automatic/Homogeneous 的明确枚举；已有磁静态场源的工程须核实实际使用 Homogeneous field 后才能依赖所给方向。本轮没有把该来源模式记为已验证。
+
+## 2026-10-23：复数磁导率张量材料（仅离线验证）
+
+- `setup.create_material_tensor(name, epsilon, mu_tensor, *, mu_imag=None, color=None, colour=None)` 创建 `Tensor formula` 材料。`mu_tensor` 是严格的 3×3 list/tuple，元素为有限实数、Python 复数常量或 CST 实部表达式字符串。`mu_imag` 可选，为相同形状的有限实数/表达式矩阵，表示数学虚部；提供时 `mu_tensor` 不得包含复数，避免重复指定。`epsilon` 是标量实数或 CST 表达式，写入介电张量的三个对角元。
+- 输入约定为 `mu = real + j*imag`；CST `TensorFormulaImag` 接收负虚部，接口自动取负。字符串原样保留（虚部仅外包取负），不经 Python 求值。`f` 为材料公式内的频率，单位始终为 Hz；项目参数应由调用方先定义，并使用一致的 SI 频率数值。离线检查不解析 CST 表达式语义或核实参数存在。
+- 本机 CST 2026 Help `mergedProjects/3D/special_struct/special_struct_layer_parameters_general.htm` 明确限定 `Tensor formula` **仅用于四面体网格的通用频域求解器，不支持 T/Transient 求解器**。命令、0..2 索引和负虚部约定见 `mergedProjects/VBA_3D/special_vbalayer/special_vbalayerolayer_object.htm` 的 Tensor Formulas。接口不切换求解器；创建历史不表示求解器兼容性已实机验收。
+- 完整校验后以一个 `Material: <name>` 历史块提交；不自动保存、rebuild 或求解。原有标量材料入口保持兼容。本扩展仅增加 Python 方法，无新 service/MCP 操作；`readback_verified=False`、`solver_verified=False`。
+
 ## 2026-10-20：通用任务与非线性配置扩展（仅离线检查）
 
 以下为 `0.2.0.dev0` 的新增配置协议，均不自动 rebuild、运行或提高验证等级。

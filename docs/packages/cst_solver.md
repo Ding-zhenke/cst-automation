@@ -41,6 +41,10 @@ Keep changes in dependency order. After construction, use the project validation
 
 ## Simulation and evidence
 
+`app.create_material_tensor(name, epsilon, mu_tensor, *, mu_imag=None, color=None, colour=None)` creates a full complex relative-permeability tensor using CST's Tensor formula material. Numeric complex entries and separate real/imaginary frequency-expression matrices are supported. CST 2026 limits this material to the general purpose frequency domain solver with tetrahedral mesh; it is **not supported by the T/Transient solver**. The native Gyrotropic ferrite model offers a separate, restricted Polder-tensor route for transient work. See [tensor materials](../guides/material_tensors.md) for examples, parameter units, the negative-imaginary sign conversion, and solver/evidence limits.
+
+`app.create_material_gyrotropic(name, epsilon, *, larmor_omega, gyrotropic_omega, damping, bias_direction=(0,0,1), mu_infinity=1, kappa=0, color=None, colour=None)` wraps the native magnetic Gyrotropic model using SI inputs. Both omega inputs are angular frequencies in rad/s (use `2*pi*f_hz` from Hz), direction is a unit vector, and all physical inputs accept CST parameter-expression strings. Numeric ranges and unit directions are checked before project access. It submits material history only, without running a solver. Bias-source selection retains CST's reset default and requires native inspection in projects with magnetostatic sources; see [the SI interface and limits](../guides/material_tensors.md#原生-si-接口与-cst-参数).
+
 `setup.run()` retains its legacy behavior. `setup.run_checked(...)` returns a structured run contract and distinguishes submission, message checks, result presence, and result identity. Save completed results before reading them. Do not report a successful solve unless the run contract status says `succeeded`; record its run token/ID and relevant diagnostics.
 
 For a solver stall, inspect [the actual CST dialog](../guides/cst_dialogs.md), including title, body, buttons, process, and PID. A closed dialog or a returned SDK call does not by itself prove solver success.
