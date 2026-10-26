@@ -1,5 +1,12 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-10-26：原生 HB 扫描与后处理代码接口
+
+- `cst_solver.circuit.native` 接受已打开工程的原生 `schematic`（也可使用 CST 模板的 `calling_app`），不加载 SDK、不启动求解、不自动保存。`configure_hb_task(schematic, task_name, tones, *, diamond=False, create=False)` 配置 Spectral Lines 的基频/阶数表达式；`replace_parameter_sweep_sequences(schematic, task_name, sequences)` 显式替换已有原生 Parameter Sweep 的全部序列，保留任务及其子任务。HB 频率数值沿用目标任务当前生效的频率单位（可能为局部单位），不切换单位；扫参点沿用原生参数单位，字符串表达式原样保留。调用方必须先核对单位。
+- `read_spectral_component(schematic, tree_path, frequency, *, result_id, rtol=1e-10, atol=1e-8)` 按显式原生结果 ID 提取唯一匹配的复数谱线，不回退到最后一次或 run 0。`write_real_curve(schematic, tree_path, signal_file, x, y, *, title, x_label, x_unit, y_label, y_unit, values_in_db=False, replace=False)` 写入原生 Results 曲线；替换时先删除旧叶再保存 `.sig`，防止 CST 删除关联文件。数值/路径预检先于原生写入；已转为 dB 的数据禁用再次取对数。
+- `cst_automation.result_templates.replace_embedded_python_result_template(template_source, project_resources, *, metadata_path, expected_sha256)` 校验已绑定 `.rtjson` 指向的现有 Python 模块并替换源码，保留绑定设置；使用旧模块 SHA-256 检测并发变化。只处理指定工程 `Model/DS` 内的现有绑定，不创建绑定、不修改元数据、不安装全局库。必须在原生工程打开、资源解包后调用，再显式原生保存、关闭重开核验；返回 `native_save_required=True`，不能把资源文件更新当作工程已保存。
+- 本轮封装用离线回归验证；底层操作来自已完成的实际 HB 工程，封装本身未新增实机求解验收。详见 [代码方式配置 HB 与原生曲线](guides/native_hb_postprocessing.md)。无新增 service/MCP 操作，现有运行契约与接口保持兼容。
+
 ## 2026-10-23：原生 Gyrotropic 铁氧体（仅离线验证）
 
 - `setup.create_material_gyrotropic(name, epsilon, *, larmor_omega, gyrotropic_omega, damping, bias_direction=(0,0,1), mu_infinity=1, kappa=0, color=None, colour=None)` 创建 Normal 类型、磁 `DispModelMu "Gyrotropic"` 的饱和偏置铁氧体。采用 SI 输入模式；两个 omega 参数为 **rad/s 角频率**，从普通 Hz 转换需 `2*pi*f_hz`。材料频率刻度固定为 Hz（基本 1/s 刻度），不改变模型参数的角频率含义、不改变工程全局单位。`DispCoeff1Mu/2Mu/3Mu` 分别为 Larmor 角频率、旋磁角频率及无量纲阻尼，`DispCoeff4MuX/Y/Z` 为无量纲单位偏置方向。
@@ -14,6 +21,14 @@
 - 输入约定为 `mu = real + j*imag`；CST `TensorFormulaImag` 接收负虚部，接口自动取负。字符串原样保留（虚部仅外包取负），不经 Python 求值。`f` 为材料公式内的频率，单位始终为 Hz；项目参数应由调用方先定义，并使用一致的 SI 频率数值。离线检查不解析 CST 表达式语义或核实参数存在。
 - 本机 CST 2026 Help `mergedProjects/3D/special_struct/special_struct_layer_parameters_general.htm` 明确限定 `Tensor formula` **仅用于四面体网格的通用频域求解器，不支持 T/Transient 求解器**。命令、0..2 索引和负虚部约定见 `mergedProjects/VBA_3D/special_vbalayer/special_vbalayerolayer_object.htm` 的 Tensor Formulas。接口不切换求解器；创建历史不表示求解器兼容性已实机验收。
 - 完整校验后以一个 `Material: <name>` 历史块提交；不自动保存、rebuild 或求解。原有标量材料入口保持兼容。本扩展仅增加 Python 方法，无新 service/MCP 操作；`readback_verified=False`、`solver_verified=False`。
+
+## 2026-10-21：CST Python 后处理模板暂存（仅静态检查）
+
+- 本机 CST Studio Suite 2026 帮助确认：Design Studio 的 `Post-Processing` 任务可在每次求解后执行模板；扫参/优化会对非插值求解的参数组合执行。Python 模板是位于库根 `Result Templates/<group>/<name>.rtpy` 的单文件模块，必须实现同步顶层 `define()` 与 `evaluate()`。本地依据：`C:\SOFTWARE\CST Studio Suite 2026\Online Help\mergedProjects\DES\analysis\postprocessing\templatebasedpostprocessing.htm`、`post_processing_template_layout_python.htm`。
+- `cst_automation.result_templates.validate_python_result_template(source)` 只解析语法和入口签名，不导入或执行模板。`stage_python_result_template(template_source, library_root, *, group, name)` 将 UTF-8 `.py`/`.rtpy` 源文件复制到 `library_root/Result Templates/<group>/<name>.rtpy`；拒绝不安全路径片段、缺失入口及覆盖已有文件，并返回摘要和 SHA-256。
+- 静态签名检查拒绝默认参数及仅限位置参数，遵守 CST 按关键字注入入口参数的调用方式；暂存目标解析目录连接后仍须位于库根内，service 的库根也必须位于 workdir 内。
+- `build / stage_postprocessing_template` 服务操作和 `stage_circuit_postprocessing_template` MCP 工具将源文件限制在服务 workdir，输出固定到 `workdir/cst_template_library/Result Templates/...`，不打开或修改 CST 工程。用户需在 CST 库设置中加入返回的 `library_root`，创建/选择 Post-Processing 任务并在模板对话框中添加该模板一次。之后由 CST 在每次相应求解后运行模板。
+- CST 2026 的帮助为 `SimulationTask.Type` 列出任务类型，但没有记录通过该对象配置 Post-Processing 模板步骤的调用；本接口不伪造自动绑定能力。暂存和静态检查不证明模板能读取目标 HB 结果、CST 已绑定任务或求解后图线已更新；`native_cst_binding_required/readback_verified/solver_verified` 保留真实边界。
 
 ## 2026-10-20：通用任务与非线性配置扩展（仅离线检查）
 

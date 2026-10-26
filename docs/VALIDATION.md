@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-10-27：剩余 HB 与后处理改动提交前检查（离线）
+
+- 独立代码审查后修复模板暂存目录连接越界、CST 不支持的默认/仅限位置入口参数，以及 Results 文件夹替换可能删除子节点的问题；补充先失败再通过的回归测试。明确 HB 数值沿用目标任务当前生效的单位，不自动切换局部单位。
+- 仓库 `.venv`（Python 3.11）完整离线测试：`755 passed, 2 deselected, 9 warnings`；排除 `gui/cst_live`，警告来自既有端口方向测试。MCP stdio 握手与目录连接测试在允许相应操作的隔离进程中通过。日志及 JUnit 记录保留在忽略目录 `work/verification_20261027/`。
+- 按 `pyproject.toml` 声明的构建依赖，在仓库内临时隔离环境中成功构建 wheel 与 sdist。未修改公共 Python 环境。原 `.venv` 的旧 setuptools 不满足构建声明，未将其无隔离构建失败算作通过。
+- 本轮未启动 CST、rebuild、原生工程读回或求解，离线检查不提高实机验收等级。skill 只保留通用操作与证据要求，不提炼用户私有模型参数；指南中的固定扫描范围改为调用方提供的数组。
+
+## 2026-10-26：原生 HB 扫描及后处理辅助接口
+
+- 将实际工程中使用的 Spectral Lines 基频/阶数、原生 Parameter Sweep 序列、指定 result ID 的复数谱线提取、Results 实数曲线写入及现有模板源码替换整理为通用代码接口。保留工程参数表达式，不固定模型路径、频段、端口、RF 方向定义或归一化公式。
+- 离线测试覆盖输入预检、错误任务类型、表达式保留、原生序列构造、显式运行身份、谱线缺失/重复、dB 禁止重复取对数，以及旧叶删除连带删除信号文件后的替换顺序。嵌入模板测试覆盖元数据保留、摘要冲突、越界路径和无效源码拒绝；只静态检查，不执行模板。
+- 本轮没有启动 CST、computer use、EM 或 HB；不将历史实际工程的求解验收转记为这些封装已完成实机验收。默认返回 readback_verified=False / solver_verified=False；模板替换还返回 native_save_required=True。用法见 `docs/guides/native_hb_postprocessing.md`。
+
 ## 2026-10-23：T 求解器原生磁 Gyrotropic 接口（仅离线）
 
 - 新增 `setup.create_material_gyrotropic`，Normal + Gyrotropic + SI 模式；Larmor/旋磁角频率为 `larmor_omega/gyrotropic_omega`，单位 rad/s，避免与完整 Tensor formula 的 `f`（Hz）混淆。两个频率、阻尼、高频相对磁导率、电导率、介电常数及三分量方向均支持项目参数表达式。数值范围和单位方向校验先于访问工程；仅提交一个历史块。
@@ -14,6 +27,12 @@
 - `.venv/Scripts/python.exe -m pytest cst_solver/tests/test_material_tensor.py cst_solver/tests/test_material_dispersion.py cst_solver/tests/test_material_color.py cst_solver/tests/test_expressions.py cst_solver/tests/test_failures.py cst_solver/tests/test_environment.py`：**188 passed**。其中新增张量测试 19 项，覆盖九项索引与复数符号、完整表达式保留、颜色、非法矩阵/非有限数/冲突参数及提交前拒绝。`git diff --check` 通过。
 - 核对本机 CST 2026 Help：Tensor formula 仅四面体通用频域，不支持 T；原生磁 Gyrotropic/Polder 模型另有官方瞬态示例。计算开销说明为工程推断，无基准数据。
 - 未加载 CST、未修改真实工程、未做 rebuild/原生读回/求解或性能测量。参数表达式由 CST 实际解析及重建的行为仍待实机确认；`readback_verified=False`、`solver_verified=False`。
+
+## 2026-10-21：CST Python 后处理模板暂存接口（未执行检查）
+
+- 按本机 CST 2026 帮助新增 `.rtpy` 静态校验和服务目录暂存入口，并接入显式 MCP 工具。模板校验只解析 Python 语法和 `define/evaluate` 入口名，不导入或执行用户代码。
+- CST 官方帮助确认 Post-Processing 模板会在求解后执行；当前帮助没有记录通过 `SimulationTask` API 自动添加模板步骤的方法。用户仍需把 `cst_template_library` 加入 CST 库路径，并在 Post-Processing 任务中绑定一次模板。
+- 本轮未运行测试、未加载 CST、未打开或修改工程、未做原生读回或求解。模板代码读取 HB 结果的映射、原生绑定及求解后曲线刷新均未验证；不得把暂存成功当成目标图表联动完成。
 
 ## 2026-10-20：任务、端口源和非线性模型通用封装（仅离线）
 

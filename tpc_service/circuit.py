@@ -24,7 +24,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "configure_transient_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "inspect", "read_results", "package"},
+    allowed = {"build": {"configure", "configure_transient_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "inspect", "read_results", "package"},
                "solve": {"run_task"}, "study": {"parameter_sequence"}}
 
     def handle(*, project, params, job, backend):
@@ -66,6 +66,21 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                 if isinstance(configuration_settings, dict) and configuration_settings.get('kind') == 'spice' and isinstance(configuration_settings.get('file'), str):
                     configuration_settings['file'] = str(contained(service.workdir, configuration_settings['file']))
                 nonlinear_model_settings(configuration_settings)
+            if operation == 'stage_postprocessing_template':
+                from cst_automation.result_templates import validate_python_result_template
+                template_source = params.get('template_source')
+                if not isinstance(template_source, str) or not template_source.strip():
+                    raise CircuitError('circuit_spec_invalid', 'template_source must be an explicit workdir path')
+                configuration_source = contained(service.workdir, template_source)
+                if configuration_source.suffix.lower() not in ('.py', '.rtpy') or not configuration_source.is_file():
+                    raise CircuitError('circuit_spec_invalid', 'An existing .py or .rtpy template_source inside workdir is required')
+                try:
+                    validate_python_result_template(configuration_source.read_text(encoding='utf-8'))
+                except (OSError, UnicodeDecodeError, ValueError) as exc:
+                    raise CircuitError('circuit_spec_invalid', str(exc), template_source=str(configuration_source)) from exc
+                group, name = params.get('group'), params.get('name')
+                if not isinstance(group, str) or not group.strip() or not isinstance(name, str) or not name.strip():
+                    raise CircuitError('circuit_spec_invalid', 'Explicit template group and name are required')
             if operation in ("read_results", "package"):
                 contained(service.workdir, params["destination"])
             if operation in ("run_task", "parameter_sequence"):
@@ -78,6 +93,16 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                 dest = contained(service.workdir, params["destination"])
                 report = CircuitResult(str(path)).export_csv(params["tree_path"], str(dest), run_id=params["run_id"])
                 return ok_result(saved=True, result_summary=report["metadata"], artifacts=[artifact(p) for p in report["artifacts"]])
+            if operation == 'stage_postprocessing_template':
+                from cst_automation.result_templates import stage_python_result_template
+                try:
+                    report = stage_python_result_template(
+                        str(configuration_source), str(contained(service.workdir, 'cst_template_library')),
+                        group=group, name=name)
+                except (OSError, ValueError) as exc:
+                    raise CircuitError('circuit_spec_invalid', str(exc), template_source=str(configuration_source)) from exc
+                return ok_result(saved=True, result_summary={**report, 'project_modified': False},
+                                 artifacts=[artifact(report['path'], kind='rtpy_template')])
             app = app_factory(str(path))
             if getattr(backend, "dialog_monitoring", False):
                 from cst_solver.environment import environment_pid

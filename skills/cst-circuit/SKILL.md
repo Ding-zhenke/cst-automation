@@ -11,9 +11,20 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 ## 当前工作重点
 
+实际工程的几何尺寸、材料与二极管参数、频段、偏置、泵浦及扫描范围属于用户私有产物，
+不得从工程中提炼到通用 skill 或示例；可复用流程只保留接口、符号参数和证据要求。
+
 当前以功能完善和可复用工作流为主，见 [开发重点](../../docs/CIRCUIT_DEVELOPMENT.md)。不为了补齐验收矩阵自行启动样例、非线性求解、网格或时间步收敛扫描。后续实际工程中围绕当次目标逐步验证；保留既有门槛和未验证项。修改程序所必需的小范围离线检查可以开展，不把全套实机验收设为每项功能开发的前置条件。
 
 ## 选择入口
+
+代码优先：配置/读回用原生 Python/API，必要时使用有依据的 VBA；日志、数据和
+API 可完成的检查不走 computer use。只有缺少接口、需要处理实际对话框或核对
+实际显示时才集中使用界面操作，避免反复截图和轮询。
+
+HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Results 曲线写入，
+以及已绑定模板源码替换，使用 [原生 HB 与后处理接口](../../docs/guides/native_hb_postprocessing.md)。
+这些接口不自动求解/保存；模板资源更新后仍需原生保存重开核验，不代表支持首次自动绑定。
 
 | 需求 | 当前入口 |
 |---|---|
@@ -23,6 +34,7 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 | 常用瞬态任务配置，不求解 | `app.circuit.configure_transient_task`；`create=True` 仅创建新名称 |
 | 端口激励、内阻、终端阻抗 | `app.circuit.configure_task_ports`，Sine/Import；实际 ExternalPort 名称 |
 | 内置二极管/SPICE 模型 | `app.circuit.configure_nonlinear_model`，默认只更新；不自动连线 |
+| CST Python 后处理模板 | `cst_automation.result_templates.stage_python_result_template`；MCP `stage_circuit_postprocessing_template` |
 | 当前三维工程的稳定因子/时间信号采样 | `app.configure_em_time_settings`，独立于 DS task |
 | 三维连接 | `app.circuit.link_em` |
 | 依赖检查与副本收集 | `inspect_dependencies/bundle` |
@@ -71,17 +83,26 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 - 报告中直接叠画 HB 频率曲线与实际完成的瞬态频点；在共同频点并列幅值和相位，并另画差值及预先声明的判定门槛。保留两侧复数原值、单位、工况和数据来源。相位差用圆周差 `arg(S_TR / S_HB)`，幅值差用 `20 log10(|S_TR| / |S_HB|)`；避免对已包裹的相位角直接相减。
 - 瞬态结果用于基波对照时，记录舍弃渐启后的分析时间窗、稳态周期检查、FFT/拟合方法及时间步证据；HB 则记录收敛状态和谐波设置。若差值超限，只能先报告两种提取结果不一致；继续核对端口归一化、源与器件端电压、偏置状态、时间窗、步长和 HB 收敛，不能仅凭差值断定某一种方法正确。
 
+## 二极管评估：电压曲线为必需交付
+
+用户的长期要求：以后评估二极管时，必须与 S 参数、性能指标和结论一并画出实际二极管电压曲线，不再等用户单独提醒。单管、偏置检查和多管阵列均适用；当次用户明确缩小范围时遵从当次指令。
+
+- 每只被评估二极管都提供实际 A−K 总电压随时间曲线，包含实际 DC 与交流分量；标明 A/K 极性、时间/电压单位、RF/泵浦频率与功率、偏置及数据来源。多方向或多工况评估应在一致条件下叠图或分面比较，不能只输出一个峰值或用源设置电压替代器件端电压。
+- 涉及 RF/泵浦调制时，同时提供实际 DC、泵频和 RF 同频分量的峰值与相位；多管阵列沿器件位置分别展开相位，保留共同源时钟参考。区分波形总峰值与分量峰值，核对原生零频谱线与波形的 DC 约定。
+- 自动后处理须同步生成电压图及可追溯原始数据；CST 内的自动图表同时包含原生 Results 电压节点，核对保存读回。报告给出实际绘制的图和数据入口，不以“已有探针/已有数据/将来可画”替代交付。优先使用代码和已有结果，不为补图自行增加授权之外的求解。
+- 验收时将“各管电压曲线已绘制并与来源核对”作为必查项；不能仅凭 S 参数图或标量表宣布二极管评估交付完整。缺数据时在当次授权范围内补齐；无法补齐则明确列为缺项，不编造曲线。
+
 ## 服务和扩展开发
 
 所有 CST 访问经同一服务 worker；显式注册，不改全局 MCP 配置。服务 `params.workflow="circuit"` 的现有路由为：
 
 | kind | operation |
 |---|---|
-| `build` | `configure`、`configure_transient_task`、`configure_task_ports`、`configure_nonlinear_model`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
+| `build` | `configure`、`configure_transient_task`、`configure_task_ports`、`configure_nonlinear_model`、`stage_postprocessing_template`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
 | `solve` | `run_task` |
 | `study` | `parameter_sequence` |
 
-MCP 当前十个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
+MCP 当前十一个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/stage_circuit_postprocessing_template/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。后处理模板工具只静态检查并暂存 `.rtpy` 文件，不打开或修改 CST 工程；用户需将返回的 library_root 加入 CST 库路径，并在 Post-Processing 任务的模板对话框中添加模板一次。此后 CST 可在对应求解后自动执行。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
 
 新增功能优先沉淀到通用 Python 接口，再接 service/MCP；跨包协议先更新 `PUBLIC_API.md`。共享数据放 `cst_automation`，SDK 在执行时惰性加载，不引入 TPC 或 em-enclosure 依赖。
 

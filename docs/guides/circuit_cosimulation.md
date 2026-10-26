@@ -204,6 +204,14 @@ job = service.submit("build", project_path="work/circuit-service/reviewed.cst",
 
 ## 服务和 MCP
 
+### CST Python 后处理模板
+
+CST 2026 帮助说明，Design Studio 的 Post-Processing 任务会在每次求解后执行已启用的模板；扫参或优化时，会针对实际求解的参数组合重新计算。Python 模板应是 UTF-8 `.rtpy` 模块，包含同步顶层 `define()` 和 `evaluate()` 函数。
+
+先把模板源码放在服务 workdir 内，再调用 `stage_circuit_postprocessing_template`，参数为 `template_source`（workdir 内 `.py`/`.rtpy` 文件）、`group` 和 `name`。输出位于 `workdir/cst_template_library/Result Templates/<group>/<name>.rtpy`。静态检查只验证 Python 语法与 CST 入口参数名，不导入或运行模板。
+
+首次使用时，在 CST 的库设置中把返回的 `library_root` 加入全局库路径，然后在目标工程创建或选择 Post-Processing 任务，在模板对话框中加入此模板。模板绑定和 HB 结果映射尚无本仓库实机读回；帮助文档没有记录从 `SimulationTask` API 自动添加模板步骤的方法。暂存文件并不表示已经绑定或已验证自动更新。
+
 ```python
 from tpc_service import RunService
 from tpc_service.circuit import register_circuit_handlers
@@ -215,7 +223,7 @@ register_circuit_handlers(service)  # 不打开 CST；仅安装路由
 
 `params.workflow="circuit"` 与合法 operation 才进入电路分支；其他任务仍使用原实现。所有 SDK 访问由同一 worker 执行，工作工程/导出路径限制在服务 workdir 内。
 
-MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册八个工具，不改用户全局配置。`configure_circuit_transient_task` 将 `task_name/settings/create` 交给 service 的 `build / configure_transient_task`；`configure_em_time_settings` 配置当前工程的 EM 时间控制。两者仅配置保存；实际求解仍须另行明确调用 `run_circuit_task`。注册不创建服务；首个需要队列的调用才启用对应服务路由。`compose_handlers=True` 用于明确与已有领域 handler 组合。预览也遵守已配置的工作目录。
+MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册十一个工具，不改用户全局配置。`configure_circuit_transient_task` 将 `task_name/settings/create` 交给 service 的 `build / configure_transient_task`；`configure_em_time_settings` 配置当前工程的 EM 时间控制；`stage_circuit_postprocessing_template` 在 workdir 内检查并暂存 `.rtpy` 文件。配置仅保存或生成文件；实际求解仍须另行明确调用 `run_circuit_task`。注册不创建服务；首个需要队列的调用才启用对应服务路由。`compose_handlers=True` 用于明确与已有领域 handler 组合。预览也遵守已配置的工作目录。
 
 命令行可显式启用：`python -m cst_mcp --enable-circuit --workdir work/circuit-service`。本轮通过独立 stdio 客户端检查 initialize、list_tools 和离线 preview 调用；该传输测试不连接 CST。
 

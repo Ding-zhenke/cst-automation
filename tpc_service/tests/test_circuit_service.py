@@ -269,3 +269,46 @@ def test_unavailable_em_domain_is_explicit_and_never_saved(tmp_path):
         assert events == ['closed']
     finally:
         service.shutdown()
+
+
+@pytest.mark.parametrize('redirect_library', [False, True])
+def test_template_staging_is_sdk_free_and_stays_in_workdir(tmp_path, redirect_library):
+    import os
+    workdir = tmp_path / 'service'
+    workdir.mkdir()
+    source = workdir / 'source.py'
+    source.write_text('def define(settings):\n    pass\ndef evaluate(settings):\n    pass\n', encoding='utf-8')
+    path = workdir / 'p.cst'
+    path.write_text('offline fixture')
+    library = workdir / 'cst_template_library'
+    outside = tmp_path / 'outside'
+    if redirect_library:
+        outside.mkdir()
+        if os.name == 'nt':
+            import _winapi
+            _winapi.CreateJunction(str(outside), str(library))
+        else:
+            library.symlink_to(outside, target_is_directory=True)
+    service = RunService(str(workdir), backend=FakeBackend())
+    register_circuit_handlers(service, app_factory=lambda p: pytest.fail('Staging must not open CST'))
+    try:
+        job = service.submit('build', project_path=str(path), copy=False,
+            params={'workflow': 'circuit', 'operation': 'stage_postprocessing_template',
+                    'template_source': 'source.py', 'group': 'Example', 'name': 'Metric'})
+        out = service.wait(job['job_id'], timeout=3)
+        if redirect_library:
+            assert out['status'] == 'failed'
+            assert out['error']['code'] == 'circuit_spec_invalid'
+            assert list(outside.iterdir()) == []
+        else:
+            assert out['status'] == 'succeeded'
+            assert out['result_summary']['project_modified'] is False
+            assert out['result_summary']['solver_verified'] is False
+            assert (library / 'Result Templates/Example/Metric.rtpy').read_bytes() == source.read_bytes()
+    finally:
+        service.shutdown()
+        if redirect_library:
+            if os.name == 'nt':
+                library.rmdir()
+            else:
+                library.unlink()
