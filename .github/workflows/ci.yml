@@ -42,3 +42,23 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install ".[dev]"
       - run: python -m build --wheel --sdist
+      - name: Verify installed wheel in an independent environment
+        shell: pwsh
+        run: |
+          python -m venv work/wheel-smoke
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $wheel = Get-ChildItem dist/*.whl | Select-Object -First 1
+          & work/wheel-smoke/Scripts/python.exe -m pip install "$($wheel.FullName)[mcp]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $smokeScript = (Resolve-Path scripts/verify_wheel.py).Path
+          $smokePython = (Resolve-Path work/wheel-smoke/Scripts/python.exe).Path
+          $env:PYTHONPATH = ''
+          $env:PYTHONDONTWRITEBYTECODE = '1'
+          New-Item -ItemType Directory -Force work/wheel-smoke/run | Out-Null
+          Push-Location work/wheel-smoke/run
+          try {
+            & $smokePython -B $smokeScript
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }

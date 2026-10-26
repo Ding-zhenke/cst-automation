@@ -10,7 +10,7 @@
 - **SDK 导入**：显式设置 `CST_INSTALL_PATH=E:\CST2026` 后，Python 3.13.9 / CST 2026 的 cp313 匹配，`doctor --probe` 实际导入 `cst.interface` 和 `cst.results` 成功，状态为 `importable`。该路径是本机验证参数，不是发行默认值；不代表许可证、readback 或 solver 已通过。
 - **MCP stdio**：新增真实子进程集成测试，使用 MCP Python SDK 1.30.0，完成初始化、9 个工具发现、读写注解、能力调用、未知工具/参数错误、假后端任务排队/状态/结果与关闭工程。测试阻止实际加载 CST，且检查请求 `run_id=7` 能原样返回；同时修复 FakeBackend 固定返回 run ID 0 的问题。通过的是 stdio 与 fake 任务链路，本包没有实现网络传输入口，不声称网络传输通过。
 - **发行制品**：构建 wheel 和 sdist 成功；构建后端最低版本改为支持 SPDX license 字符串的 `setuptools>=77`。制品不含 `work/`、`.venv/`、源码备份或 Git 元数据，wheel 内配置无机器路径。
-- **干净安装**：`work/maintenance-20261027/release-venv/` 由 `venv` 新建，`include-system-site-packages = false`；安装刚构建的 wheel 及声明的 NumPy/MCP 依赖。独立目录中清除 `PYTHONPATH`，四个包的加载路径均在该环境 `site-packages`，普通导入不改 `sys.path`、不加载 `cst`。曲线调用、缺失 SDK 的 doctor 退出码 1、安装版 stdio 握手/9 个工具发现/结构化错误均通过。
+- **干净安装**：`work/maintenance-20261027/release-venv/` 由 `venv` 新建，`include-system-site-packages = false`；安装刚构建的 wheel 及声明的 NumPy/MCP 依赖。独立目录中清除 `PYTHONPATH`，四个包的加载路径均在该环境 `site-packages`，普通导入不改 `sys.path`、不加载 `cst`。曲线调用、缺失 SDK 的 doctor 退出码 1、安装版 stdio 握手/9 个工具发现/结构化错误均通过。可复用检查脚本为 `scripts/verify_wheel.py`；CI 的 build job 也执行该隔离安装检查。
 - **尚未验收**：真实 CST 几何重建、实际消息/UIA、S 参数结果树发现、远场导出、solver，以及相邻领域仓库联调。具体几何参数、端口及阶段证据方案见 [真机验收预览](REAL_CST_ACCEPTANCE.md)，等待用户审阅后才构造几何。运行中取消接口仍未开放。
 - 原始快照、构建日志、环境报告及隔离安装报告保存在被忽略的 `work/maintenance-20261027/`；本轮不修改相邻仓库或用户全局 MCP 配置。
 
