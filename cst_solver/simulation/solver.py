@@ -139,7 +139,7 @@ End With"""
         """
         契约化求解入口：提交求解，并返回**结构化运行结论**。
 
-        与 :meth:`run` 的区别（``docs/next_plan/README.md`` P1「运行/结果契约」）：
+        与 :meth:`run` 的区别（见 ``cst_solver.run_contract``）：
 
         - :meth:`run` 只把 VBA 交下去、返回 ``None`` —— 「返回了」不代表「算完了」；
         - 本方法在提交**前后各取一次结果指纹**，并要求
@@ -148,7 +148,7 @@ End With"""
           ``failed`` / ``unverified``。
 
         ⚠️ ``run()`` 的行为**一字未改**（仍返回 ``None``），本方法是 opt-in 的
-        契约入口；``results_changed`` 是必要条件而非充分条件，真机判据见 P4/V7。
+        契约入口；``results_changed`` 是必要条件而非充分条件，真机验收方案见 docs/REAL_CST_ACCEPTANCE.md。
 
         :param project_path: str 可选, ``.cst`` 工程路径；默认从 ``cst_file`` 推断
             （取不到时结论落到 ``unverified``，不会假装成功）
