@@ -108,6 +108,8 @@ python -m cst_solver doctor --json
 
 CST 的 `cst` 模块随 CST Studio Suite 提供，请勿将 `pip install cst` 作为安装步骤。自动发现失败时，按[环境配置指南](docs/guides/cst_environment.md)设置 `CST_INSTALL_PATH`、`CST_PYTHON_LIB`、`CST_MATERIAL_LIB`，并确认 Python ABI 与 CST 扩展匹配。完整步骤见[安装文档](docs/INSTALLATION.md)。
 
+发行包不预设任何电脑的安装路径。未配置时自动发现常见目录；非标准安装目录通过环境变量或用户 JSON 指定。`doctor --json` 会对路径缺失或已知 ABI 不匹配返回非零退出码；加上 `--probe` 才执行 SDK 导入检查。
+
 ## 使用示例
 
 ### 离线分析：提取合格频带与谐振点

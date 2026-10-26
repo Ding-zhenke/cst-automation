@@ -2,7 +2,7 @@
 """
 cst_solver 守卫层与结构化验收单元测试
 =====================================
-对应实施计划 `docs/next_plan/README.md` 的 5.1 / 5.2。
+验证通用守卫与结构化验收；当前证据边界见 `docs/VALIDATION.md`。
 
 运行方式::
 
@@ -16,7 +16,7 @@ cst_solver 守卫层与结构化验收单元测试
 「参数改了但历史没重建」要开工程、跑历史，慢且不可重复）。
 
 ⚠️ 因此本文件**不能**替代「拿真 CST 跑一遍」：真 CST 的 `Solid.GetNumberOfShapes()`、
-`Rebuild()`、`get_messages()` 行为仍需实测确认（已登记在 stages/05 的未验证风险里）。
+`Rebuild()`、`get_messages()` 行为仍需实测确认（见 docs/VALIDATION.md 的真机验收缺口）。
 
 @author: PC
 """

@@ -21,7 +21,7 @@ python -m cst_solver doctor --probe
 }
 ```
 
-配置内相对路径相对于 JSON 所在目录。`CST_PYTHON_LIB`、`CST_MATERIAL_LIB` 可独立覆盖；未指定时从安装目录推导。兼容旧 `cst_solver/config.py`，但新安装不需要复制配置到 site-packages。`config_template.py` 只作为示例，不再当作本机配置加载。
+配置内相对路径相对于 JSON 所在目录。`CST_PYTHON_LIB`、`CST_MATERIAL_LIB` 可独立覆盖；未指定时从安装目录推导。发行包中的 `cst_solver/config.py` 不设置机器路径，因此不会遮蔽自动发现。兼容用户自行配置的旧 `config.py`，但新安装不需要复制配置到 site-packages。`config_template.py` 只作为示例，不再当作本机配置加载。显式指定的路径无效时保留并报告该错误，不静默选用其他安装。
 
 安装路径优先级：`get_cst_paths(install_path=...)` 显式参数 → `CST_INSTALL_PATH` 环境变量 → 用户 JSON（优先于旧 config.py）→ 常见安装目录自动发现。显式根目录覆盖时，旧配置中的子路径不再生效；显式环境子路径仍优先。
 
@@ -38,7 +38,7 @@ report = diagnose_environment()              # 检查配置与发现状态，不
 report = diagnose_environment(probe=True)    # 仅尝试导入接口，不启动 DE/求解
 ```
 
-doctor 输出 JSON；配置错误及 probe 导入失败返回退出码 1。`not_probed` 不代表不可用或可用；`importable` 只代表接口能加载，不证明许可有效、模型正确或求解成功。底层 ImportError/DLL 错误作为 `CSTUnavailableError` 的异常链保留。
+`python -m cst_solver doctor --json` 输出 JSON；省略 `--json` 的输出相同。离线检查发现 SDK 路径不存在、未配置或发现 SDK、选中安装的已知 ABI 不匹配时，状态为 `unavailable`，退出码为 1；配置文件错误或 `--probe` 导入失败也返回 1。未发现离线阻断项时状态仍为 `not_probed`，退出码 0 不证明 SDK 已成功加载；使用 `--probe` 才尝试导入接口。`importable` 只代表接口能加载，不证明许可有效、模型正确或求解成功。底层 ImportError/DLL 错误作为 `CSTUnavailableError` 的异常链保留。
 
 ### 解释器 ↔ 接口 ABI（离线可查）
 

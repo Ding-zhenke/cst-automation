@@ -11,6 +11,12 @@
 - Optional extra `mcp` 要求 Python 3.10+，并依赖 `mcp>=1.29,<2`；当前 `cst_mcp` 适配 MCP Python SDK 1.x API。
 - 依赖方向：TPC/em-enclosure → 本包 → CST Studio Suite（仅真实 CST 操作）。本包不得 import `mesh_grid`、`topo_modeler`、`topo_templates`、`em_enclosure` 或 `tpc_toolkit`。
 
+## 环境发现与诊断约定
+
+发行包不携带开发机安装路径。未配置时自动发现常见安装目录；显式参数、环境变量、用户 JSON 或兼容的 `config.py` 仍按原有优先级覆盖发现结果。显式配置无效时报告错误，不静默回退到其他安装。
+
+`python -m cst_solver doctor [--json] [--probe]` 始终输出 JSON，`--json` 是显式格式选项。`diagnose_environment()` 保留原有字段；默认离线检查若发现配置的 SDK 目录不存在、没有可发现的 SDK 或已知接口 ABI 不匹配，返回 `status="unavailable"` 并在 `errors` 中给出原因，CLI 退出码为 1。其余未经导入的状态仍为 `not_probed`，退出码 0 只表示离线检查未发现阻断项。`probe=True` 才尝试导入接口；`importable` 不证明许可、工程读回或求解可用。
+
 ## Runtime guard API
 
 ```python
@@ -127,6 +133,8 @@ service.register_handler("build", offline_build)
 ```
 
 此例只说明 handler 调用协议，不证明 CST 安装、几何读回或求解成功。真实领域 handler 必须用安装的 `cst-automation` API 并单独记录 offline、readback、solver 证据。
+
+FakeBackend 的 `solve` 结果保留请求的 `run_id`（默认 0），用于验证身份字段的传递；`run_token` 仍带 `fake-` 前缀，产物仍为合成数据。
 
 ## `cst_mcp` 扩展入口
 

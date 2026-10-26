@@ -5,3 +5,5 @@
 通用工具包含 CST 能力发现、工程登记、已有工程求解、任务状态/结果读取、S 参数 CSV 分析和报告导出。写操作通过 `tpc_service.RunService`，MCP stdout 仅用于协议。领域包可在自有入口显式调用 `cst_mcp.register_tool(name, definition, handler)` 注册领域工具；未注册时不会导入拓扑或腔体代码。
 
 调试时先将 `CST_AUTOMATION_WORKDIR` 指向可写的任务目录。`CST_AUTOMATION_BACKEND=fake` 可验证离线工具流；FakeBackend 会明确标记假结果。生产运行不要用 fake 结果代表 CST solver 输出。工具和 handler 协议见 [PUBLIC_API.md](../PUBLIC_API.md)。
+
+`cst_mcp/tests/test_stdio.py` 使用真实子进程验证初始化、工具发现、结构化错误与 fake 任务完整链路，并禁止加载 CST SDK。安装 MCP extra 后可运行 `python -m pytest cst_mcp/tests/test_stdio.py -q`。该测试不验证真实求解；当前 CLI 只提供 stdio，没有网络传输入口。

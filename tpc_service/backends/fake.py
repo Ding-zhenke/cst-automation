@@ -123,7 +123,7 @@ class FakeBackend(Backend):
                 log=['假后端求解完成'],
                 artifacts=artifacts,
                 run_identity={'run_token': f'fake-{job.get("job_id", "")}',
-                              'run_id': 0},
+                              'run_id': params.get('run_id', 0)},
                 result_summary=summary,
                 saved=self.confirm_save)
         finally:
