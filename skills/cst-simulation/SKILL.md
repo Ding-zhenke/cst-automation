@@ -5,6 +5,8 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 
 # CST simulation
 
+For actual Codex operations, first apply [persistent conversation sessions](../cst-sessions/SKILL.md).
+
 For Design Studio schematics, EM links, or field-circuit tasks, use [cst-circuit](../cst-circuit/SKILL.md). Its current development scope prioritizes functions and skills; do not start dedicated validation solves unless required by the user's engineering task.
 
 Confirm the target project, solver type, frequency range, ports, boundaries, mesh, and requested outputs before starting a costly solve. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.

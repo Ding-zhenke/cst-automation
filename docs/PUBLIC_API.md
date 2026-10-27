@@ -135,6 +135,53 @@ find_param_indices(original_params, selected_params)
 
 逐字迁移原函数（以签名检查为准），保持分组文本解析、NumPy 数组返回、标签与异常行为。Touchstone 的其他格式/复数网络矩阵不在此函数承诺范围内。
 
+## 对话持久会话（显式启用，2026-10-27）
+
+`tpc_service.sessions.SessionManager(root, *, backend="cst")` 是本机文件队列管理器。
+每会话一个独立常驻 worker 进程，所有 SDK 调用在该进程主线程执行；管理器客户端
+可退出，任务和 DE 保留。root 必须是显式已授权绝对目录，不使用 cwd 推导会话位置。
+backend 可显式为 fake（测试边界，不证明 CST 行为）。
+
+方法：`ensure(binding, request_id)` 分配绑定不启动 DE；`status(session_id, credential)`、
+`submit(session_id, credential, request_id, operation, params=None, operation_id=None)`、
+`job(session_id, credential, job_id)`、`resume(session_id, credential)`、
+`close(session_id, credential, request_id)`。submit 返回持久 job 记录；同 request_id
+同载荷返回原记录，不同载荷报 request_id_conflict。operation_id 标识阶段，阶段重复
+提交复用既有任务而不执行第二次；变更载荷须使用新阶段 ID。
+
+绑定首次分配的 `(binding, request_id)` 是恢复引用的一部分，重复 ensure 返回同一凭据；
+不能在不同对话共享这两个值。凭据不写入公共任务和状态。没有宿主可信 thread ID
+时仅保证会话路由，不能认证真实聊天身份。工作目录须是当前用户信任的本机目录，
+不提供跨用户恶意进程隔离。文件队列不执行任意 Python 或 shell，只接受显式操作。
+
+操作：`start`、`create_project`、`import_project`、`inspect`、`history`、`set_parameters`、
+`solve`、`circuit`、`close`。写入工程要求显式 project_id；history 要求 stage_id、
+name、vba、preview_digest（与实际 VBA SHA256 相符，调用前须完成人工预览审阅）。
+该摘要证明输入对应关系，不冒充用户审批凭证。恢复不重新复制或重放未知副作用。
+create_project 支持 MWS/DS；import 默认复制到本会话独立工程目录，不支持跨会话就地写入。
+`circuit` 接受 kind 和原有 circuit handler params；借用同一 app，finally 不关闭 DE。
+失败或进程丢失后的未知执行进入 needs_reconcile；未证实空闲的存活 DE 仅允许诊断。
+`resume` 仅恢复 worker/精确连接；不会自动重放原 running 任务。关闭前已接收的队列
+按序完成；新写入被拒绝，关闭失败保持 close_failed。客户端断线不关闭环境。
+
+MCP 通过 `--enable-sessions --session-root ABSOLUTE_PATH` 显式注册：ensure_cst_session、
+get_cst_session、submit_cst_session_operation、get_cst_session_job、resume_cst_session、
+close_cst_session。每个调用显式传递 session_id/credential，不存在全局当前会话。
+旧工具仍为临时模式，不得对持久会话工程混用。SDK 对象不进入队列/JSON。
+
+原生常驻和 PID 重连测试使用空环境；未据此承诺几何或 solver 已通过。
+
+人工核对入口：`reconcile(session_id, credential, review_note, project_digests, *,
+confirm_idle=False, environment_identity=None, confirm_no_environment=False, abandon_projects=None)`。只在
+needs_reconcile/close_failed 且无 running 任务时可用。调用前必须由用户核对现场；
+提供全部工程当前 SHA256 和明确的空闲确认，保留原未知任务为 resolved，不将其
+升级成 succeeded。DE 创建回执丢失时须人工给出完整进程身份，或明确确认无环境存活。
+任何已被另一活动会话记录的 DE 身份都拒绝接管；环境身份赋值由根目录锁串行化。
+首次工程未落盘时，可显式 abandon_projects 放弃不存在且未确认保存的工程意图，
+不得因此删除已有文件。关闭意图独立存储，不能解除前驱未知状态的写入屏障。
+恢复日志记录这是 human_reviewed，readback_verified/solver_verified 仍为 False。
+MCP 显式注册 `reconcile_cst_session`，不得由 agent 无人核对时自动使用。
+
 ## `tpc_service` 生命周期与状态
 
 `RunService(workdir, backend=None, *, clock=None, recover=True, autostart=True)` 创建运行服务。默认 backend 是惰性加载 CST 的 `CstBackend`；离线使用必须显式传入 `FakeBackend` 或自定义 backend。worker 单线程串行执行。服务重启时 queued/running 记录标记 interrupted，不自动重跑；排队任务可取消为 interrupted，运行中的 CST 不承诺可取消。`close_project` 只关闭服务拥有的会话。产物必须受限在服务 workdir 中。

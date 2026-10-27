@@ -2,6 +2,8 @@
 
 Codex skill entry points for this package:
 
+- [cst-sessions](cst-sessions/SKILL.md): default conversation-bound persistent CST environments, recovery, and deduplication.
+
 - [cst-modeling](cst-modeling/SKILL.md)
 - [cst-simulation](cst-simulation/SKILL.md)
 - [cst-circuit](cst-circuit/SKILL.md): Design Studio schematics, EM links, field-circuit tasks, circuit results, and service/MCP workflows.

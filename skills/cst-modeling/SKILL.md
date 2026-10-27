@@ -5,6 +5,8 @@ description: Plan, preview, create, or inspect general CST geometry through cst_
 
 # CST modeling
 
+For actual Codex modeling, first apply [persistent conversation sessions](../cst-sessions/SKILL.md).
+
 Before constructing or materially changing geometry, derive a preview from the actual model parameters and show the intended geometry, ports, coordinate system, and key dimensions. Wait for the user's review before beginning construction. A text-only concept sketch does not verify geometry.
 
 Keep units and coordinate conventions explicit. Prefer small, inspectable operations through `cst_solver`; preserve the user's existing project and unrelated work. After each dependent geometry stage, rebuild and record messages, entity counts, and output paths. Treat a clean rebuild as geometry evidence only; it does not establish solver success or device performance.

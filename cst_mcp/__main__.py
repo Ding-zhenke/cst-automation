@@ -34,6 +34,9 @@ def _build_parser() -> argparse.ArgumentParser:
                         help='只打印能力报告并退出，不启动 MCP 服务')
     parser.add_argument('--enable-circuit', action='store_true',
                         help='显式注册 Design Studio 电路扩展；不启动 CST')
+    parser.add_argument('--enable-sessions', action='store_true', help='显式启用对话持久会话工具')
+    parser.add_argument('--session-root', help='持久会话根目录，必须是绝对路径')
+    parser.add_argument('--session-backend', choices=('cst', 'fake'), default='cst')
     parser.add_argument('--version', action='version',
                         version=f'cst-automation-mcp {__version__}')
     return parser
@@ -47,6 +50,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     :return: int, 退出码（``--check`` 时 CST 不可用也返回 0 —— 离线工具仍可用）
     """
     args = _build_parser().parse_args(argv)
+    if args.enable_sessions:
+        if not args.session_root:
+            _build_parser().error('--enable-sessions requires --session-root ABSOLUTE_PATH')
+        from cst_mcp.session_tools import register_session_tools
+        register_session_tools(args.session_root, backend=args.session_backend)
     if args.workdir:
         runtime.configure(workdir=args.workdir)
     if args.enable_circuit:
