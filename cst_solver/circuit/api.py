@@ -83,6 +83,21 @@ class CircuitAPI:
             raise CircuitError('circuit_build_partial', f'Transient configuration interrupted: {exc}',
                                stage='configure_transient_task', task_name=task_name) from exc
 
+    def configure_steady_state_task(self, task_name, settings, *, create=False):
+        """Configure transient shooting only; source compatibility needs separate validation."""
+        from cst_automation.circuit_tasks import steady_state_settings
+        data = steady_state_settings(settings)
+        if not isinstance(task_name, str) or not task_name.strip() or any(c in task_name for c in '\r\n\x00') or type(create) is not bool:
+            raise CircuitError('circuit_spec_invalid', 'Explicit task name and boolean create required')
+        self._spec = None
+        try:
+            return self.adapter.configure_steady_state_task(task_name, data, create=create)
+        except CircuitError:
+            raise
+        except Exception as exc:
+            raise CircuitError('circuit_build_partial', 'Steady-state configuration interrupted: ' + str(exc),
+                               stage='configure_steady_state_task', task_name=task_name) from exc
+
     def configure_task_ports(self, task_name, ports):
         from cst_automation.circuit_ports import task_port_settings
         from cst_automation.circuit_configuration import configuration_name

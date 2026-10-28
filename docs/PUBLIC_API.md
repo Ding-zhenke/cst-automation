@@ -264,3 +264,28 @@ service.register_handler("build", offline_build)
 - 首个拆分版 `0.1.x` 保留 `cst_solver`、`tpc_service`、`cst_mcp` 导入名，以及源 `curves/s2p` 的函数行为。
 - `0.x` 的跨包协议变更按次要版本明确记录；`1.x` 承诺稳定公共 API。新增/移除 handler kind、任务状态、错误码字段或工具扩展行为需更新此文档和测试。
 - TPC 提供的 `tpc_toolkit.curves` 与 `.s2p` 延迟兼容入口由 TPC 维护，本仓库不分发旧 `tpc_toolkit`。
+
+
+## Session native inspection without history
+
+The existing session `inspect` operation accepts opt-in `native_readback: true`, with bounded `sample_points` (id, solid, xyz `point`) and optional standard-view `captures` (name, view, hide_components). Native parameter expressions/descriptions, solid volumes and point tests are read on the owning worker, outside history/rebuild. Capture paths are confined to session artifacts. Errors remain explicit and set `readback_verified=false`; this does not verify a solve. Default inspect behaviour is unchanged.
+
+
+## 2026-10-28：周期稳态射击法配置（仅离线验证）
+
+- `CircuitAPI.configure_steady_state_task(task_name, settings, *, create=False)` 将明确的
+  transient 任务配置为 `cst - steady state`，不保存、不调用 Update、不改变源、连接、
+  积分设置或单位。`create=True` 只创建不存在的名称。它是 transient shooting，
+  不表示支持 Circuit Envelope 或泵浦 HB 小信号线性化。
+- `settings` 仅含 `automatic_period`（布尔）、`period`（正的 value/unit 时间数量）和
+  可选 `tolerance`（有限实数，0 < tolerance < 1，拒绝布尔）。提供 period 时默认手动，
+  否则默认自动检测；自动检测不允许同时提供 period，手动检测必须提供 period。
+  省略 tolerance 时保留原生已有容差。手动周期按目标任务当前生效的时间单位换算，
+  已有局部单位优先，不修改全局单位；新任务采用全局时间单位并校验创建后读回。
+- 返回原生属性与单位读回、请求的 SI 周期及未验证字段。配置读回不证明激励具有共同
+  周期、射击法收敛、实际积分步长或性能提速。端口周期波形、宽带时域宏模型、被动性、
+  延迟及谱提取须在实际工程中独立核验。先完成普通瞬态/源设置再调用此接口；后续
+  configure_transient_task 会按其显式模式重新选择普通或联合瞬态求解器。
+- 服务显式注册 `build / configure_steady_state_task`，MCP 增加
+  `configure_circuit_steady_state_task`，参数 `task_name/settings/create`。沿用串行 worker、
+  保存、部分失败审计；非法输入必须在打开 SDK 前拒绝。未新增运行模式或改变运行证据。

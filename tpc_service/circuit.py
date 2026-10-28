@@ -24,7 +24,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "configure_transient_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "inspect", "read_results", "package"},
+    allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "inspect", "read_results", "package"},
                "solve": {"run_task"}, "study": {"parameter_sequence"}}
 
     def handle(*, project, params, job, backend):
@@ -43,6 +43,12 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                 name = params.get('task_name')
                 if not isinstance(name, str) or not name.strip() or any(c in name for c in '\r\n\x00') or type(params.get('create', False)) is not bool:
                     raise CircuitError('circuit_spec_invalid', 'Explicit task name and boolean create required')
+            if operation == 'configure_steady_state_task':
+                from cst_automation.circuit_tasks import steady_state_settings
+                from cst_automation.circuit_configuration import configuration_name, require
+                steady_state_settings(params.get('settings'))
+                configuration_name(params.get('task_name'))
+                require(type(params.get('create', False)) is bool, 'create must be boolean')
             if operation == 'configure_em_time_settings':
                 from cst_automation.em_time import normalize_em_time_settings
                 normalize_em_time_settings(params.get('settings'))
@@ -111,7 +117,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             api = app.circuit if operation != 'configure_em_time_settings' else None
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})
-            if operation in ("configure", 'configure_transient_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
+            if operation in ("configure", 'configure_transient_task', 'configure_steady_state_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
                 try:
                     if operation == 'configure_em_time_settings':
                         from cst_solver.simulation.em_time import EMTimeConfigurationError
@@ -122,6 +128,8 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                             raise CircuitError(code, str(exc), **exc.details) from exc
                     elif operation == 'configure':
                         report = api.apply(params['spec'])
+                    elif operation == 'configure_steady_state_task':
+                        report = api.configure_steady_state_task(params['task_name'], params['settings'], create=params.get('create', False))
                     elif operation == 'configure_task_ports':
                         report = api.configure_task_ports(params['task_name'], configuration_ports)
                     elif operation == 'configure_nonlinear_model':

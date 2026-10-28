@@ -230,3 +230,43 @@ MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册十
 所有失败证据可通过服务状态/产物接口查看；`unverified` 映射为任务 failed 和 `circuit_result_unverified`，不会增加新任务状态。`configure` 成功表示写入与保存完成，其 result_summary 的原理图/solver 验证字段仍须分别查看。
 
 完整目标与冻结验收标准见 [设计文档](../superpowers/specs/2026-10-19-design-studio-cosimulation-design.md)。
+
+
+## 周期稳态射击法配置
+
+`configure_steady_state_task` 配置 CST Transient 的 `cst - steady state` 模式。
+这是周期边值问题的 transient shooting，不是 Circuit Envelope，也不是从 HB
+工作点导出的 RF 小信号线性化。
+
+```python
+# 先用 configure_transient_task / configure_task_ports 配置所需积分选项与周期源。
+report = app.circuit.configure_steady_state_task(
+    "PeriodicCheck",
+    {"period": {"value": 12.5, "unit": "ns"}, "tolerance": 1e-5},
+    create=False,
+)
+app.save()
+# 自动周期检测：
+report = app.circuit.configure_steady_state_task(
+    "PeriodicCheck", {"automatic_period": True}
+)
+```
+
+提供 period 时默认手动；不提供时默认自动。二者不能冲突，手动模式必须有正的
+value/unit 周期。`tolerance` 是射击迭代的相对残差阈值，必须是 (0,1) 内有限实数；
+省略时不覆盖已有值。周期按目标任务生效的时间单位换算，已有任务的局部单位优先。
+`create=True` 仅创建不存在名称的 transient 任务，已有名称不会被覆盖。
+
+该接口只改求解器模式、周期检测/周期和提供的容差；不会保存、Update、改变源、
+DUT 连接、单位、积分算法或结果选项。调用 configure_transient_task 会按其请求
+重新切换普通/联合瞬态模式，因此应先配置常用积分设置，再启用 shooting。
+
+实际求解前仍须校验：多个激励具有共同周期；Sine 延迟为零、导入波形 periodic
+且端点连续；保持原相位时钟；频变块具有可用的宽带时域拟合和被动性；长延迟可能
+降低射击法收敛性。傅里叶谱线与总时域 VAK 的归一化也需独立核对。配置读回不会
+证明周期相容、数值收敛、内部时间步或提速；返回值均保留相应未验证标记。
+
+文档依据：CST 2026 Help 的 SimulationTask Object（Transient 属性）、Steady State
+Simulation、Solver Settings for Steady State Simulation。当前封装只做离线验证，
+不为补齐接口验收而另行开启仿真。服务入口为 build/configure_steady_state_task，
+MCP 工具为 configure_circuit_steady_state_task，沿用同一 worker、保存和部分失败审计。

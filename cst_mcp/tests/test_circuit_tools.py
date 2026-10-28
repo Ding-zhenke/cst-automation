@@ -68,6 +68,7 @@ def test_transient_configuration_tool_queues_build_without_running_solver(circui
 
 
 @pytest.mark.parametrize('tool,operation,payload', [
+    ('configure_circuit_steady_state_task', 'configure_steady_state_task', {'task_name': 'SS', 'settings': {'automatic_period': True}, 'create': True}),
     ('configure_circuit_task_ports', 'configure_task_ports', {'task_name': 'TR', 'ports': {'1': {
         'source_type': 'none', 'impedance': {'real': {'value': 50, 'unit': 'Ohm'}}}}}),
     ('configure_circuit_nonlinear_model', 'configure_nonlinear_model', {

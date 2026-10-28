@@ -11,6 +11,7 @@ from tpc_service.errors import ServiceError
 
 
 @pytest.mark.parametrize('operation,payload', [
+    ('configure_steady_state_task', {'task_name': 'SS', 'settings': {'period': {'value': 12.5, 'unit': 'ns'}}, 'create': True}),
     ('configure_task_ports', {'task_name': 'TR', 'ports': {'1': {'source_type': 'none',
         'impedance': {'real': {'value': 50, 'unit': 'Ohm'}}}}}),
     ('configure_nonlinear_model', {'block_name': 'D1', 'settings': {'kind': 'berkeley_diode'}, 'create': True}),
@@ -48,6 +49,8 @@ def test_common_configuration_runs_only_on_worker_and_preserves_partial(tmp_path
     ('configure_task_ports', {'task_name': 'TR', 'ports': {'1': {'source_type': 'voltage',
         'signal': {'type': 'import', 'file': '../outside.csv'}}}}),
     ('configure_nonlinear_model', {'block_name': 'D1', 'settings': {'kind': 'spice', 'model': 'D', 'file': '../outside.cir'}}),
+    ('configure_steady_state_task', {'task_name': 'SS', 'settings': {'period': {'value': 1, 'unit': 'V'}}}),
+    ('configure_steady_state_task', {'task_name': 'SS', 'settings': {}, 'create': 'true'}),
     ('configure_task_ports', {'task_name': 'TR', 'ports': {}}),
     ('configure_nonlinear_model', {'block_name': 'D1', 'settings': {'kind': 'berkeley_diode'}, 'create': 'true'}),
 ])

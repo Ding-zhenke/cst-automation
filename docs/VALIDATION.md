@@ -182,3 +182,14 @@ wheel 使用本地 `.venv` 安装后，在独立工作目录导入 `cst_solver`�
 - 本轮没有安装并联调相邻仓库，也没有修改它们；因此不报告真实跨包调用通过。
 - 没有在 CST Studio Suite 中执行真实几何重建、结果 readback 或求解。fake/mock、导入和制品安装均不构成这些验证。
 - GitHub private 仓库 `Ding-zhenke/cst-automation` 已创建，`origin` 指向该仓库；初始提交 `1e00a1f` 已在 `origin/main` 核验。本轮补充提交只在本地创建，不在此会话推送，由主会话统一处理最终 push。
+
+
+## 2026-10-28 周期稳态射击法配置（离线）
+
+新增 configure_steady_state_task 的纯数据校验、Python facade/adapter、类型声明、
+服务 build 路由及 MCP configure_circuit_steady_state_task。原生命令依据为本机
+CST 2026 Help 的 transient shooting 模式、steady state period detection/period/tolerance。
+离线测试覆盖自动/手动周期、任务局部单位、非法输入预检、任务冲突、部分失败、
+原生读回不一致、worker 保存及 MCP 排队；未连接 CST 或启动新求解。
+配置读回、实际周期相容性、射击法收敛、源归一化、宽带时域拟合和运行提速分别
+验收；当前后五项仍未验证。不把射击法称作电路包络或泵浦 HB 小信号接口。

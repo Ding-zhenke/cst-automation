@@ -270,6 +270,10 @@ class NativeAdapter:
                 'requested_time_step_si': settings.get('requested_time_step_si'),
                 'internal_time_step_verified': False, 'readback_verified': False, 'solver_verified': False}
 
+    def configure_steady_state_task(self, name, settings, *, create=False):
+        from .steady_state import configure_steady_state_task
+        return configure_steady_state_task(self, name, settings, create=create)
+
     def configure_task_ports(self, name, settings):
         from .configuration import configure_task_ports
         return configure_task_ports(self, name, settings)

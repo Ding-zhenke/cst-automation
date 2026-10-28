@@ -33,6 +33,7 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 | 离线规格检查、原理图预览 | `validate_circuit_spec`、`preview_circuit`，位于 `cst_automation` |
 | 静态能力发现 | `cst_solver.circuit.circuit_capabilities()`，不连接 CST |
 | 配置与读回 | `app.circuit.inspect/apply/set_properties/list_pins` |
+| 周期稳态射击法配置，不求解 | `app.circuit.configure_steady_state_task`；手动 value/unit 周期或自动检测，可选相对容差 |
 | 常用瞬态任务配置，不求解 | `app.circuit.configure_transient_task`；`create=True` 仅创建新名称 |
 | 端口激励、内阻、终端阻抗 | `app.circuit.configure_task_ports`，Sine/Import；实际 ExternalPort 名称 |
 | 内置二极管/SPICE 模型 | `app.circuit.configure_nonlinear_model`，默认只更新；不自动连线 |
@@ -100,14 +101,27 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 
 | kind | operation |
 |---|---|
-| `build` | `configure`、`configure_transient_task`、`configure_task_ports`、`configure_nonlinear_model`、`stage_postprocessing_template`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
+| `build` | `configure`、`configure_transient_task`、`configure_steady_state_task`、`configure_task_ports`、`configure_nonlinear_model`、`stage_postprocessing_template`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
 | `solve` | `run_task` |
 | `study` | `parameter_sequence` |
 
-MCP 当前十一个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/stage_circuit_postprocessing_template/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。后处理模板工具只静态检查并暂存 `.rtpy` 文件，不打开或修改 CST 工程；用户需将返回的 library_root 加入 CST 库路径，并在 Post-Processing 任务的模板对话框中添加模板一次。此后 CST 可在对应求解后自动执行。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
+MCP 当前十二个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_steady_state_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/stage_circuit_postprocessing_template/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。后处理模板工具只静态检查并暂存 `.rtpy` 文件，不打开或修改 CST 工程；用户需将返回的 library_root 加入 CST 库路径，并在 Post-Processing 任务的模板对话框中添加模板一次。此后 CST 可在对应求解后自动执行。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
 
 新增功能优先沉淀到通用 Python 接口，再接 service/MCP；跨包协议先更新 `PUBLIC_API.md`。共享数据放 `cst_automation`，SDK 在执行时惰性加载，不引入 TPC 或 em-enclosure 依赖。
 
 `bundle` 当前只是依赖清点和复制，不保证 CST 二进制链接重定位；保留 `portable_verified=False`。SPICE `.lib`、外部 CST 闭包、缓存复用和中断恢复按实际实现标注边界。
 
 交付时分别报告：本轮新增功能、可调用入口、离线检查、原理图/几何读回、实际求解和数值证据；未运行项写“未执行”，不补做无关验收来填满清单。
+
+
+### 周期稳态 shooting
+
+- `configure_steady_state_task(task_name, settings, create=False)` 将明确的 transient
+  任务切到 `cst - steady state`，只配置，不保存或求解。settings 支持
+  automatic_period、带 value/unit 的 period、可选 (0,1) 相对 tolerance；提供 period
+  默认手动，否则默认自动，冲突输入在 SDK 前拒绝。省略容差不改已有值。
+- 先配置普通瞬态积分设置与端口，再启用 shooting；后续调用 configure_transient_task
+  会按显式模式切换求解器。周期按实际任务时间单位换算，含局部单位。
+- 不修改源/DUT/采样/积分设置。周期激励的相容性、实际求解残差、时域向量拟合、
+  被动性、长延迟敏感性与谱归一化仍需独立验证。当前只离线测试，不保证加速。
+- 该能力是瞬态射击法；不把它描述成 Circuit Envelope 或泵浦 HB 小信号接口。

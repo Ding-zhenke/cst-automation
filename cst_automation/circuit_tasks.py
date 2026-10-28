@@ -61,3 +61,30 @@ def transient_settings(settings):
         require(type(value) in (float, int) and math.isfinite(value) and 0 < value < 1, 'Accuracy must be finite and between 0 and 1')
         result['accuracy'] = value
     return copy.deepcopy(result)
+
+
+def steady_state_settings(settings):
+    """Normalize shooting-mode settings without loading or accessing CST."""
+    def require(ok, message):
+        if not ok:
+            raise CircuitSpecError(message)
+
+    require(isinstance(settings, dict), 'Steady-state settings must be a mapping')
+    require(not set(settings) - {'automatic_period', 'period', 'tolerance'}, 'Unknown steady-state settings')
+    automatic = settings.get('automatic_period', 'period' not in settings)
+    require(type(automatic) is bool, 'automatic_period must be boolean')
+    require(not automatic or 'period' not in settings, 'Automatic detection cannot have a manual period')
+    require(automatic or 'period' in settings, 'Manual detection requires a period')
+    result = {'automatic_period': automatic}
+    if not automatic:
+        period = settings['period']
+        require(isinstance(period, dict) and set(period) == {'value', 'unit'}, 'Period needs only value/unit')
+        number, dimensions = evaluate_quantity(period['value'], period['unit'], {})
+        require(dimensions == {'Time': 1} and number > 0, 'Positive time period required')
+        result['period_si'] = number
+    if 'tolerance' in settings:
+        value = settings['tolerance']
+        require(type(value) in (int, float) and math.isfinite(value) and 0 < value < 1,
+                'Shooting tolerance must be finite and between 0 and 1')
+        result['tolerance'] = value
+    return result
