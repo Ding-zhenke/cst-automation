@@ -1,28 +1,17 @@
 ---
 name: cst-sessions
-description: Manage independent persistent CST environments for separate conversations, including recovery and deduplication.
+description: Use when opening, resuming, or coordinating an explicit CST project across calls or conversations, including worker recovery and duplicate-request prevention.
 ---
 
-# Persistent conversation sessions
+# CST 对话会话
 
-For actual CST work in Codex conversations, use the persistent session entry point by default.
-Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
+真实操作使用当前对话绑定的持久会话。首次操作先读[环境与能力](references/runtime.md)，分配或恢复时读[会话操作](references/session-operations.md)。源码讨论、离线分析和预览不启动 CST。
 
-- Before the first actual modeling call, allocate one conversation-specific recovery reference with
-  the CLI or ensure_cst_session. Use an explicit authorized absolute root, normally this repository's
-  `work/sessions`, and a fresh UUID reference file in `work/conversations` for each new conversation.
-- Retain and report that reference path in the conversation so interrupted work can resume. Later
-  turns reuse it. New chats/forks create new bindings unless the user explicitly asks to recover one.
-- Route every modeling, configuration, solve and online read through this session with an explicit
-  project_id. Never use connect_to_any, last-active-window routing, or standalone setup/close scripts.
-- Complete actual-parameter geometry preview and wait for review under cst-modeling before history
-  submission. Stable stage_id and request_id identify retries. A preview hash does not prove review.
-- Query original job receipts after a timeout/disconnect. Resume the original worker when lost;
-  never resubmit uncertain work under a fresh ID or copy/rebuild the original model automatically.
-- needs_reconcile requires scene evidence. Do not automatically call reconcile_cst_session: only
-  use it after explicit user review of the saved baseline and idle state; preserve evidence levels.
-- Leave the DE running between tasks and replies. Close only after the user explicitly asks. A CLI
-  or MCP disconnect is not a close request. Close affects only the bound session.
-- If sandbox launch/identity checks fail, preserve exact diagnostics and use the approved execution
-  context for this same fixed entry point; do not invent paths, attach targets or launch workarounds.
-- Keep native/process/offline/geometry/solver evidence separate. Fake backend never certifies CST.
+- 当前用户指令与已有授权优先；先确定工程、操作范围及恢复引用。
+- 新对话使用独立引用、worker、DE 和工程目录。记录引用的绝对位置，后续复用；根目录服从目标工作区约定，不由插件安装位置决定。
+- 配置、求解及在线读回经过所属会话，显式指定 project_id，不按活动窗口或任意 DE 连接。
+- 超时先查原 request_id/job_id 回执；worker 丢失恢复原会话。不换 ID 重交未知写入，不自动重新导入或重建工程。
+- needs_reconcile 时保留现场，经用户明确核对保存基线及空闲状态后再处理。恢复不提高几何或求解证据等级。
+- DE 在回复和断线之间保留；仅按用户明确关闭请求关闭所属会话，不强杀其他任务。
+
+几何改变用 [cst-modeling](../cst-modeling/SKILL.md)，电路任务用 [cst-circuit](../cst-circuit/SKILL.md)。

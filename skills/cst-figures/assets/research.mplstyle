@@ -1,0 +1,25 @@
+# Configurable visual defaults only; no device data or model parameters.
+figure.figsize: 5.905512, 3.937008
+figure.dpi: 120
+savefig.dpi: 300
+savefig.bbox: tight
+font.family: Times New Roman, Microsoft YaHei, DejaVu Serif
+font.size: 10.5
+axes.labelsize: 11
+axes.titlesize: 11
+xtick.labelsize: 10
+ytick.labelsize: 10
+legend.fontsize: 10
+legend.frameon: False
+lines.linewidth: 1.5
+axes.linewidth: 0.8
+axes.spines.top: False
+axes.spines.right: False
+axes.grid: False
+axes.facecolor: white
+figure.facecolor: white
+axes.prop_cycle: cycler('color', ['0072B2', 'D55E00', '009E73', 'CC79A7', 'E69F00', '333333'])
+image.cmap: viridis
+pdf.fonttype: 42
+ps.fonttype: 42
+svg.fonttype: none

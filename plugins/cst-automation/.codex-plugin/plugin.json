@@ -1,0 +1,15 @@
+{
+  "name": "cst-automation",
+  "version": "0.2.0",
+  "description": "Nine focused skills for general CST workflows and scientific figures.",
+  "author": {"name": "Ding-zhenke"},
+  "repository": "https://github.com/Ding-zhenke/cst-automation",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CST Automation",
+    "shortDescription": "通用 CST 建模、仿真、电路、二极管与科研绘图",
+    "longDescription": "九个独立 skill；真实操作需要目标工作区的兼容运行库与 CST SDK。",
+    "developerName": "Ding-zhenke"
+  }
+}

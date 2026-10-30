@@ -1,5 +1,9 @@
 # cst-automation
 
+## 通用九 skill 插件
+
+本仓库可构建包含会话、建模、仿真、电路、结果、诊断、二极管加载、器件表征及科研绘图的通用插件。各 skill 按任务读取，公共包只包含明确审阅的工作流与可配置样式。见 [技能索引](skills/README.md) 和 [插件构建与安装](docs/guides/codex-plugin.md)。
+
 通用 CST Studio Suite 建模、仿真、结果读取、任务运行和诊断库。保留 `cst_solver`、`tpc_service`、`cst_mcp` 导入名，并提供 CST 无关的数据工具 `cst_automation.curves` 与 `cst_automation.s2p`。核心包支持 Python 3.9+，依赖 NumPy；MCP 服务器 extra 需要 Python 3.10+。
 
 ## 安装

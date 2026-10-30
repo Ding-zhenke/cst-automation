@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "cst-automation",
+  "version": "0.2.0",
+  "description": "Nine focused skills for general CST modeling, simulation, circuits, results, diode loading, device characterization and scientific figures.",
+  "author": {"name": "Ding-zhenke"},
+  "repository": "https://github.com/Ding-zhenke/cst-automation",
+  "license": "MIT",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "CST Automation",
+        "shortDescription": "通用 CST 建模、仿真、电路、二极管与科研绘图",
+        "longDescription": "九个独立 skill，按任务读取。提供通用方法与可配置图形样式，不包含设备模型或运行数据。真实操作需要本机兼容的 cst-automation 与 CST SDK。",
+        "developerName": "Ding-zhenke",
+        "category": "Productivity"
+      }
+    }
+  }
+}
