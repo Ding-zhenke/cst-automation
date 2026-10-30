@@ -21,7 +21,7 @@ _S_PARAMETER_NAME_RE = re.compile(r'^S\s*\d+\s*,\s*\d+$')
 #
 # CST 的 xdata/ydata 返回的是 Quantity / ComplexQuantity，直接参与比较会触发
 # ``ComplexWarning: Casting complex values to real discards the imaginary part``
-# （实测于阶段 4 T6，见 docs/next_plan/README.md §4.5）。
+# （迁移前实测记录；本仓库验证边界见 docs/VALIDATION.md）。
 # 这里的三个小函数负责把它们统一压成 numpy 数组。
 # ============================================================
 
@@ -334,7 +334,7 @@ class Result:
     # ⚠️ 未验证风险：本机目前没有"已存结果可读"的工程，S 参数批量读取的
     # S-Parameters 树路径格式取自 scripts/compare_s_parameters.py 的实测用法，
     # 但**列表发现逻辑（list_s_parameters）与远场导出尚未在真实工程上跑过**。
-    # 这是阶段 5 明确登记的未验证风险，不是"已验证"。
+    # 本仓库也未据此重验；当前缺口见 docs/VALIDATION.md。
     # ================================================================
 
     def _tree_paths(self, tree_filter=None):

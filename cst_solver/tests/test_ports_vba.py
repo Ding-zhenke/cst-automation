@@ -2,7 +2,7 @@
 """
 波导端口 VBA 生成回归测试
 =========================
-对应实施计划 `docs/next_plan/README.md` 的 5.8（优先级 1）。
+由迁移前的端口参数回归用例保留；当前验证边界见 `docs/VALIDATION.md`。
 
 守住什么
 --------
@@ -13,7 +13,7 @@
     **不传新参数时，生成的 VBA 必须与改动前逐字节相同。**
 
 否则就等于悄悄改了所有既有模型。基线逐字节存在 `tests/data/expected_port_vba.json`，
-现在由 `scripts/gen_expected_port_vba.py --write` 生成（改基线必须人工复核 diff）。
+该基线由迁移前仓库的脚本生成；本仓库保留 JSON，改基线必须人工复核 diff。
 
 ⚠️ 2026-09-20 端口朝向加固：`orientation` 的默认值由非法的 `'positive'`
 改成 `None` ⇒ 不再下发 `.Orientation` 行（等价于改动前 CST 的实际行为：该行被
@@ -21,7 +21,7 @@
 CST 合法的位置枚举。朝向防呆的专项测试见 `test_port_orientation_guard.py`。
 
 ⚠️ 顺带说明：本测试只证明**字符串**没变，不证明 CST 认得这些命令 ——
-后者只能在真 CST 上验（阶段 5.8 的 CST 验证尚未做，见 stages/05 的风险登记）。
+后者只能在真 CST 上验（阶段 5.8 的 CST 验证尚未做，见 docs/VALIDATION.md 的真机验收缺口）。
 
 运行方式::
 

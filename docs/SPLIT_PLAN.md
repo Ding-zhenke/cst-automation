@@ -49,4 +49,4 @@
 - [x] 建立忽略的源状态快照与逐文件迁移清单。
 - [x] 迁移、解耦并完成离线测试（485 passed；9 条默认端口朝向警告）。
 - [x] 构建 wheel/sdist 并在隔离目录安装验证（见 `docs/VALIDATION.md`）。
-- [ ] 将本轮本地提交推送到已创建的 GitHub private 仓库（由主会话统一 push；见 `docs/VALIDATION.md`）。
+- [x] 迁移补充提交已推送；2026-10-27 核验远程 main 为 `07279b0`，对应 CI 成功。后续维护与真机证据见 `docs/VALIDATION.md`。

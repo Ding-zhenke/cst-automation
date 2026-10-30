@@ -51,6 +51,8 @@
 | MCP 集成 | 工程、求解、任务查询、CSV 分析、报告与工具扩展 | `cst_mcp` |
 | Codex skills | 建模、仿真、结果与故障诊断操作指引 | [skills 索引](skills/README.md) |
 
+四个 skill 也可打包为一个按需选择 skill 的 Codex 插件，原有 skill 文件保持不变。构建和使用方式见 [Codex 插件指南](docs/guides/codex-plugin.md)。
+
 上述功能描述的是代码提供的接口范围；具体 CST 版本、求解器与真实工程的可用性仍需在目标环境验证。
 
 ## 项目架构
@@ -107,6 +109,8 @@ python -m cst_solver doctor --json
 ```
 
 CST 的 `cst` 模块随 CST Studio Suite 提供，请勿将 `pip install cst` 作为安装步骤。自动发现失败时，按[环境配置指南](docs/guides/cst_environment.md)设置 `CST_INSTALL_PATH`、`CST_PYTHON_LIB`、`CST_MATERIAL_LIB`，并确认 Python ABI 与 CST 扩展匹配。完整步骤见[安装文档](docs/INSTALLATION.md)。
+
+发行包不预设任何电脑的安装路径。未配置时自动发现常见目录；非标准安装目录通过环境变量或用户 JSON 指定。`doctor --json` 会对路径缺失或已知 ABI 不匹配返回非零退出码；加上 `--probe` 才执行 SDK 导入检查。
 
 ## 使用示例
 

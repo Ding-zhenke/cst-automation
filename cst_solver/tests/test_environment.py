@@ -4,6 +4,7 @@
 import json
 import os
 from pathlib import Path
+import runpy
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -77,6 +78,24 @@ def test_discovery_fallback_and_no_install(config, tmp_path):
     assert environment.get_cst_paths(search_roots=[tmp_path]).source == 'discovery'
 
 
+def test_shipped_configuration_does_not_mask_machine_discovery(tmp_path):
+    shipped = runpy.run_path(str(Path(environment.__file__).with_name('config.py')))
+    assert all(shipped[key] is None for key in
+               ('CST_INSTALL_PATH', 'CST_PYTHON_LIB', 'CST_MATERIAL_LIB'))
+    install = _fake_install(tmp_path, [environment.interpreter_abi_tag()])
+    paths = environment.get_cst_paths(environ={}, search_roots=[tmp_path])
+    assert paths.install_path == str(install)
+    assert paths.source == 'discovery'
+
+
+def test_invalid_explicit_path_is_not_replaced_by_discovery(config, tmp_path):
+    _fake_install(tmp_path, [environment.interpreter_abi_tag()])
+    invalid = tmp_path / 'not-installed'
+    paths = environment.get_cst_paths(install_path=invalid, search_roots=[tmp_path])
+    assert paths.install_path == str(invalid)
+    assert paths.source == 'argument'
+
+
 def test_materials_follow_environment(config, monkeypatch, tmp_path):
     monkeypatch.setenv('CST_MATERIAL_LIB', str(tmp_path))
     (tmp_path / 'Silicon.mtd').touch()
@@ -133,11 +152,14 @@ assert 'cst' not in sys.modules
 def test_doctor_is_json_even_when_configuration_is_broken(config, broken):
     if broken:
         config.write_text('not-json', encoding='utf-8')
+    else:
+        config.write_text(json.dumps({'CST_INSTALL_PATH': str(config.parent / 'missing')}),
+                          encoding='utf-8')
     report, _run = _doctor()
-    assert report['status'] == ('configuration_error' if broken else 'not_probed')
+    assert report['status'] == ('configuration_error' if broken else 'unavailable')
 
 
-def _doctor():
+def _doctor(*args):
     """
     跑一次 `python -m cst_solver doctor` 并解析 JSON。
 
@@ -146,7 +168,7 @@ def _doctor():
     `PYTHONIOENCODING=utf-8` 的环境里随机失败。
     """
     env = dict(os.environ, PYTHONIOENCODING='utf-8')
-    run = subprocess.run([sys.executable, '-m', 'cst_solver', 'doctor'],
+    run = subprocess.run([sys.executable, '-m', 'cst_solver', 'doctor', *args],
                          capture_output=True, text=True, encoding='utf-8',
                          errors='replace', env=env)
     assert run.returncode in (0, 1), run.stderr
@@ -218,15 +240,48 @@ def test_interface_abi_without_pyd_or_install(tmp_path, monkeypatch):
 
 
 def test_doctor_reports_interface_abi(config, tmp_path):
-    """`doctor` 的 JSON 里必须带上接口 ABI 段（离线信息，不影响 exit code）。"""
+    """匹配的接口未导入；不匹配的接口在离线诊断中已能判断不可用。"""
     (tmp_path / 'CST Studio Suite 2026' / 'AMD64' / 'python_cst_libraries').mkdir(parents=True)
     (tmp_path / 'CST Studio Suite 2026' / 'AMD64'
      / '_cst_interface.cp311-win_amd64.pyd').write_bytes(b'')
     config.write_text(json.dumps({'CST_INSTALL_PATH': str(tmp_path / 'CST Studio Suite 2026')}),
                       encoding='utf-8')
     report, run = _doctor()
-    assert run.returncode == 0, run.stderr
+    matches = environment.interpreter_abi_tag() == 'cp311'
+    assert run.returncode == (0 if matches else 1), run.stderr
+    assert report['status'] == ('not_probed' if matches else 'unavailable')
     abi = report['interface_abi']
     assert abi['interfaces'] == ['cp311']
     assert abi['interpreter_abi'] == environment.interpreter_abi_tag()
     assert abi['abi_match'] == (environment.interpreter_abi_tag() == 'cp311')
+
+
+def test_doctor_json_option_and_missing_sdk_exit_code(config, tmp_path):
+    config.write_text(json.dumps({'CST_INSTALL_PATH': str(tmp_path / 'missing')}),
+                      encoding='utf-8')
+    report, run = _doctor('--json')
+    assert run.returncode == 1
+    assert report['status'] == 'unavailable'
+    assert 'python_lib' in report['errors']
+    assert report['probe'] is False
+
+
+def test_doctor_matching_abi_is_not_a_successful_import(config, tmp_path):
+    install = _fake_install(tmp_path, [environment.interpreter_abi_tag()])
+    config.write_text(json.dumps({'CST_INSTALL_PATH': str(install)}), encoding='utf-8')
+    report, run = _doctor('--json')
+    assert run.returncode == 0
+    assert report['status'] == 'not_probed'
+    assert report['errors'] == {}
+    assert report['probe'] is False
+
+
+def test_custom_sdk_does_not_inherit_another_install_abi_failure(config, tmp_path):
+    install = _fake_install(tmp_path, ['cp00'])
+    sdk = tmp_path / 'custom-sdk'
+    sdk.mkdir()
+    config.write_text(json.dumps({'CST_INSTALL_PATH': str(install),
+                                  'CST_PYTHON_LIB': str(sdk)}), encoding='utf-8')
+    report = environment.diagnose_environment()
+    assert report['status'] == 'not_probed'
+    assert report['errors'] == {}

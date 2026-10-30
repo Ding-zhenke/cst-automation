@@ -9,8 +9,7 @@ r"""
 材料名不认识（``new_material``）、材料库路径不存在（``list_library_materials``）、
 ``.mtd`` 里没有有效定义（``load_material_from_file``）…。调用方拿到的返回值
 （``None`` / ``[]`` / ``False``）与「正常但没有数据」**区分不开** ——
-这正是 ``docs/architecture/cst_mcp.md`` §5 点名要禁止的
-「把失败或缺失结果变成空数据后声称成功」。
+这会造成「把失败或缺失结果变成空数据后声称成功」的问题。
 
 本模块在**不改这些接口返回值**的前提下，加一条结构化失败通道：
 
@@ -27,12 +26,11 @@ r"""
 ``new_material('Gold')`` 在旧 notebook 里是「提示一句后继续跑」；
 直接改成异常会破坏既有兼容（P1 验收判据之一「旧 notebook 导入兼容」）。
 所以默认行为一字不变，**要不要升级成异常由调用方决定** ——
-这正是 `docs/next_plan/README.md` P1 第 4 条「在兼容现有 API 的前提下，
-给共用服务提供结构化失败」的落点。
+目标是在兼容现有 API 的前提下，给共用服务提供结构化失败。
 
 错误结构统一
 ------------
-``{code, message, details, retryable}`` 是 ``cst_mcp.md`` §5 的唯一口径。
+统一错误结构为 ``{code, message, details, retryable}``。
 本模块的 :func:`structured_error` 是它的唯一实现，
 ``cst_solver.expressions`` / ``cst_solver.run_contract`` / caller-side preflight
 都复用它（避免同仓库出现第二套错误结构）。

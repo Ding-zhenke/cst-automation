@@ -235,7 +235,27 @@ def diagnose_environment(*, probe: bool = False) -> dict:
         'interface_abi': describe_interface_abi(paths.install_path),
         'status': 'not_probed', 'errors': {},
     }
+    if paths.python_lib and not report['python_lib_exists']:
+        report['errors']['python_lib'] = (
+            f'CST Python 库目录不存在: {paths.python_lib}。'
+            '请设置正确的 CST_INSTALL_PATH 或 CST_PYTHON_LIB。')
+    elif not report['python_lib_exists'] and not discoverable:
+        report['errors']['cst'] = (
+            '未配置或发现 CST Python 接口。请安装 CST 并设置 CST_INSTALL_PATH，'
+            '或用 CST_CONFIG_FILE 指定用户 JSON 配置。')
+    abi = report['interface_abi']
+    # 自定义 SDK 路径可能属于另一个安装；只判定从选中安装推导的 SDK。
+    default_lib = (Path(paths.install_path) / 'AMD64' / 'python_cst_libraries'
+                   if paths.install_path else None)
+    selected_install_sdk = (default_lib is not None and paths.python_lib is not None
+                            and Path(paths.python_lib) == default_lib)
+    if selected_install_sdk and abi['interfaces'] and not abi['abi_match']:
+        report['errors']['interface_abi'] = abi['note']
+    if report['errors']:
+        report['status'] = 'unavailable'
     if probe:
+        # probe 的结果来自实际导入，替换离线推断，避免错误关联其他安装。
+        report['errors'] = {}
         for module in ('cst.interface', 'cst.results'):
             try:
                 _load_cst_module(module)

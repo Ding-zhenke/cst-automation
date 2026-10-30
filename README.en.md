@@ -108,6 +108,8 @@ python -m cst_solver doctor --json
 
 The `cst` Python module ships with CST Studio Suite. Do not use `pip install cst` as an installation step. If discovery fails, follow the [environment guide](docs/guides/cst_environment.md) to configure `CST_INSTALL_PATH`, `CST_PYTHON_LIB`, and `CST_MATERIAL_LIB`, and match the interpreter ABI to the CST extension. See [installation](docs/INSTALLATION.md) for details.
 
+The distribution has no machine-specific installation path. It discovers common directories when no path is configured; use environment variables or a user JSON file for other locations. `doctor --json` returns a nonzero exit code for missing paths or a known ABI mismatch; add `--probe` to test SDK imports.
+
 ## Examples
 
 ### Offline analysis: threshold bands and resonances

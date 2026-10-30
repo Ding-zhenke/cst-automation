@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""python -m cst_solver doctor [--probe]：只读 JSON 环境诊断。"""
+"""python -m cst_solver doctor [--json] [--probe]：只读 JSON 环境诊断。"""
 
 import argparse
 import json
@@ -11,6 +11,7 @@ def main():
     """输出诊断；配置错误或 probe 失败时返回非零退出码，不启动 CST。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['doctor'])
+    parser.add_argument('--json', action='store_true', help='显式选择 JSON 输出（默认格式）')
     parser.add_argument('--probe', action='store_true', help='尝试导入 CST 接口，不启动设计环境')
     args = parser.parse_args()
     report = diagnose_environment(probe=args.probe)

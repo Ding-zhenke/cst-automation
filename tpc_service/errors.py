@@ -5,7 +5,7 @@ r"""
 
 统一使用 ``cst_solver.failures.structured_error`` 的
 ``{code, message, details, retryable}`` 四件套 —— **全仓唯一实现**，
-服务层不再自造第二套错误结构（``skills/developer/conventions.md`` 硬约定 5）。
+服务层不再自造第二套错误结构；公共接口见 ``docs/PUBLIC_API.md``。
 
 错误码一览
 ----------

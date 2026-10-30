@@ -1,0 +1,16 @@
+{
+  "name": "cst-automation",
+  "version": "0.1.0",
+  "description": "CST modeling, simulation, result analysis, and diagnostics through four independently selected skills.",
+  "author": {"name": "Ding-zhenke"},
+  "repository": "https://github.com/Ding-zhenke/cst-automation",
+  "license": "MIT",
+  "keywords": ["cst", "simulation", "electromagnetics"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CST Automation",
+    "shortDescription": "CST 建模、仿真、结果分析与诊断",
+    "longDescription": "包含四个独立 skill，按当前任务选择并读取指令。实际 CST 操作需要另行配置本机 Python、cst-automation 和 CST SDK。",
+    "developerName": "Ding-zhenke"
+  }
+}
