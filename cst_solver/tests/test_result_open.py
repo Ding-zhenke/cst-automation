@@ -36,9 +36,12 @@ from cst_solver._result_core import (                   # noqa: E402
 )
 
 
-def test_missing_ascii_path_says_file_missing(tmp_path):
+def test_missing_ascii_path_says_file_missing(monkeypatch):
+    # tmp_path may have non-ASCII parents when tests run inside this repository.
+    # Supply an ASCII path and a missing-file boundary without touching a disk.
+    monkeypatch.setattr(os.path, 'isfile', lambda path: False)
     message = describe_result_open_failure(
-        str(tmp_path / 'nope.cst'), FileNotFoundError("File does not exist: 'x'"))
+        'Z:/cst-test-missing/nope.cst', FileNotFoundError("File does not exist: 'x'"))
     assert '工程文件不存在' in message
     assert 'UnicodeDecodeError' not in message          # ASCII 路径不涉及那个坑
 

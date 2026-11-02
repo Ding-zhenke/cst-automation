@@ -2,6 +2,37 @@
 
 记录 `cst-automation` 0.1.0 的拆分历史及后续验证。几何 API 检查、结果读取和真实 CST 求解分开判定。本地运行与 GitHub Actions 运行分别记录，不能相互替代。
 
+## 2026-11-02 CST 2026 API 离线修复
+
+### 消息三态契约修复与推送前验证
+
+- 实施 not_read/read/read_failed：messages_clean 为 bool|None，未读不再由空列表判成功；保留部分迭代消息与读取异常，明确 caller/callback/sdk_pending_queue 来源。原生 solver、原生日志警告和 mesh 收敛无读取证据时仍为 unknown。
+- 新增 23 项离线测试，包含 RunContract/run_checked 禁读及成功/失败读取、JSONL、独立运行之间状态隔离、错误参数不触发提交、后端/服务落盘/MCP 查询传播，以及保存失败仍保留运行契约和 run token。
+- 完整回归：`.venv/Scripts/python.exe -m pytest -ra --disable-warnings --basetemp=work/adaptive-results/pytest`：**572 passed, 2 skipped, 1 deselected, 9 warnings**。2 项 MCP 协议/stdio 测试因缺少 extra 跳过；服务及 MCP dispatch 状态传播测试已通过。没有安装依赖或改变当前运行环境。
+- 代码复核发现保存失败会丢运行证据，已补失败回归并修复；当前改动不宣称真机验收。用户授权提交和推送当前专用分支，未授权合并 main 或部署安装环境。
+- 来源会话只读确认 `Mesh\Information\Element Information\Low Quality Elements` 可原生可视化定位；数值 ID/坐标/质量导出仍未证实，详见网格诊断能力文档。本会话未连接其检查会话。
+
+### 联合枚举与 Pass 轴读取补充
+
+- 实现 `Result.enumerate_result_paths`、`read_adaptive_s_parameter` 和 `read_adaptive_s_parameters`，通过独立 mixin 接入，保留现有树枚举签名；普通 S 参数发现限制到主频率结果树。
+- 新增 45 项离线测试，使用显式 results/modeler 替身，禁止隐式 SDK 加载/会话构造。覆盖重复路径来源合并、枚举中断/失败、modeler-only 路径、同一 run 下逐轮复数数据、显式/错误/当前别名 run、Pass 轴与非法数组、参考阻抗原样保留及未知归一化、单位原文与冲突、部分读取错误、空结果及不混入普通频率批量读取。
+- `.venv/Scripts/python.exe -m pytest -ra --disable-warnings --basetemp=work/adaptive-results/pytest`：**549 passed, 2 skipped, 1 deselected, 9 warnings**。MCP extra 缺失和 GUI 排除与前次一致；测试产物在 work/。这不增加原生 readback 或求解验收等级。
+- 未连接、启动、关闭 CST，未读取来源工程，未修改全局环境或插件缓存。原生参考阻抗的数据形态、工程身份对应和新接口完整闭环仍需在已授权主机环境串行验收；来源会话此前已核实的路径/轴语义与本轮实现的离线测试分别记录。
+
+### 前序通用修复记录
+
+- 分支：`codex/cst-2026-offline-api-repairs`；未推送，未更新全局安装或插件缓存。
+- 本轮不连接、启动、关闭 CST，不读取或修改另一会话工程，不中断其求解。未检查或声称全机空闲。
+- 本机官方帮助核对了点端口 Voltage/Current、picked 参数、面端口不同的幅度方法、CircuitProbe/Net 对象及 continuation 的文档边界。
+- 新增 17 项离线回归：点端口宏、执行器选择与不重试、CircuitProbe/Net 宏、Delta S 多频率/连续轮次判定、装饰窗与未知状态、确认前 PID 创建身份复核、主机预检查拒绝与服务错误码。修复一个既有测试对临时目录父路径为 ASCII 的假设，以支持在本仓库中文路径下运行所有测试产物。
+- 本仓库 `.venv` 实际为 Python 3.9.18；补齐该隔离环境的 pip/NumPy/pytest，未修改公共 Python。执行 `.venv/Scripts/python.exe -m pytest -ra --disable-warnings --basetemp=work/api-offline-repairs/pytest`：**504 passed, 2 skipped, 1 deselected, 9 warnings**。2 项 MCP 协议/stdio 测试因未安装 MCP extra 跳过（该 extra 要求 Python >=3.10）；1 项 GUI 测试不运行；9 项为既有端口朝向提示。`git diff --check` 无错误。
+- 离线 `doctor --json` 发现本机 CST 2026 与 cp39 ABI 匹配，状态为 `not_probed`；没有执行 `--probe`，不声称 SDK 导入、IPC、许可、readback 或 solver 已验证。
+- 本轮没有找到公开显式选择 CONTINUE 的已文档化 Python/VBA 方法；ForceRecalculateOldSamples/AcceleratedRestart/resume_solver 不能作为该能力的证明。未实现或声称原生网格 continuation 可用。
+- 主机 preflight 为新增 opt-in 入口，既有 setup/服务尚未迁移；收敛评价器处理调用方提供的证据，未实现原生自适应结果提取；Qt 非标准确认按钮与不可读正文仍上报，不自动处理。新增连接、暂停、停止案例仅记录来源会话报告，未复测。
+- 调用示例、官方帮助相对路径和逐项真机待验清单见 [API 修复说明](guides/api-offline-repairs.md)。真机验收须等待其他求解结束，并持有全机串行锁、核对 PID+创建时间、在可访问主机环境执行。
+- 来源会话后续报告：中止完成、控制器退出，但恢复最后成功解后出现离散面端口解加载失败，原生 state 为 ERROR，不计完整矩阵或求解通过。ItemMeshSettings 是返回 bool 的上下文变更调用，误作 getter 属使用方语义错误；求解器自动生成特殊体不支持 simple bounding box 的情况须与普通几何损坏分开记录。以上仅补充记录，未复测；主任务即将继续，不据此认定全机空闲或取得真机使用授权。
+- 逐轮结果结论更正（来源会话真机只读核实，本会话未连接）：Model3D 树枚举可发现 Python results 树列表漏列的 `1D Results\Adaptive Meshing\f=<frequency>\S-Parameters\S<i>,<j>`；这些条目可由 Python results 按已有 run ID 读取，xlabel 为 Pass、y 为每轮复数 S。来源会话已全量读回并复现原生 Delta All S、核对末轮主矩阵及归一化。不能再以 run ID 未增加或 Python 树漏列断言无逐轮数据；后续联合枚举须显式使用已授权会话，不能隐式连接。本轮仅记录通用语义，未新增实现或纳入具体矩阵数据。
+
 ## 2026-10-27 维护验证
 
 - **Git 来源已恢复**：本机目录原为不含 `.git` 的源码副本。先保存文件快照，再在 `work/maintenance-20261027/upstream/` 克隆完整仓库并恢复根目录 Git 元数据；重建索引时保留全部工作文件。维护前远程 main 为 `07279b078af3484f6f0ad8c0ed6c9ed02db702f5`。该提交的 [Actions 40395424088](https://github.com/Ding-zhenke/cst-automation/actions/runs/40395424088) 已成功；这不是当前维护改动的 CI 结果。

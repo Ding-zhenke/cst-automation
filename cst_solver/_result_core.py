@@ -11,6 +11,7 @@ import csv
 import re
 import numpy as np
 from cst_solver.environment import _load_cst_module
+from cst_solver.adaptive_results import AdaptiveResultsMixin
 
 #: CST 的 S 参数命名（``S1,1``；允许空格）
 _S_PARAMETER_NAME_RE = re.compile(r'^S\s*\d+\s*,\s*\d+$')
@@ -124,7 +125,7 @@ def describe_result_item_failure(tree_path, exc, tried) -> str:
     return message
 
 
-class Result:
+class Result(AdaptiveResultsMixin):
     """
     CST 仿真结果读取类
     用于从已完成的 CST 仿真工程中读取 S 参数、场数据等结果
@@ -363,7 +364,8 @@ class Result:
 
         判定规则（2026-09-17 收紧，修掉一个真实误报）：
 
-        * 必须是 ``S-Parameters`` 目录的**直接子项**（``…\\S-Parameters\\S1,1``）；
+        * 必须是主频率树 ``1D Results\\S-Parameters`` 的**直接子项**；
+          ``Adaptive Meshing\\f=...\\S-Parameters`` 下的 Pass 轴曲线独立读取；
         * 叶子名必须符合 CST 的 S 参数命名 ``S<端口1>,<端口2>``。
 
         为什么两条都要：``ANT_LEAKY_EPC_GRID.cst`` 里有一条
@@ -381,8 +383,8 @@ class Result:
         for path in self._tree_paths(tree_filter):
             segments = [s.strip() for s in str(path).replace('/', '\\').split('\\')
                         if s.strip()]
-            if len(segments) < 2 or segments[-2] not in ('S-Parameters',
-                                                         'S-Parameter'):
+            if (len(segments) != 3 or segments[0] != '1D Results' or
+                    segments[1] not in ('S-Parameters', 'S-Parameter')):
                 continue                     # 不是 S-Parameters 目录的直接子项
             leaf = segments[-1]
             if not _S_PARAMETER_NAME_RE.match(leaf):

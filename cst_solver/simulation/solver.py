@@ -157,7 +157,8 @@ End With"""
             （CST 消息读取即清空，不落盘就事后无据可查）
         :param note: str, 本次运行备注，写进记录
         :param probe: 可调用 可选, 自定义结果指纹探测函数
-        :param read_messages: bool, 是否在提交后读 CST 消息（默认 True）
+        :param read_messages: bool, 是否在提交后读 CST 消息（默认 True）；False 时
+            messages_state=not_read、messages_clean=None，不满足成功契约的消息条件
         :return: dict, 见 :meth:`cst_solver.run_contract.RunContract.after_submit`
         """
         from cst_solver.run_contract import (
@@ -169,7 +170,8 @@ End With"""
             sink = JsonlSink(run_log_path(path))
         contract = RunContract(path, probe=probe, sink=sink, tag='setup.run_checked')
         reader = self.get_messages if read_messages else None
-        return contract.run_and_record(self.run, read_messages=reader, note=note)
+        return contract.run_and_record(self.run, read_messages=reader, note=note,
+                                       message_source='sdk_pending_queue')
 
     def update(self):
         """
