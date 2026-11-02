@@ -11,6 +11,6 @@ description: Use when loading diodes into CST structures or circuits, selecting 
 2. 核对真实 A/K、端口正负、引脚、参考地、参考面及阻抗，验证偏置与交流回路。使用实际 VAK=VA−VK 和电流，不用源值替代。
 3. 几何加载按 [cst-modeling](../cst-modeling/SKILL.md)预览审阅，电路配置按 [cst-circuit](../cst-circuit/SKILL.md)。接口改变后检查矩阵有效性。
 4. 低频/DC、网格、拟合、HB/瞬态和工作点按[数值判断](references/numerical-validity.md)检查；误差与资源预算由当前任务给出。
-5. 记录模型来源、参数读回、接口表、实际端电压/电流、运行身份和未验证项。指标与选图用 [cst-device-characterization](../cst-device-characterization/SKILL.md)。
+5. 记录模型来源、参数读回、接口表、实际端电压/电流、运行身份和未验证项。评估器件性能时，将实际 VAK(t) 曲线与对应指标图一起交付；指标与选图用 [cst-device-characterization](../cst-device-characterization/SKILL.md)。
 
 加载成功、偏置建立、数值充分和器件性能分别判定。分析已有结果时不新增求解，数据不足就列缺项。

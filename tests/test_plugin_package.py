@@ -123,6 +123,17 @@ def test_study_reference_tracks_history_and_execution_contract():
         assert contract in text
 
 
+def test_diode_characterization_requires_actual_voltage_plot_with_performance():
+    skill = (ROOT / 'skills/cst-device-characterization/SKILL.md').read_text(encoding='utf-8')
+    evidence = (ROOT / 'skills/cst-device-characterization/references/signals-and-evidence.md').read_text(encoding='utf-8')
+    assert '实际 VAK(t) 曲线' in skill
+    assert '性能指标图一并交付' in skill
+    assert '数据缺失时列为缺项' in skill
+    assert 'VAK=' in evidence
+    assert '实际 DC 及交流变化' in evidence
+    assert '数据来源' in evidence
+
+
 def test_shared_style_is_loadable():
     import matplotlib
     from matplotlib import rc_params_from_file
