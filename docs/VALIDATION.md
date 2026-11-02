@@ -4,6 +4,13 @@
 
 ## 2026-11-02 CST 2026 API 离线修复
 
+### 指定缺失样点的纯离线计划与频点核对
+
+- 本机官方 FDSolver 帮助核对 ResetSampleIntervals、AddSampleInterval、ForceRecalculateOldSamples：区间重设不清除已存结果，强制重算不能理解为仅算新增 Single 点；False 也不是实际点集保证。
+- 新增 `cst_solver.sampling.plan_missing_samples` 和 `assess_sample_execution`。无 SDK/文件/宏/solver 操作；显式单位、已有结果未知与空集分开，只有调用方核实缓存及采样上下文时给出条件性预期新算点。核对只接受同周期实际日志观测频率，abort、频点 mismatch 与 accuracy not_assessed 分开保留。
+- 新增 22 项离线测试；完整回归 `.venv/Scripts/python.exe -m pytest -ra --disable-warnings --basetemp=work/adaptive-results/pytest`：**594 passed, 2 skipped, 1 deselected, 9 warnings**。复核无待修问题。未打开工程/结果/在写日志，未连接 CST、启动求解或改动安装环境。
+- 来源会话报告的错频中止周期不作为目标低频精度通过/失败。本轮没有读取具体诊断证据文件，没有实现原生日志语法解析器，也不声称 False 的后续尝试已验证。
+
 ### 消息三态契约修复与推送前验证
 
 - 实施 not_read/read/read_failed：messages_clean 为 bool|None，未读不再由空列表判成功；保留部分迭代消息与读取异常，明确 caller/callback/sdk_pending_queue 来源。原生 solver、原生日志警告和 mesh 收敛无读取证据时仍为 unknown。
@@ -21,7 +28,7 @@
 
 ### 前序通用修复记录
 
-- 分支：`codex/cst-2026-offline-api-repairs`；未推送，未更新全局安装或插件缓存。
+- 分支：`codex/cst-2026-offline-api-repairs`；本段为首次推送前验证记录，后续交付以 Git 提交为准；未更新全局安装或插件缓存。
 - 本轮不连接、启动、关闭 CST，不读取或修改另一会话工程，不中断其求解。未检查或声称全机空闲。
 - 本机官方帮助核对了点端口 Voltage/Current、picked 参数、面端口不同的幅度方法、CircuitProbe/Net 对象及 continuation 的文档边界。
 - 新增 17 项离线回归：点端口宏、执行器选择与不重试、CircuitProbe/Net 宏、Delta S 多频率/连续轮次判定、装饰窗与未知状态、确认前 PID 创建身份复核、主机预检查拒绝与服务错误码。修复一个既有测试对临时目录父路径为 ASCII 的假设，以支持在本仓库中文路径下运行所有测试产物。

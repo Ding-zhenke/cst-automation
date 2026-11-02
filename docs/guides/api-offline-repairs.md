@@ -258,3 +258,6 @@ not_evaluated，不保证完整端口/模式/频率覆盖，也不代替原生�
 消息未读取却被标记干净的问题及离线测试范围见
 [消息观察契约](message-observation-contract-proposal.md)；该项现已在仓库实施并离线验证，
 未部署到已安装运行环境。
+
+已存点重算造成诊断频点偏离的边界，以及纯离线计划/频点核对接口见
+[指定缺失样点计划](missing-sample-plan.md)。计划不是原生点集保证，abort/频点 mismatch 不判精度失败。

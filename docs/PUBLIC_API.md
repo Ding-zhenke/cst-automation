@@ -91,6 +91,22 @@ TPC 当前源码仍有 `cst_solver._guards` 导入；相同函数已由稳定公
 
 ## 曲线与 S 参数 API
 
+### 指定缺失样点的离线计划
+
+`cst_solver.sampling.plan_missing_samples(requested_frequencies, *, frequency_unit,
+available_frequencies=None, context_verified=False)` 为仅补算指定缺失正频率生成纯数据计划，
+不连接 CST、不生成/执行宏、不删除结果、不修改自适应或求解器。所有频率使用同一明确单位；
+去重按精确数值，不用宽容差合并相邻点。计划推荐 force_recalculate_old_samples=False。
+仅当 available 非 None 且调用方确认缓存身份有效、配置为单点且无额外自动/monitor/adaptation
+采样（context_verified=True）时，给出条件性的 expected_new_frequencies；否则为 None。
+available=[] 表示明确无已存点，None 表示未知。该计划不认证缓存或保证原生实际点集/顺序。
+
+`assess_sample_execution(plan, observed_frequencies, *, log_complete, aborted)` 只核对同一次运行、
+同单位的日志观测频点；不解析二进制/原生日志、不归属残差、不推断 direct accuracy。
+返回频点 mismatch/incomplete/matched/unknown 及独立的 aborted 状态；即便点集匹配，
+accuracy_status=not_assessed、validation_passed=False。无预期点集或日志不完整不能判匹配。
+native abort 保留为 aborted；不能因频点不符把另一频率的端口残差归到请求频率。
+
 ### `cst_solver.Result`：联合枚举与自适应 Pass 曲线
 
 ```python
