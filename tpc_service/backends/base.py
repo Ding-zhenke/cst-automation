@@ -53,13 +53,14 @@ def ok_result(*, log: Optional[List[str]] = None, artifacts: Optional[List[Dict]
 
 
 def fail_result(code: str, message: str, *, retryable: bool = False,
-                log: Optional[List[str]] = None, **details) -> Dict[str, Any]:
+                log: Optional[List[str]] = None, artifacts=None, run_identity=None,
+                result_summary=None, saved=False, **details) -> Dict[str, Any]:
     """构造失败返回（结构化错误，**不是**空数据）。"""
     from tpc_service.errors import error_dict
     return {'ok': False, 'error': error_dict(code, message,
                                              retryable=retryable, **details),
-            'log': list(log or []), 'artifacts': [],
-            'run_identity': {}, 'result_summary': {}, 'saved': False}
+            'log': list(log or []), 'artifacts': list(artifacts or []),
+            'run_identity': dict(run_identity or {}), 'result_summary': dict(result_summary or {}), 'saved': bool(saved)}
 
 
 class Backend:

@@ -1,41 +1,37 @@
-# Codex 多 skill 插件
+# CST Automation 插件
 
-一个 `CST Automation` 插件包含四个独立 skill，原有 `skills/` 文件保持不变：
-
-| Skill | 按需使用的场景 |
-| --- | --- |
-| `cst-modeling` | 几何规划、预览、建模与检查 |
-| `cst-simulation` | 对已审阅工程配置并运行求解 |
-| `cst-results` | 读取、导出和分析结果 |
-| `cst-diagnostics` | 安装、SDK、弹窗与任务故障诊断 |
-
-宿主先获取各 skill 的名称和描述，再按任务读取相关 `SKILL.md`；一个任务可以先后使用多个 skill。不合并四份指令，也不增加要求每次加载全部 skill 的总入口。保持默认自动选择策略，也可在宿主支持的 skill 选择器中明确指定某个 skill。最终选择由宿主和模型决定，插件不提供确定性的关键词路由或逐 skill 的开关。
+本插件包含[九个独立 skill](../../skills/README.md)。名称和描述用于选择任务，正文和参考资料按需加载；不要求每次加载全部内容。用户指令、现有授权及目标仓库约定优先。
 
 ## 构建
 
-在仓库根目录使用本仓库虚拟环境：
+在源码工作区使用授权虚拟环境执行 `python scripts/build_plugin.py`。显式输入清单位于 plugins/cst-automation/package-files.json，指令唯一源码位于根目录 skills/；不扫描整个 docs 或本机技能目录。
+
+生成 dist/cst-automation-plugin.zip 和 dist/cst-automation-marketplace.zip。插件包根目录含 portable plugin.json、Codex 兼容清单、skills、必要文档及 LICENSE。marketplace 包带本地目录清单和同一插件内容。模板目录尚未集齐所有资源，不直接作为安装源。
+
+构建先检查明确文件清单、九个入口、相对引用、机器路径与物理参数字面量，再生成可重复的 ZIP。审阅仍负责发现没有单位的参数、历史结果或错误的通用化；自动检查不是敏感数据识别的完整证明。新增公共文件须更新清单并审阅。
+
+## 本地安装
+
+将 marketplace ZIP 解压到长期保留的目录。先用 `codex plugin --help` 核对宿主支持。以下命令中的 pluginSource 是已解压 marketplace 的绝对路径：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/build_plugin.py
-```
-
-产物是 `dist/cst-automation-plugin.zip` 和用于本地安装的 `dist/cst-automation-marketplace.zip`。清单源文件位于 `plugins/cst-automation/.codex-plugin/plugin.json`；它是打包模板，该源目录尚未包含 skills，不能直接当成完整插件安装。
-
-插件压缩包根目录含 `.codex-plugin/plugin.json`、`skills/`、`docs/` 和 `LICENSE`；marketplace 压缩包则包含本地目录清单和同一份完整插件。每个 skill 逐字节复制，文档保留原有层级，使 `../../docs/...` 相对引用在插件内继续有效。新增 `skills/<name>/SKILL.md` 后重新构建会自动纳入。`dist/` 已由 Git 忽略，不维护生成文件的第二份源码。
-
-## 使用与边界
-
-在 PowerShell 中可将 marketplace 包解压到一个长期保留的目录，然后添加并安装：
-
-```powershell
-Expand-Archive -LiteralPath .\dist\cst-automation-marketplace.zip -DestinationPath .\dist\cst-automation-marketplace
-codex plugin marketplace add (Resolve-Path .\dist\cst-automation-marketplace).Path
+codex plugin marketplace add $pluginSource
 codex plugin add cst-automation@cst-automation-local
 codex plugin list --marketplace cst-automation-local --json
 ```
 
-这些安装命令会修改当前用户的 Codex 插件配置和缓存；构建脚本本身不会安装插件。保持 marketplace 源目录可用，更新源码后重新构建并更新解压目录，按宿主提示刷新插件缓存。桌面端可在插件目录选择该 marketplace 并安装，具体步骤参见 [官方插件打包与本地测试说明](https://developers.openai.com/plugins/build/plugins)。
+安装会写入所选 Codex home 的插件配置和缓存；构建不会安装。测试时设置进程级 CODEX_HOME 指向工作区内独立目录，避免改变日常环境。真实安装后新建聊天或按宿主提示刷新，并检查九个 cst-automation: 前缀入口。已有同名本机入口可保留，选择时核对来源；验证迁移后再决定停用重复入口，不自动删除私人 skill。
 
-本版是纯 skill 插件，不包含 Python 运行库、CST SDK 或自动启动 MCP 的配置。执行指令前，目标工作环境仍需安装 `cst-automation`，真实操作需要匹配的 CST 环境；已有 MCP 服务可继续使用，见 [MCP 使用](mcp-usage.md)。插件文档不能代替运行库，也不能据此声称仿真通过。
+## 运行依赖与同步
 
-原有仓库内与用户级 skill 可继续保留；若宿主同时发现多个来源的同名 skill，应在选择器里核对来源，避免把两份副本当作不同能力。隔离的 Codex CLI 测试已验证 marketplace 发现、插件安装和四个带 `cst-automation:` 前缀的 skill 元数据可见；实际对话中的自动选择和桌面端体验尚需单独验收。
+插件不随包附带 Python 库或 SDK，不硬编码安装路径。真实操作需目标工作区安装兼容 cst-automation、匹配的 CST SDK/解释器和许可；仅已有数据绘图不需要启动 CST。详见[运行环境](../../skills/cst-sessions/references/runtime.md)。
+
+参数研究等扩展要先检查目标运行库的实际 API 与显式注册状态。插件与 Python 包分别发布；没有 run_parameter_study/StudyResult 时应报告缺项，不假造可用性。EM—电路更新、工况快照和保存读回合同见[参数研究](../../skills/cst-circuit/references/parameter-studies.md)。这些方法的离线测试不能替代目标版本的实机验收。
+
+## 内容边界
+
+共享样式可调整宽度、字体、字号、线宽及配色，目标期刊或用户要求优先。只交付当前已有数据或获授权的工作，不因安装插件自动求解或扩大扫描。
+
+模型、器件参数、源条件、工程索引及历史结果留在项目或私人 skill 中。专业行波器件方案与其他领域仓库专用流程不随本包发行。第三方绘图插件按需由原插件提供，不复制其代码或自动安装。
+
+格式依据：[官方插件打包](https://developers.openai.com/plugins/build/plugins)与[官方 skill 指南](https://developers.openai.com/plugins/build/skills)。

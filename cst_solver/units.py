@@ -31,19 +31,22 @@ class UnitsMixin:
         :param inductance: str, 电感单位，如 'nH', 'uH', 'H'
         :param capacitance: str, 电容单位，如 'pF', 'uF', 'F'
         """
+        temperature = {'Celsius': 'degC', 'Kelvin': 'K', 'Fahrenheit': 'degF'}.get(temperature, temperature)
         f1 = f"""With Units
-     .Reset
-     .Frequency "{frequency}"
-     .Length "{length}"
-     .Temperature "{temperature}"
-     .Time "{time}"
-     .Voltage "{voltage}"
-     .Current "{current}"
-     .Resistance "{resistance}"
-     .Inductance "{inductance}"
-     .Capacitance "{capacitance}"
+     .SetUnit "Frequency", "{frequency}"
+     .SetUnit "Length", "{length}"
+     .SetUnit "Temperature", "{temperature}"
+     .SetUnit "Time", "{time}"
 End With"""
         self.cst_file.model3d.add_to_history("Set Units", f1)
+        schematic = getattr(self.cst_file, 'schematic', None)
+        if schematic is not None:
+            for dimension, value in (('Voltage', voltage), ('Current', current),
+                                     ('Resistance', resistance), ('Inductance', inductance),
+                                     ('Capacitance', capacitance)):
+                schematic.Units.SetUnit(dimension, value)
+        elif (voltage, current, resistance, inductance, capacitance) != ('V', 'A', 'Ohm', 'nH', 'pF'):
+            raise RuntimeError('Electrical units require an associated schematic')
 
     # ================================================================
     # 查询单位（通过 CST 原生接口）
@@ -59,13 +62,8 @@ End With"""
         """
         try:
             units = self.cst_file.model3d.Units
-            if unit_type == 'length':
-                return units.GetLengthUnit()
-            elif unit_type == 'frequency':
-                return units.GetFrequencyUnit()
-            elif unit_type == 'time':
-                return units.GetTimeUnit()
-            elif unit_type == 'temperature':
-                return units.GetTemperatureUnit()
+            dimensions = {'length': 'Length', 'frequency': 'Frequency', 'time': 'Time', 'temperature': 'Temperature'}
+            if unit_type in dimensions:
+                return units.GetUnit(dimensions[unit_type])
         except Exception:
             return 'unknown'

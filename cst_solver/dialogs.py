@@ -183,6 +183,33 @@ def _is_qt_dialog(klass, title, visible):
     return low in _QT_DIALOG_TITLE_KEYWORDS or low.startswith(('请输入', 'cst warning', 'cst error'))
 
 
+def _is_scripting_control(window):
+    """Recognize the observed CST 2026 scripting overlay, never by title alone."""
+    labels = {b.get('text', '').strip() for b in window.get('buttons', [])}
+    return (window.get('class', '').startswith('Qt') and
+            window.get('class', '').endswith('QWindow') and
+            window.get('title') == 'CST Studio Suite 2026' and
+            window.get('owner_class', '').endswith('QWindowIcon') and
+            window.get('owner_pid') == window.get('pid') and
+            labels == {'Minimize', 'Switch to Interactive Mode'} and
+            not window.get('body', '').strip() and not window.get('read_errors'))
+
+
+def _is_startup_controller(window):
+    """Recognize observed controller/save progress; never dismiss a window."""
+    body = window.get('body', '').strip()
+    known_save = body == 'Saving model' or body.splitlines() == ['Saving model', '100%']
+    return (window.get('class', '').startswith('Qt') and
+            window.get('class', '').endswith('QWindowIcon') and
+            window.get('title') == 'CST DESIGN ENVIRONMENT 2026' and
+            window.get('owner_class', '').endswith('QWindowIcon') and
+            window.get('owner_pid') == window.get('pid') and
+            not window.get('buttons') and known_save and
+            window.get('text_readable') is True and window.get('text_complete') is True and
+            not window.get('truncated') and
+            not window.get('read_errors'))
+
+
 def _child_buttons(hwnd):
     """
     枚举对话框上的按钮（类名 ``Button``）。
@@ -298,6 +325,7 @@ def list_windows(only_cst=True, *, pid=None):
                             process_creation_time=identity.get('creation_time'),
                             process_identity=identity,
                             owner_creation_time=owner_identity.get('creation_time'),
+                            owner_class=_class_name(owner) if owner else '',
                             responding=not bool(_user32.IsHungAppWindow(hwnd)), modal=modal,
                             is_dialog=klass == _DIALOG_CLASS or
                             _is_qt_dialog(klass, title, visible) or (visible and modal)))
@@ -352,6 +380,10 @@ def list_dialogs(only_cst=True, *, pid=None):
             buttons = []
             dialog['read_errors'].append(str(exc))
         dialog['buttons'] = buttons or content.get('buttons', [])
+        # A short save-progress window may disappear while UIA reads it.
+        # This is only a current-window check, never evidence of SDK/solver success.
+        if not _user32.IsWindowVisible(dialog['hwnd']):
+            continue
         dialog['text_complete'] = bool(dialog.get('text_complete', dialog['text_readable']) and
                                        not dialog['read_errors'])
         progress = (content.get('has_progress', False) and not dialog['read_errors'] and
@@ -370,6 +402,9 @@ def list_dialogs(only_cst=True, *, pid=None):
         dialog['error_code'] = ('cst_history_error' if dialog['title'].strip().lower() == 'history error'
                                 else 'cst_dialog_unknown' if dialog['blocking'] and not decoration else None)
         if decoration:
+            dialog['blocking'] = False
+        if _is_scripting_control(dialog) or _is_startup_controller(dialog):
+            dialog['window_role'] = 'scripting_control' if _is_scripting_control(dialog) else 'startup_controller'
             dialog['blocking'] = False
         dialog['needs_visual_inspection'] = not dialog['text_complete']
         dialogs.append(dialog)

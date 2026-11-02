@@ -85,6 +85,7 @@ def test_glow_decoration_retains_raw_evidence_and_unknown_blocks(monkeypatch):
                   **{'class': 'QtitanTitleBarGlowWindow'}, visible=True,
                   owner=8, owner_pid=7, modal=True, is_dialog=True, responding=True)
     monkeypatch.setattr(dialogs, 'list_windows', lambda **kw: [window])
+    monkeypatch.setattr(dialogs, '_user32', SimpleNamespace(IsWindowVisible=lambda hwnd: True))
     monkeypatch.setattr(dialogs, '_child_buttons', lambda hwnd: [])
     content = dict(body='', buttons=[], text_source='win32', text_readable=False,
                    text_complete=False, read_errors=[], has_progress=False)

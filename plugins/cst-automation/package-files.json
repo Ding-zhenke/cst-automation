@@ -1,0 +1,115 @@
+{
+  "skills": [
+    "cst-circuit",
+    "cst-device-characterization",
+    "cst-diagnostics",
+    "cst-diode-loading",
+    "cst-figures",
+    "cst-modeling",
+    "cst-results",
+    "cst-sessions",
+    "cst-simulation"
+  ],
+  "files": [
+    {
+      "source": "LICENSE",
+      "target": "LICENSE"
+    },
+    {
+      "source": "plugins/cst-automation/plugin.json",
+      "target": "plugin.json"
+    },
+    {
+      "source": "plugins/cst-automation/.codex-plugin/plugin.json",
+      "target": ".codex-plugin/plugin.json"
+    },
+    {
+      "source": "plugins/cst-automation/README.md",
+      "target": "README.md"
+    },
+    {
+      "source": "docs/guides/codex-plugin.md",
+      "target": "docs/guides/codex-plugin.md"
+    },
+    {
+      "source": "skills/README.md",
+      "target": "skills/README.md"
+    },
+    {
+      "source": "skills/cst-circuit/references/hb-and-postprocessing.md",
+      "target": "skills/cst-circuit/references/hb-and-postprocessing.md"
+    },
+    {
+      "source": "skills/cst-circuit/references/parameter-studies.md",
+      "target": "skills/cst-circuit/references/parameter-studies.md"
+    },
+    {
+      "source": "skills/cst-circuit/SKILL.md",
+      "target": "skills/cst-circuit/SKILL.md"
+    },
+    {
+      "source": "skills/cst-device-characterization/references/device-metrics.md",
+      "target": "skills/cst-device-characterization/references/device-metrics.md"
+    },
+    {
+      "source": "skills/cst-device-characterization/references/signals-and-evidence.md",
+      "target": "skills/cst-device-characterization/references/signals-and-evidence.md"
+    },
+    {
+      "source": "skills/cst-device-characterization/SKILL.md",
+      "target": "skills/cst-device-characterization/SKILL.md"
+    },
+    {
+      "source": "skills/cst-diagnostics/SKILL.md",
+      "target": "skills/cst-diagnostics/SKILL.md"
+    },
+    {
+      "source": "skills/cst-diode-loading/references/loading-and-interfaces.md",
+      "target": "skills/cst-diode-loading/references/loading-and-interfaces.md"
+    },
+    {
+      "source": "skills/cst-diode-loading/references/numerical-validity.md",
+      "target": "skills/cst-diode-loading/references/numerical-validity.md"
+    },
+    {
+      "source": "skills/cst-diode-loading/SKILL.md",
+      "target": "skills/cst-diode-loading/SKILL.md"
+    },
+    {
+      "source": "skills/cst-figures/assets/research.mplstyle",
+      "target": "skills/cst-figures/assets/research.mplstyle"
+    },
+    {
+      "source": "skills/cst-figures/references/style.md",
+      "target": "skills/cst-figures/references/style.md"
+    },
+    {
+      "source": "skills/cst-figures/SKILL.md",
+      "target": "skills/cst-figures/SKILL.md"
+    },
+    {
+      "source": "skills/cst-modeling/SKILL.md",
+      "target": "skills/cst-modeling/SKILL.md"
+    },
+    {
+      "source": "skills/cst-results/SKILL.md",
+      "target": "skills/cst-results/SKILL.md"
+    },
+    {
+      "source": "skills/cst-sessions/references/runtime.md",
+      "target": "skills/cst-sessions/references/runtime.md"
+    },
+    {
+      "source": "skills/cst-sessions/references/session-operations.md",
+      "target": "skills/cst-sessions/references/session-operations.md"
+    },
+    {
+      "source": "skills/cst-sessions/SKILL.md",
+      "target": "skills/cst-sessions/SKILL.md"
+    },
+    {
+      "source": "skills/cst-simulation/SKILL.md",
+      "target": "skills/cst-simulation/SKILL.md"
+    }
+  ]
+}

@@ -122,6 +122,16 @@ End With"""
         """
         self.T_solver()
 
+    def configure_em_time_settings(self, settings):
+        """Configure current-project EM stability factor/output sampling without solving.
+
+        Settings are a sparse mapping of stability_factor (0 < f <= 1) and
+        output_sampling ('every_step' or 'automatic'). Native readback and
+        actual integration clocks remain unverified. Does not reset Solver.
+        """
+        from .em_time import configure_em_time_settings
+        return configure_em_time_settings(self, settings)
+
     def run(self):
         """
         执行当前 CST 工程的求解器计算，提交仿真任务

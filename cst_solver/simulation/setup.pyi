@@ -7,6 +7,9 @@ cst_solver.simulation — 类型存根文件
 
 from typing import Any, List, Dict, Tuple, Optional, Union
 
+class SolverMixin:
+    def configure_em_time_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]: ...
+
 # ============================================================
 # 监视器 (MonitorMixin)
 # ============================================================

@@ -10,8 +10,15 @@ cst_solver.setup — 类型存根文件
 from typing import Any, List, Dict, Tuple, Optional, Union
 
 import os
+from cst_solver.circuit import CircuitAPI
 
 _PathLike = Union[str, os.PathLike]
+_TensorEntry = Union[float, complex, str]
+_TensorRow = Union[List[_TensorEntry], Tuple[_TensorEntry, ...]]
+_TensorMatrix = Union[List[_TensorRow], Tuple[_TensorRow, ...]]
+_TensorRealEntry = Union[float, str]
+_TensorRealRow = Union[List[_TensorRealEntry], Tuple[_TensorRealEntry, ...]]
+_TensorRealMatrix = Union[List[_TensorRealRow], Tuple[_TensorRealRow, ...]]
 
 # ============================================================
 # CST 项目操作 (ProjectMixin)
@@ -33,6 +40,7 @@ class _ProjectMixin:
     def save_as(self, filename: str, include_results: bool = True,
                 allow_overwrite: bool = False) -> str: ...
     def new_project(self, project_type: Optional[Any] = None) -> None: ...
+    def new_circuit_project(self) -> None: ...
     def activate(self) -> None: ...
 
 # ============================================================
@@ -315,6 +323,26 @@ class _FaceOpsMixin:
 # 材料与组件 (MaterialMixin)
 # ============================================================
 class _MaterialMixin:
+    def create_material_gyrotropic(
+            self, name: str, epsilon: Union[float, str], *,
+            larmor_omega: Union[float, str],
+            gyrotropic_omega: Union[float, str],
+            damping: Union[float, str],
+            bias_direction: Union[List[Union[float, str]],
+                                  Tuple[Union[float, str], ...]] = (0, 0, 1),
+            mu_infinity: Union[float, str] = 1,
+            kappa: Union[float, str] = 0,
+            color: Optional[Union[str, Tuple[float, float, float],
+                                  List[float]]] = None,
+            colour: Optional[Union[str, Tuple[float, float, float],
+                                   List[float]]] = None) -> None: ...
+    def create_material_tensor(self, name: str, epsilon: Union[float, str],
+                               mu_tensor: _TensorMatrix, *,
+                               mu_imag: Optional[_TensorRealMatrix] = None,
+                               color: Optional[Union[str, Tuple[float, float, float],
+                                                     List[float]]] = None,
+                               colour: Optional[Union[str, Tuple[float, float, float],
+                                                      List[float]]] = None) -> None: ...
     def new_material(self, name: str) -> None: ...
     def create_material(self, name: str) -> None: ...
     def create_material_custom(self, name: str, epsilon: Union[float, str],
@@ -479,6 +507,7 @@ class _BoundaryMixin:
 class _SolverMixin:
     def T_solver(self) -> None: ...
     def configure_time_solver(self) -> None: ...
+    def configure_em_time_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]: ...
     def set_steady_state_limit(self, db: Union[float, str] = '-30') -> None: ...
     def set_parallel_threads(self, threads: Union[int, str] = 8,
                              enable: bool = True) -> None: ...
@@ -757,6 +786,8 @@ class setup(
     """
 
     def __init__(self, filename: Optional[_PathLike] = None) -> None: ...
+    @property
+    def circuit(self) -> CircuitAPI: ...
     @classmethod
     def attach(pid: Optional[Union[int, str]] = None,
               filename: Optional[_PathLike] = None) -> 'setup': ...

@@ -41,8 +41,8 @@ class CstBackend(Backend):
         self.dialog_pid = None
 
     def _track_dialog_target(self, app: Any) -> None:
-        pid = getattr(getattr(app, "project", None), "pid", None)
-        self.dialog_pid = pid if isinstance(pid, int) and not isinstance(pid, bool) else None
+        from cst_solver.environment import environment_pid
+        self.dialog_pid = environment_pid(getattr(app, "project", None))
 
     def build(self, *, project, params, job):
         """Build rules are supplied by the calling domain package."""
