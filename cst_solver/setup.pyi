@@ -343,6 +343,14 @@ class _MaterialMixin:
                                   List[float]]] = None,
             colour: Optional[Union[str, Tuple[float, float, float],
                                    List[float]]] = None) -> None: ...
+    def create_material_full_tensor(self, name: str,
+            epsilon_tensor: _TensorMatrix, mu_tensor: _TensorMatrix, *,
+            epsilon_imag: Optional[_TensorRealMatrix] = None,
+            mu_imag: Optional[_TensorRealMatrix] = None,
+            epsilon_axes: Tuple[Tuple[float, float, float], Tuple[float, float, float]] = ...,
+            mu_axes: Tuple[Tuple[float, float, float], Tuple[float, float, float]] = ...,
+            color: Optional[Union[str, Tuple[float, float, float], List[float]]] = None,
+            colour: Optional[Union[str, Tuple[float, float, float], List[float]]] = None) -> None: ...
     def create_material_tensor(self, name: str, epsilon: Union[float, str],
                                mu_tensor: _TensorMatrix, *,
                                mu_imag: Optional[_TensorRealMatrix] = None,

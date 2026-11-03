@@ -41,12 +41,22 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 | 当前三维工程的稳定因子/时间信号采样 | `app.configure_em_time_settings`，独立于 DS task |
 | 三维连接 | `app.circuit.link_em` |
 | 依赖检查与副本收集 | `inspect_dependencies/bundle` |
+| 通用参数研究 | `app.circuit.run_parameter_study`；MCP `run_circuit_parameter_study` |
 | 指定任务运行 | `app.circuit.run_checked` |
 | 电路结果读取 | `CircuitResult.get_tree_items/get_run_ids/read_curve/export_csv` |
 | 串行服务 | `tpc_service.circuit.register_circuit_handlers` |
 | MCP | `cst_mcp.circuit_tools.register_circuit_tools` 或 `--enable-circuit` |
 
 调用签名以源码和公共协议为准。不要把验证脚本中的原生 SDK 操作当成已有高层 API。
+
+## 通用参数研究与历史比较
+
+拓扑不变的纯电路或同工程 EM＋电路参数研究，使用 `app.circuit.run_parameter_study(spec)`；结构和用法见 [通用参数研究](../../docs/guides/circuit_parameter_studies.md)。这是会保存和求解的显式逐点序列，不是原生扫描配置接口。参数 scope、单位、元件绑定、已有叶任务和结果路径必须明确；全局参数使用调用者核对的原生单位，已固化元件值用 block/property 显式更新。
+
+- 每点使用匹配的 EM 数据；指定 EM 数据文件必须更新、原生状态 SUCCESS 且结果全局参数匹配。仅日志/全目录变化不能放行；缺原生来源证据返回 unverified。第一版 EM 依赖每点重算，不宣称自动缓存复用、外部 EM 映射或瞬态双向联合已支持。
+- 保留每批次/每工况的复数原始数据、单位、参数读回、EM 来源及电路运行证据。汇总叶按批次和工况唯一命名，不用 replace=True 覆盖其他参数的曲线，不把当前 run 0 当成不可变历史。
+- 结果量由调用方提供，不在通用 study 中加入隔离器指标、固定端口/频段/二极管数。领域分析继续用各自后处理流程。
+- 通过 StudyResult 过滤和比较；交付给出实际归档和 CST Results/Studies 入口。保存读回与原生关闭重开分别记录；未经重开检查，不承诺单个 .cst 已封装全部历史文件。离线测试通过不能写成 EM/HB 或工程重开已验收。
 
 ## 配置和连接
 
@@ -103,9 +113,9 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 |---|---|
 | `build` | `configure`、`configure_transient_task`、`configure_steady_state_task`、`configure_task_ports`、`configure_nonlinear_model`、`stage_postprocessing_template`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
 | `solve` | `run_task` |
-| `study` | `parameter_sequence` |
+| `study` | `parameter_sequence`、`run_parameter_study` |
 
-MCP 当前十二个工具为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_steady_state_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/stage_circuit_postprocessing_template/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。后处理模板工具只静态检查并暂存 `.rtpy` 文件，不打开或修改 CST 工程；用户需将返回的 library_root 加入 CST 库路径，并在 Post-Processing 任务的模板对话框中添加模板一次。此后 CST 可在对应求解后自动执行。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
+MCP 工具（含新增通用参数研究入口）为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_steady_state_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/stage_circuit_postprocessing_template/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project/run_circuit_parameter_study`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。后处理模板工具只静态检查并暂存 `.rtpy` 文件，不打开或修改 CST 工程；用户需将返回的 library_root 加入 CST 库路径，并在 Post-Processing 任务的模板对话框中添加模板一次。此后 CST 可在对应求解后自动执行。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
 
 新增功能优先沉淀到通用 Python 接口，再接 service/MCP；跨包协议先更新 `PUBLIC_API.md`。共享数据放 `cst_automation`，SDK 在执行时惰性加载，不引入 TPC 或 em-enclosure 依赖。
 

@@ -37,7 +37,11 @@ def validate(operation, params):
             require(isinstance(path, str) and Path(path).is_absolute() and
                     Path(path).suffix.lower() in ('.cst', '.prj') and Path(path).is_file(),
                     'Existing absolute CST source_path required')
+    if operation == 'reload_project':
+        value = params.get('expected_digest')
+        require(isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value), 'Explicit saved expected_digest required')
     if operation == 'history':
+        require(params.get('domain', 'model3d') in ('model3d', 'schematic'), 'history domain must be model3d or schematic')
         code = params.get('vba')
         require(isinstance(code, str) and 0 < len(code) <= 1_000_000, 'Bounded VBA required')
         if params.get('domain', 'model3d') == 'model3d':

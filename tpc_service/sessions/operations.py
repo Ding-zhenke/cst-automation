@@ -124,6 +124,25 @@ def execute(runtime, job):
         return {'project': record, 'saved': True, 'backend': runtime.backend,
                 'readback_verified': False, 'solver_verified': False}
     app, record = runtime.project(params['project_id'])
+    if operation == 'reload_project':
+        reviewed = runtime.state().get('last_resolution', {})
+        expected = params.get('expected_digest')
+        project_id = params['project_id']
+        if (not reviewed.get('human_reviewed') or not expected
+                or reviewed.get('project_digests', {}).get(project_id) != expected
+                or record.get('saved_digest') != expected or file_digest(record['path']) != expected):
+            raise ServiceError('session_review_required', 'Reload requires a matching reviewed saved baseline')
+        if runtime.backend != 'cst':
+            raise ServiceError('offline_reload_unavailable', 'Native project reload requires CST')
+        app.cst_file.close()
+        runtime.handles.pop(project_id, None)
+        app.open(record['path'])
+        runtime.handles[project_id] = app.cst_file
+        if file_digest(record['path']) != expected:
+            raise ServiceError('session_digest_mismatch', 'Saved baseline changed during native reload')
+        return {'reloaded': True, 'saved': False, 'project_id': project_id,
+                'saved_digest': expected, 'backend': 'cst', 'solver_verified': False,
+                'readback_verified': False}
     api_result = {}
     if operation == 'configure_sweep':
         if runtime.backend == 'fake':
@@ -139,6 +158,9 @@ def execute(runtime, job):
         else:
             api_result = dispatch(app, params['calls'])
     elif operation == 'history':
+        domain = params.get('domain', 'model3d')
+        if domain not in ('model3d', 'schematic'):
+            raise ServiceError('invalid_session_argument', 'history domain must be model3d or schematic')
         code = params['vba']
         if not isinstance(code, str) or not code.strip() or len(code) > 1_000_000:
             raise ServiceError('invalid_session_argument', 'Explicit bounded VBA history required')
@@ -146,18 +168,32 @@ def execute(runtime, job):
         if params.get('preview_digest') != checksum or not params.get('stage_id') or not params.get('name'):
             raise ServiceError('session_preview_required', 'Supply reviewed VBA digest, stage_id and history name')
         if runtime.backend == 'fake':
-            app.cst_file['history'].append({'name': params['name'], 'vba': code})
+            key = 'schematic_macros' if domain == 'schematic' else 'history'
+            app.cst_file.setdefault(key, []).append({'name': params['name'], 'vba': code})
+        elif domain == 'schematic':
+            app.cst_file.schematic.execute_vba_code('Sub Main\n' + code + '\nEnd Sub', timeout=None)
         else:
             app.cst_file.model3d.add_to_history(params['name'], code)
+        api_result['domain'] = domain
     elif operation == 'set_parameters':
         values = params['values']
         if not isinstance(values, dict) or not values:
             raise ServiceError('invalid_session_argument', 'Nonempty parameter values required')
+        expressions = params.get('expressions', {})
+        if (not isinstance(expressions, dict)
+                or any(name not in values or not isinstance(text, str)
+                       for name, text in expressions.items())):
+            raise ServiceError('invalid_session_argument',
+                               'expressions must map value keys to description strings')
         if runtime.backend == 'fake':
             app.cst_file['parameters'].update(values)
+            app.cst_file.setdefault('parameter_descriptions', {}).update(expressions)
         else:
             for name, value in values.items():
-                app.para(name, value)
+                if name in expressions:
+                    app.para(name, value, expression=expressions[name])
+                else:
+                    app.para(name, value)
     elif operation == 'solve':
         if runtime.backend == 'fake':
             raise ServiceError('offline_solver_unavailable', 'Fake sessions cannot certify a solve')
@@ -171,12 +207,16 @@ def execute(runtime, job):
     else:
         raise ServiceError('unknown_session_operation', 'Unsupported session operation')
     validation = None
-    if runtime.backend == 'cst':
+    if runtime.backend == 'cst' and not (operation == 'history' and params.get('domain') == 'schematic'):
         validation = app.validate_model()
         if validation.get('status') != 'success' or not validation.get('rebuild_ok'):
             # Save partial evidence without permitting subsequent dependent stages.
             runtime.save(app, params['project_id'])
             raise ServiceError('session_geometry_unverified', 'Rebuild/messages require inspection', validation=validation)
+    if runtime.backend == 'cst' and operation == 'set_parameters':
+        # Legacy history can contain descriptions; restore metadata after rebuild.
+        for name, text in params.get('expressions', {}).items():
+            app._set_parameter_description(name, text)
     record = runtime.save(app, params['project_id'])
     checkpoint = {'job_id': job['job_id'], 'operation_id': job['operation_id'],
                   'fingerprint': job['fingerprint'], 'project_id': params['project_id'],

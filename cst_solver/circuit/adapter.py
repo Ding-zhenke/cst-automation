@@ -8,6 +8,14 @@ class CircuitError(RuntimeError):
         self.code, self.details = code, details
 
 
+def validate_property_write(properties, units, *, intrinsic_diode=False):
+    """Static native setter restrictions, shared by execution and study preflight."""
+    if intrinsic_diode and 'Model Type' in properties:
+        value = properties['Model Type']
+        if type(value) is not int or value != 2 or 'Model Type' in units:
+            raise CircuitError('circuit_spec_invalid', 'Only intrinsic Berkeley SPICE model enum 2 without units is calibrated')
+
+
 def iterate(obj, start, next_name):
     getattr(obj, start)()
     for _ in range(10000):
@@ -286,8 +294,7 @@ class NativeAdapter:
         obj = self.select("Block", name)
         intrinsic_diode = str(obj.GetTypeName()) == 'Diode'
         diode_model = 'Model Type' in props and intrinsic_diode
-        if diode_model and (type(props['Model Type']) is not int or props['Model Type'] != 2 or 'Model Type' in units):
-            raise CircuitError('circuit_spec_invalid', 'Only intrinsic Berkeley SPICE model enum 2 is calibrated')
+        validate_property_write(props, units, intrinsic_diode=intrinsic_diode)
         values = {}
         ordered = list(props.items())
         if diode_model:

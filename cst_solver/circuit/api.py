@@ -156,3 +156,8 @@ class CircuitAPI:
     def run_checked(self, task_name, *, mode, expected_results, reuse="never", note=""):
         from .run import run_checked
         return run_checked(self, task_name, mode=mode, expected_results=expected_results, reuse=reuse, note=note)
+
+    def run_parameter_study(self, spec):
+        """Run a fixed-topology point sequence with append-only case archives."""
+        from .study import run_parameter_study
+        return run_parameter_study(self, spec)

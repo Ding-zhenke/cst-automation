@@ -145,3 +145,14 @@ def test_em_time_settings_tool_queues_build_and_preserves_explicit_settings(circ
     assert queued['kind'] == 'build'
     assert queued['params'] == {'workflow': 'circuit', 'operation': 'configure_em_time_settings', 'settings': settings}
     assert 'configure_em_time_settings' in tools.WRITE_TOOLS
+
+
+
+def test_parameter_study_tool_queues_through_same_worker(circuit_tools):
+    service=runtime.get_service();service.autostart=False
+    path=circuit_tools/'p.cst';path.write_text('fixture')
+    out=tools.dispatch('run_circuit_parameter_study',{'project_path':str(path),'spec':{'schema_version':1}})
+    assert out['ok']
+    queued=service.get(out['job']['job_id'])
+    assert queued['kind']=='study' and queued['params']['operation']=='run_parameter_study'
+    assert 'run_circuit_parameter_study' in tools.WRITE_TOOLS

@@ -12,7 +12,7 @@ from tpc_service.errors import ServiceError
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'close_project', 'configure_sweep', 'inspect', 'history',
-                        'set_parameters', 'model_api', 'solve', 'circuit', 'close'))
+                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close'))
 
 
 class SessionManager:

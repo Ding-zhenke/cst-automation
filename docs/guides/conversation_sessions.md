@@ -119,3 +119,16 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 `--backend fake` 仅用于离线演示；不构成原生读回或求解证据。2026-10-27 空 DE 实测
 覆盖双环境、跨客户端保留、worker 丢失重连原身份与独立关闭；未执行实际几何或求解。
 验收边界以 `docs/VALIDATION.md` 为准。
+
+
+恢复时，如果同一已核实 DE 中的已保存工程标签已关闭，只有匹配的显式基线确认（last_resolution.human_reviewed、每个工程摘要和当前文件摘要全部相同）才允许重新打开该已登记路径。无确认或摘要变化仍拒绝；不接管其他会话、不搜索活动窗口，也不重放建模。
+
+
+`set_parameters` supports `expressions` alongside `values` to pass UTF-8 parameter descriptions directly to the existing Python `app.para(..., expression=...)` API. Expressions here are descriptions; executable CST formulas remain in values.
+
+
+## Python API 建模阶段
+
+`model_api` 操作把审核过的 `calls=[{method,args,kwargs}, ...]` 直接分发给持久会话拥有的 `cst_solver.setup`。静态白名单禁止任意代码、动态导入、求解和关闭工程。每阶段携带 stage_id 和规范JSON calls的SHA256 preview_digest；先检查全部方法签名，再按序调用，完成后原生重建、保存及写检查点。底层API内部生成VBA是库实现细节，不再由调用方拼接整个模型的VBA。该路由的离线fake只记录调用，不伪装实机执行。
+
+参数使用 `set_parameters` 的 values 与 expressions；说明优先中文，公式保留原值。旧历史若写死说明，会在重建时覆盖前置说明，所以会话在重建成功后通过现有描述接口恢复本次说明再保存。新工程应从参数API开始，不在历史中写死另一份参数说明。

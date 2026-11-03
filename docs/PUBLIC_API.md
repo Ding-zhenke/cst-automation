@@ -1,5 +1,18 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-10-30：通用电路参数研究（新增，离线验证）
+
+`CircuitAPI.run_parameter_study(spec)` 执行显式逐点序列；不是原生 Parameter Sweep 的别名。`spec` 包含 schema_version=1、name、安全名称的 parameters（scope=em/circuit、unit；可选 block/property）、points（values 完整有限数值映射）、task（name、mode=network、results=[{name,tree_path,run_id}]），可选 em（results=[{tree_path,run_id}]）。全计划预检后在当前保存工程中运行；EM 参数必须具有显式 EM 依赖，EM＋电路每点重算。仅支持同工程 self EM；无自动缓存复用或瞬态双向联合扩展。EM 放行要求指定原生数据文件指纹更新、原生 SUCCESS 和对应 EM 参数一致；通用目录/日志变化不作为替代证据。全局参数必须与原始结果元数据一致，缺失/冲突返回 unverified；block/property 别名使用属性 SI 读回，不要求出现在全局参数表。静态属性限制由 NativeAdapter 与 study 预检共享。执行入口要求显式当前 run_id=0，读取后立即固定到不可覆盖的历史快照；不接受历史编号作为新求解结果。全局参数的 unit 为调用者核对的原生单位声明，元件绑定的 unit 通过已有 API 转换并读回 SI 数值。
+
+批次写入 `<project>/Result/DS/Studies/<name>/<batch_id>/study.json`，每点原始复数/单位/证据不可覆盖；汇总曲线写入 `Results\Studies\<name>\<batch_id>\<result>\<component>\<case_id>`。`StudyResult(batch_path)` 提供 list_cases(parameters=None)、read_curve(case_id,result_name)、compare(result_name,parameters=None,component='magnitude')、verify_project()。保存后原生读回独立于真正的关闭重开，reopen_verified 始终保持 False，待拥有会话的调用方完成重开。离线测试不证明实机运行；保存读回与真正的关闭重开分开报告。搬运时保留 .cst 及其同名结果目录，不承诺单个二进制封装全部 JSON/CSV/.sig。
+
+服务增加 `study/run_parameter_study`（spec）；MCP 显式增加 `run_circuit_parameter_study`，复用唯一 worker。原参数序列与任务入口保持兼容。
+
+## 2026-10-28：完整电磁张量材料
+
+`setup.create_material_full_tensor(name, epsilon_tensor, mu_tensor, *, epsilon_imag=None, mu_imag=None, epsilon_axes=((1,0,0),(0,1,0)), mu_axes=((1,0,0),(0,1,0)), color=None, colour=None)` 对齐 CST 内置 Create Full Tensor Material 宏：电磁两组完整复数3×3矩阵、每组独立 TensorAlignment2。axes 为全局坐标下两条数值正交单位向量，第三轴 U×V；输入数学虚部，统一转换为 CST 负虚部。全输入先验证，提交单个历史块，不自动保存或求解。旧 create_material_tensor 保留签名并委托新接口，将标量 epsilon 展开为对角矩阵。原生适用范围仍为四面体通用频域。
+
+
 ## 2026-10-26：原生 HB 扫描与后处理代码接口
 
 - `cst_solver.circuit.native` 接受已打开工程的原生 `schematic`（也可使用 CST 模板的 `calling_app`），不加载 SDK、不启动求解、不自动保存。`configure_hb_task(schematic, task_name, tones, *, diamond=False, create=False)` 配置 Spectral Lines 的基频/阶数表达式；`replace_parameter_sweep_sequences(schematic, task_name, sequences)` 显式替换已有原生 Parameter Sweep 的全部序列，保留任务及其子任务。HB 频率数值沿用目标任务当前生效的频率单位（可能为局部单位），不切换单位；扫参点沿用原生参数单位，字符串表达式原样保留。调用方必须先核对单位。
@@ -334,11 +347,25 @@ started. The operation is explicitly registered in the MCP operation enum.
   `configure_circuit_steady_state_task`，参数 `task_name/settings/create`。沿用串行 worker、
   保存、部分失败审计；非法输入必须在打开 SDK 前拒绝。未新增运行模式或改变运行证据。
 
+
+## 2026-10-28: Session parameter descriptions
+
+`set_parameters` accepts optional `expressions: {name: description}`. Keys must be a subset of `values`; values are UTF-8 strings. The worker calls existing `app.para(name, value, expression=description)`, preserving formulas in `values`. Fake backend stores descriptions separately; neither path certifies native readback.
+
+
 ## 2026-10-28: Typed session modeling API
 
 `model_api` takes explicit project_id, stage_id, calls (method/args/kwargs) and a SHA256 preview_digest of canonical JSON calls (sort_keys=True, ensure_ascii=False). Only the static whitelist in sessions/model_api.py is callable; all signatures are bound before the first mutation. No scripts, eval, dynamic imports, solver run, file open/close or arbitrary attributes. Methods execute on the original session-owned app. Native stages rebuild and save through the usual checkpoint. Fake stages only record calls. This routing does not itself certify geometry or results.
 
 Added setup.new_curve(name), set_wcs_basis(origin, normal, u_vector), activate_global_wcs(), configure_fem_solver(accuracy='1e-6', mesh_adaption=True). They submit focused history through the owning API; no solve. ExtrudeCurve now preserves the exact requested name; parameter sweep helpers omit unsupported Reset.
+
+
+## Explicit schematic macro domain in persistent sessions
+
+The existing `history` operation accepts `domain="schematic"` to execute a reviewed, bounded VBA statement body through the owned project schematic `execute_vba_code`. The default domain remains `model3d` and uses 3D add-to-history. Schematic execution is journaled and saved, but is not added to the 3D replay history and does not rebuild unrelated 3D geometry. Stage identifiers, SHA256 preview binding, project ownership and failure/recovery rules remain mandatory. It does not certify solver or source equivalence. No active-window routing or fallback between domains is permitted.
+
+
+`reload_project` is a persistent-session operation for explicitly approved baseline recovery. It requires project_id and expected_digest matching the human-reviewed last_resolution and current saved file. It discards only that owned project tab without saving its unsaved state, reopens the same file in the same DE, and resets that project handle. It does not copy, rebuild or run a solver.
 
 ## Native linear, logarithmic and discrete parameter sweeps
 

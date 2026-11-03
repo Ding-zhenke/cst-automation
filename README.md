@@ -45,6 +45,7 @@ python -m build --wheel --sdist
 
 - [安装与配置](docs/INSTALLATION.md)
 - [Python 使用](docs/guides/python-usage.md)
+- [通用电路参数研究与历史比较](docs/guides/circuit_parameter_studies.md)
 - [MCP 使用](docs/guides/mcp-usage.md)
 - [故障定位](docs/guides/troubleshooting.md)
 - [仓库 skills](skills/README.md)

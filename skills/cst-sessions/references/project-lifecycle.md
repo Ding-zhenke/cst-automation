@@ -18,9 +18,12 @@
 
 1. 先查已安装的源码/签名和能力，再构造请求。没有 API 不猜名称或参数。
 2. 参数扫描使用会话 `configure_sweep`：`project_id`、稳定 `stage_id`、
-   `sequence_name`、`parameters={参数名: 数值列表}`；按需显式 `replace_all=true`。
-   该操作只配置，不启动求解。相同 sequence 内各轴为全组合，先核对工况总数。
-   低层 API 是 `configure_discrete_sweep` / `add_sweep_parameter_arbitrary_points`。
+   `sequence_name`、`parameters`；每个参数可用数值列表，或
+   `{"mode":"linear"或"logarithmic","start":下界,"stop":上界,"samples":点数}`。
+   按需显式 `replace_all=true`。该操作只配置，不启动求解。
+   相同 sequence 内各轴为全组合，先核对工况总数。对数范围上下界须为正数；
+   零状态另用离散点序列。低层 API 为 `configure_sweep`、
+   `add_sweep_parameter_samples(..., logarithmic=False/True)`；离散接口继续保留。
 3. 角点在原 `project_id` 上逐一设置、重建、读回，然后恢复默认值并保存。
    不为角点、核验前后或重新打开创建过程模型、另存文件或 DE。
 4. 参数、实体材料、体积与点归属通过 `inspect(native_readback=true)` 查询，

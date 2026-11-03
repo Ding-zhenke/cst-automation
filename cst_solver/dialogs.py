@@ -119,7 +119,8 @@ def _refresh_pid_names():
     global _pid_fallback_time
     _pid_fallback_time = time.monotonic()
     out = subprocess.run(['tasklist', '/FO', 'CSV', '/NH'], capture_output=True,
-                         text=True, timeout=2, creationflags=0x08000000)
+                         text=True, encoding=('mbcs' if os.name == 'nt' else 'utf-8'),
+                         errors='replace', timeout=2, creationflags=0x08000000)
     if out.returncode:
         raise OSError(out.stderr.strip() or 'tasklist 查询失败')
     for row in csv.reader(out.stdout.splitlines()):
