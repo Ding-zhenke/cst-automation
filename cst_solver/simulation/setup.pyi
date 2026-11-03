@@ -5,7 +5,17 @@ cst_solver.simulation — 类型存根文件
 为 simulation 下所有 Mixin 类提供类型提示，消除 Pylance 红色波浪线。
 """
 
-from typing import Any, List, Dict, Tuple, Optional, Union
+from typing import Any, List, Dict, Tuple, Optional, Union, Mapping
+from cst_solver.simulation.sweep import SweepParameters
+
+class SolverMixin:
+    def configure_fd_frequency(self, settings: Mapping[str, Any]) -> Dict[str, Any]: ...
+    def add_sweep_parameter_samples(self, seq_name: str, param_name: str,
+                                    lower_bound: Union[float, str], upper_bound: Union[float, str],
+                                    num_steps: int, logarithmic: bool = False) -> None: ...
+    def configure_sweep(self, sequence_name: str, parameters: SweepParameters,
+                         replace_all: bool = False) -> None: ...
+    def configure_em_time_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]: ...
 
 # ============================================================
 # 监视器 (MonitorMixin)

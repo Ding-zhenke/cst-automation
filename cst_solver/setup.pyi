@@ -7,11 +7,19 @@ cst_solver.setup — 类型存根文件
 此文件由工具自动生成，覆盖所有 Mixin 模块的方法。
 """
 
-from typing import Any, List, Dict, Tuple, Optional, Union
+from typing import Any, List, Dict, Tuple, Optional, Union, Sequence, Mapping
+from cst_solver.simulation.sweep import SweepParameters
 
 import os
+from cst_solver.circuit import CircuitAPI
 
 _PathLike = Union[str, os.PathLike]
+_TensorEntry = Union[float, complex, str]
+_TensorRow = Union[List[_TensorEntry], Tuple[_TensorEntry, ...]]
+_TensorMatrix = Union[List[_TensorRow], Tuple[_TensorRow, ...]]
+_TensorRealEntry = Union[float, str]
+_TensorRealRow = Union[List[_TensorRealEntry], Tuple[_TensorRealEntry, ...]]
+_TensorRealMatrix = Union[List[_TensorRealRow], Tuple[_TensorRealRow, ...]]
 
 # ============================================================
 # CST 项目操作 (ProjectMixin)
@@ -33,12 +41,17 @@ class _ProjectMixin:
     def save_as(self, filename: str, include_results: bool = True,
                 allow_overwrite: bool = False) -> str: ...
     def new_project(self, project_type: Optional[Any] = None) -> None: ...
+    def new_circuit_project(self) -> None: ...
     def activate(self) -> None: ...
 
 # ============================================================
 # 单位设置 (UnitsMixin)
 # ============================================================
 class _UnitsMixin:
+    def new_curve(self, name: str) -> None: ...
+    def set_wcs_basis(self, origin: list, normal: list, u_vector: list) -> None: ...
+    def activate_global_wcs(self) -> None: ...
+    def configure_fem_solver(self, accuracy: str = '1e-6', mesh_adaption: bool = True) -> None: ...
     def set_units(self, frequency: str = 'GHz', length: str = 'mm',
                   temperature: str = 'Celsius', time: str = 'ns',
                   voltage: str = 'V', current: str = 'A',
@@ -129,6 +142,7 @@ class _ModelingPrimitivesMixin:
 # 曲线绘制 (CurvesMixin)
 # ============================================================
 class _CurvesMixin:
+    def delete_curve_item(self, name: str, curve: str = 'curve1') -> None: ...
     def polyline(self, data: List[list], name: str = '1',
                  curve: str = 'curve1', log_flag: int = 1) -> str: ...
     def create_polygon(self, data: List[list], name: str = '1',
@@ -188,6 +202,7 @@ class _CurveOpsMixin:
 # 布尔运算 (SolidOpsMixin)
 # ============================================================
 class _SolidOpsMixin:
+    def delete_solid(self, name: str, component: str = 'component1') -> None: ...
     def add(self, name1: str, name2: str, component1: str = 'component1',
             component2: str = 'component1') -> None: ...
     def boolean_add(self, name1: str, name2: str, component1: str = 'component1',
@@ -315,6 +330,34 @@ class _FaceOpsMixin:
 # 材料与组件 (MaterialMixin)
 # ============================================================
 class _MaterialMixin:
+    def create_material_gyrotropic(
+            self, name: str, epsilon: Union[float, str], *,
+            larmor_omega: Union[float, str],
+            gyrotropic_omega: Union[float, str],
+            damping: Union[float, str],
+            bias_direction: Union[List[Union[float, str]],
+                                  Tuple[Union[float, str], ...]] = (0, 0, 1),
+            mu_infinity: Union[float, str] = 1,
+            kappa: Union[float, str] = 0,
+            color: Optional[Union[str, Tuple[float, float, float],
+                                  List[float]]] = None,
+            colour: Optional[Union[str, Tuple[float, float, float],
+                                   List[float]]] = None) -> None: ...
+    def create_material_full_tensor(self, name: str,
+            epsilon_tensor: _TensorMatrix, mu_tensor: _TensorMatrix, *,
+            epsilon_imag: Optional[_TensorRealMatrix] = None,
+            mu_imag: Optional[_TensorRealMatrix] = None,
+            epsilon_axes: Tuple[Tuple[float, float, float], Tuple[float, float, float]] = ...,
+            mu_axes: Tuple[Tuple[float, float, float], Tuple[float, float, float]] = ...,
+            color: Optional[Union[str, Tuple[float, float, float], List[float]]] = None,
+            colour: Optional[Union[str, Tuple[float, float, float], List[float]]] = None) -> None: ...
+    def create_material_tensor(self, name: str, epsilon: Union[float, str],
+                               mu_tensor: _TensorMatrix, *,
+                               mu_imag: Optional[_TensorRealMatrix] = None,
+                               color: Optional[Union[str, Tuple[float, float, float],
+                                                     List[float]]] = None,
+                               colour: Optional[Union[str, Tuple[float, float, float],
+                                                      List[float]]] = None) -> None: ...
     def new_material(self, name: str) -> None: ...
     def create_material(self, name: str) -> None: ...
     def create_material_custom(self, name: str, epsilon: Union[float, str],
@@ -477,8 +520,10 @@ class _BoundaryMixin:
 # 求解器 (SolverMixin)
 # ============================================================
 class _SolverMixin:
+    def configure_fd_frequency(self, settings: Mapping[str, Any]) -> Dict[str, Any]: ...
     def T_solver(self) -> None: ...
     def configure_time_solver(self) -> None: ...
+    def configure_em_time_settings(self, settings: Dict[str, Any]) -> Dict[str, Any]: ...
     def set_steady_state_limit(self, db: Union[float, str] = '-30') -> None: ...
     def set_parallel_threads(self, threads: Union[int, str] = 8,
                              enable: bool = True) -> None: ...
@@ -503,9 +548,15 @@ class _SolverMixin:
                                   start: bool = True) -> None: ...
     def add_parameter_sweep_sequence(self, sequence_name: str = 'sweep1') -> None: ...
     def add_sweep_parameter_samples(self, seq_name: str, param_name: str,
-                                    lower_bound: float, upper_bound: float,
-                                    num_steps: int) -> None: ...
+                                    lower_bound: Union[float, str], upper_bound: Union[float, str],
+                                    num_steps: int, logarithmic: bool = False) -> None: ...
+    def configure_sweep(self, sequence_name: str, parameters: SweepParameters,
+                         replace_all: bool = False) -> None: ...
     def start_parameter_sweep(self) -> None: ...
+    def add_sweep_parameter_arbitrary_points(self, seq_name: str, param_name: str,
+                                             points: Sequence[float]) -> None: ...
+    def configure_discrete_sweep(self, sequence_name: str, parameters: Dict[str, Sequence[float]],
+                                 replace_all: bool = False) -> None: ...
     def configure_optimizer(self, goal: str = '',
                             max_iterations: str = '100') -> None: ...
     def add_optimizer_goal(self, name: str, goal_type: str, operator: str,
@@ -529,6 +580,7 @@ class _SolverMixin:
 # 网格设置 (MeshMixin)
 # ============================================================
 class _MeshMixin:
+    def configure_tetrahedral_mesh(self, settings: Mapping[str, Any]) -> Dict[str, Any]: ...
     def set_mesh_properties(self, max_cell: Optional[float] = None,
                             min_cell: Optional[float] = None,
                             lines_per_wavelength: int = 10,
@@ -757,6 +809,8 @@ class setup(
     """
 
     def __init__(self, filename: Optional[_PathLike] = None) -> None: ...
+    @property
+    def circuit(self) -> CircuitAPI: ...
     @classmethod
     def attach(pid: Optional[Union[int, str]] = None,
               filename: Optional[_PathLike] = None) -> 'setup': ...

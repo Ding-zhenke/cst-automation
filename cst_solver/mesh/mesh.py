@@ -7,12 +7,91 @@ CST 网格设置 Mixin 模块
 @author: PC
 """
 
+from cst_solver.simulation.frequency import (
+    _boolean, _integer, _mapping, _number, _numeric_text, _sequence,
+    _submit_configuration,
+)
+
+
+def normalize_tetrahedral_mesh_settings(settings):
+    """Pure validation of supported CST 2026 tetrahedral mesh settings.
+
+    Help: VBA_3D/special_vbamesh/special_vbamesho.htm,
+    special_vbamesh_meshadaption3d_object.htm and
+    common_vbasolido/common_vbasolido_solid_object.htm.
+    """
+    source = _mapping(settings, ('steps_per_wavelength', 'minimum_steps',
+                      'material_refinement', 'local_solids', 'adaptation'), 'tetrahedral settings')
+    result = {}
+    for key in ('steps_per_wavelength', 'minimum_steps'):
+        if key in source:
+            result[key] = _number(source[key], key)
+    if 'material_refinement' in source:
+        result['material_refinement'] = _boolean(source['material_refinement'], 'material_refinement')
+    if 'local_solids' in source:
+        result['local_solids'] = []
+        for item in _sequence(source['local_solids'], 'local_solids'):
+            item = _mapping(item, ('solid', 'max_step'), 'local solid')
+            if set(item) != {'solid', 'max_step'}:
+                raise ValueError('Each local solid requires solid and max_step')
+            name = item['solid']
+            if (not isinstance(name, str) or ':' not in name or
+                    any(not part.strip() for part in name.split(':')) or
+                    any(ord(char) < 32 or ord(char) == 127 or char == '"' for char in name)):
+                raise ValueError('solid must be a safe component:name identifier')
+            result['local_solids'].append(dict(solid=name, max_step=_number(item['max_step'], 'max_step')))
+    if 'adaptation' in source:
+        item = _mapping(source['adaptation'], ('enabled', 'min_passes', 'max_passes',
+            'max_delta_s', 'delta_s_checks', 'refinement_percentage'), 'adaptation')
+        adaptation = {}
+        if 'enabled' in item:
+            adaptation['enabled'] = _boolean(item['enabled'], 'enabled')
+        for key in ('min_passes', 'max_passes', 'delta_s_checks'):
+            if key in item:
+                adaptation[key] = _integer(item[key], key)
+        if ('min_passes' in adaptation and 'max_passes' in adaptation and
+                adaptation['min_passes'] > adaptation['max_passes']):
+            raise ValueError('min_passes must not exceed max_passes')
+        for key, maximum in (('max_delta_s', 1), ('refinement_percentage', 100)):
+            if key in item:
+                adaptation[key] = _number(item[key], key, maximum=maximum)
+        result['adaptation'] = adaptation
+    return result
+
 
 class MeshMixin:
     """
     CST 网格设置 Mixin
     提供网格属性设置和网格自适应配置功能
     """
+
+    def configure_tetrahedral_mesh(self, settings):
+        """Configure documented global/local tetrahedral controls without meshing.
+
+        Local max_step uses current geometry units. Omitted settings are retained;
+        no Mesh/solver reset, geometry creation, rebuild, save or solve occurs.
+        """
+        requested = normalize_tetrahedral_mesh_settings(settings)
+        commands = []
+        for key, native in (('steps_per_wavelength', 'StepsPerWavelengthTet'),
+                            ('minimum_steps', 'MinimumStepNumberTet')):
+            if key in requested:
+                commands.append(f'Mesh.{native} "{_numeric_text(requested[key])}"')
+        if 'material_refinement' in requested:
+            commands.append(f'Mesh.MaterialRefinementTet {requested["material_refinement"]}')
+        for item in requested.get('local_solids', ()):
+            commands.append(f'Solid.SetMeshStepwidthTet "{item["solid"]}", "{_numeric_text(item["max_step"])}"')
+        adaptation = requested.get('adaptation', {})
+        if 'enabled' in adaptation:
+            commands.append(f'FDSolver.MeshAdaptionTet {adaptation["enabled"]}')
+        if set(adaptation) - {'enabled'}:
+            commands.append('MeshAdaption3D.SetType "HighFrequencyTet"')
+        for key, native in (('min_passes', 'MinPasses'), ('max_passes', 'MaxPasses'),
+                            ('max_delta_s', 'MaxDeltaS'), ('delta_s_checks', 'NumberOfDeltaSChecks'),
+                            ('refinement_percentage', 'RefThetaFactor')):
+            if key in adaptation:
+                commands.append(f'MeshAdaption3D.{native} "{_numeric_text(adaptation[key])}"')
+        return _submit_configuration(self, requested, commands, 'Configure tetrahedral mesh')
 
     def set_mesh_properties(self, max_cell=None, min_cell=None,
                             lines_per_wavelength=10, mesh_type='PBA'):

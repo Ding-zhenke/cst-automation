@@ -351,18 +351,19 @@ End With"""
         :param label: str, 端口标签
         :param folder: str, 归属文件夹
         """
+        if folder:
+            raise ValueError('CST DiscretePort has no Folder command; use label instead')
         f1 = f"""With DiscretePort
      .Reset
      .PortNumber "{id_val}"
      .Type "SParameter"
      .Label "{label}"
-     .Folder "{folder}"
      .Impedance "{impedance}"
-     .VoltageAmplitude "1.0"
-     .CurrentAmplitude "1.0"
+     .Voltage "1.0"
+     .Current "1.0"
      .Monitor "True"
-     .SetP1 "True", "{p1[0]}", "{p1[1]}", "{p1[2]}"
-     .SetP2 "True", "{p2[0]}", "{p2[1]}", "{p2[2]}"
+     .SetP1 "False", "{p1[0]}", "{p1[1]}", "{p1[2]}"
+     .SetP2 "False", "{p2[0]}", "{p2[1]}", "{p2[2]}"
      .LocalCoordinates "False"
      .InvertDirection "False"
      .Create

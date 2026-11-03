@@ -129,4 +129,6 @@ def describe_runtime() -> Dict[str, Any]:
     }
     if service is not None:
         payload['service'] = service.describe()
+    from cst_solver.circuit.capabilities import circuit_capabilities
+    payload['circuit'] = circuit_capabilities()
     return payload

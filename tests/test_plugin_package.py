@@ -29,7 +29,8 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
         assert "mcpServers" not in manifest
         entries = sorted(n for n in names if n.startswith("skills/") and n.endswith("/SKILL.md"))
         assert {Path(n).parent.name for n in entries} == {
-            "cst-modeling", "cst-simulation", "cst-results", "cst-diagnostics"}
+            "cst-circuit", "cst-diagnostics", "cst-mesh-frequency", "cst-modeling",
+            "cst-parameter-study", "cst-results", "cst-sessions", "cst-simulation"}
         for name, content in before.items():
             if name == "skills/README.md":
                 continue

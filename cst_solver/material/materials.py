@@ -9,6 +9,7 @@ CST 材料与组件 Mixin 模块
 
 import logging
 import math
+import numbers
 import os
 
 from cst_solver.failures import record_failure
@@ -141,6 +142,27 @@ def _material_dispersion_block(model, infinity, coefficients, quantity):
         for index, value in enumerate(coefficients, start=1)
     )
     return '\n'.join(lines) + '\n'
+
+
+def _tensor_expression(value, label):
+    """Preserve CST expressions without evaluating them in Python."""
+    if isinstance(value, str):
+        if not value.strip() or '"' in value or any(ord(c) < 32 for c in value):
+            raise ValueError(f'{label} must be a nonempty single-line CST expression without quotes')
+        return value
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
+        raise ValueError(f'{label} must be a finite real number or CST expression')
+    if not math.isfinite(value):
+        raise ValueError(f'{label} must be finite')
+    return str(value)
+
+
+def _tensor_matrix(value, label):
+    if (not isinstance(value, (list, tuple)) or len(value) != 3
+            or any(not isinstance(row, (list, tuple)) or len(row) != 3
+                   for row in value)):
+        raise ValueError(f'{label} must be a 3x3 list/tuple')
+    return value
 
 
 class MaterialMixin:
@@ -401,6 +423,184 @@ End With
         # 注意：历史标签保持 "Material: <name>" 不变 —— 旧工程历史里有同名条目,
         # 改了会让“对比历史”失配（开发宪法 §5.3）。
         self.cst_file.model3d.add_to_history(f"Material: {name}", f1)
+
+    def create_material_tensor(self, name, epsilon, mu_tensor, *,
+                               mu_imag=None, color=None, colour=None):
+        """Create a full complex relative-permeability tensor material.
+
+        ``mu_tensor`` is a 3x3 list/tuple of finite real/complex constants
+        or CST real-part expression strings. For frequency-dependent complex
+        entries, supply real expressions in ``mu_tensor`` and imaginary
+        expressions in the optional 3x3 ``mu_imag`` matrix. Complex constants
+        in ``mu_tensor`` cannot be combined with ``mu_imag``.
+
+        Inputs use ``mu = real + j*imag``. CST's TensorFormulaImag takes the
+        *negative* imaginary part; this method converts the sign. Expressions
+        retain project parameter references; define parameters beforehand.
+        The formula variable ``f`` is frequency in Hz, regardless of project
+        frequency units. ``epsilon`` is a real scalar/parameter expression
+        applied to all three electric diagonal entries. Tensor axes are the
+        default global x/y/z axes (indices 0/1/2).
+
+        CST 2026 Help limits Tensor formula to the general purpose frequency
+        domain solver with tetrahedral mesh: NOT the T/Transient solver.
+        This method does not select a solver or verify native compatibility.
+        After validating all input it submits one history block; no save,
+        rebuild, readback or solve is performed. Invalid input raises
+        ValueError before accessing the project. Color aliases follow
+        create_material_custom.
+        """
+        eps = _tensor_expression(epsilon, 'epsilon')
+        self.create_material_full_tensor(
+            name, [[eps, 0, 0], [0, eps, 0], [0, 0, eps]], mu_tensor,
+            mu_imag=mu_imag, color=color, colour=colour)
+
+    def create_material_full_tensor(
+            self, name, epsilon_tensor, mu_tensor, *,
+            epsilon_imag=None, mu_imag=None,
+            epsilon_axes=((1, 0, 0), (0, 1, 0)),
+            mu_axes=((1, 0, 0), (0, 1, 0)), color=None, colour=None):
+        """Create full complex epsilon/mu tensors like CST's built-in macro.
+
+        Inputs use real+j*imag; CST stores real-j*TensorFormulaImag.
+        Each property has independent orthonormal U,V global axes; W=UxV.
+        Numeric axes only. Expressions in tensor entries are preserved.
+        General purpose tetrahedral F solver only. Submits history without
+        saving, rebuilding, running, or claiming native readback.
+        """
+        if not isinstance(name, str):
+            raise ValueError('name must be a string')
+        _tensor_expression(name, 'name')
+        if colour is not None:
+            if color is not None:
+                raise ValueError('color and colour are aliases; supply only one')
+            color = colour
+        rgb = _parse_colour(color) if color is not None else None
+        blocks = []
+        for key, values, imaginary, axes in (
+                ('epsilon_r', epsilon_tensor, epsilon_imag, epsilon_axes),
+                ('mu_r', mu_tensor, mu_imag, mu_axes)):
+            matrix = _tensor_matrix(values, key)
+            imag_matrix = (_tensor_matrix(imaginary, key + '_imag')
+                           if imaginary is not None else None)
+            if not isinstance(axes, (list, tuple)) or len(axes) != 2:
+                raise ValueError(key + ' axes require U,V unit vectors')
+            for vector in axes:
+                if (not isinstance(vector, (list, tuple)) or len(vector) != 3
+                        or any(isinstance(v, bool) or not isinstance(v, numbers.Real)
+                               or not math.isfinite(v) for v in vector)
+                        or not math.isclose(sum(v*v for v in vector), 1,
+                                            rel_tol=1e-9, abs_tol=1e-12)):
+                    raise ValueError(key + ' axes must be finite unit vectors')
+            if not math.isclose(sum(u*v for u, v in zip(*axes)), 0, abs_tol=1e-9):
+                raise ValueError(key + ' U,V must be orthogonal')
+            block = [f'    .TensorFormulaFor "{key}"']
+            for row in range(3):
+                for col in range(3):
+                    value = matrix[row][col]
+                    if isinstance(value, numbers.Complex) and not isinstance(value, numbers.Real):
+                        if imag_matrix is not None:
+                            raise ValueError('complex tensor and separate imaginary part conflict')
+                        real, imag = value.real, value.imag
+                    else:
+                        real = value
+                        imag = imag_matrix[row][col] if imag_matrix is not None else 0
+                    real_expr = _tensor_expression(real, key)
+                    imag_expr = _tensor_expression(imag, key + '_imag')
+                    negative_imag = f'-({imag_expr})' if isinstance(imag, str) else str(-imag)
+                    block.extend([
+                        f'    .TensorFormulaReal {row}, {col}, "{real_expr}"',
+                        f'    .TensorFormulaImag {row}, {col}, "{negative_imag}"'])
+            axis_text = ', '.join('"' + _tensor_expression(v, 'axis') + '"'
+                                  for vector in axes for v in vector)
+            block.append('    .TensorAlignment2 ' + axis_text)
+            blocks.extend(block)
+        lines = ['With Material', '    .Reset', f'    .Name "{name}"',
+                 '    .Folder ""', '    .FrqType "all"',
+                 '    .Type "Tensor formula"', '    .SetMaterialUnit "GHz", "mm"']
+        lines.extend(blocks)
+        if rgb is not None:
+            lines.append('    .Colour "{}", "{}", "{}"'.format(*rgb))
+        lines.extend(['    .Create', 'End With'])
+        self.cst_file.model3d.add_to_history(f'Material: {name}', '\n'.join(lines))
+
+    def create_material_gyrotropic(
+            self, name, epsilon, *, larmor_omega, gyrotropic_omega,
+            damping, bias_direction=(0, 0, 1), mu_infinity=1, kappa=0,
+            color=None, colour=None):
+        """Create native magnetic Gyrotropic ferrite with SI inputs.
+
+        larmor_omega/gyrotropic_omega are angular frequencies in rad/s;
+        pass 2*pi*f_hz when starting from ordinary Hz. Damping is dimensionless;
+        bias_direction is a three-component unit vector in global x/y/z.
+        Material frequency scale is Hz (base 1/s); global units are unchanged.
+        This scale does not change the native model's angular-frequency meaning.
+        mu_infinity and epsilon are relative values; kappa is in S/m.
+        All physical inputs accept finite real constants or CST project
+        parameter expressions, preserved without Python evaluation. Define
+        referenced parameters beforehand. This is a built-in dispersion
+        model, not an arbitrary formula in Tensor formula's variable f or t.
+
+        Numeric frequencies/damping/kappa must be nonnegative, mu_infinity
+        positive. Purely numeric directions must have unit length; expression
+        directions and parameter ranges must be checked by the caller in CST.
+        The saturated-ferrite/Polder model has an official CST
+        transient example; this wrapper does not prove native readback or
+        solver acceptance. It is not an arbitrary nine-entry tensor model.
+        Bias-source selection is left at CST's reset default; in projects
+        with magnetostatic field sources, verify that the native source mode
+        is Homogeneous field before relying on the supplied direction.
+
+        Validate everything before submitting one material history block.
+        No solver selection, save, rebuild, native readback or solve occurs.
+        """
+        if not isinstance(name, str):
+            raise ValueError('name must be a string')
+        _tensor_expression(name, 'name')
+        eps = _tensor_expression(epsilon, 'epsilon')
+        values = {}
+        for key, value in (
+                ('larmor_omega', larmor_omega),
+                ('gyrotropic_omega', gyrotropic_omega),
+                ('damping', damping), ('mu_infinity', mu_infinity),
+                ('kappa', kappa)):
+            values[key] = _tensor_expression(value, key)
+            if not isinstance(value, str):
+                if value < 0 or (key == 'mu_infinity' and value == 0):
+                    raise ValueError(f'{key} must be '
+                                     + ('positive' if key == 'mu_infinity'
+                                        else 'nonnegative'))
+        if not isinstance(bias_direction, (list, tuple)) or len(bias_direction) != 3:
+            raise ValueError('bias_direction must be a three-component list/tuple')
+        direction = [_tensor_expression(value, f'bias_direction[{index}]')
+                     for index, value in enumerate(bias_direction)]
+        if all(not isinstance(value, str) for value in bias_direction):
+            if not math.isclose(math.hypot(*bias_direction), 1.0,
+                                rel_tol=1e-9, abs_tol=1e-12):
+                raise ValueError('numeric bias_direction must be a unit vector')
+        if colour is not None:
+            if color is not None:
+                raise ValueError('color and colour are aliases; supply only one')
+            color = colour
+        rgb = _parse_colour(color) if color is not None else None
+        lines = [
+            'With Material', '    .Reset', f'    .Name "{name}"',
+            '    .Folder ""', '    .FrqType "all"', '    .Type "Normal"',
+            '    .SetMaterialUnit "Hz", "mm"',
+            f'    .Epsilon "{eps}"', '    .Mu "1"',
+            f'    .Kappa "{values["kappa"]}"',
+            '    .DispModelMu "Gyrotropic"', '    .UseSISystem "True"',
+            f'    .MuInfinity "{values["mu_infinity"]}"',
+            f'    .DispCoeff1Mu "{values["larmor_omega"]}"',
+            f'    .DispCoeff2Mu "{values["gyrotropic_omega"]}"',
+            f'    .DispCoeff3Mu "{values["damping"]}"',
+        ]
+        lines.extend(f'    .DispCoeff4Mu{axis} "{value}"'
+                     for axis, value in zip('XYZ', direction))
+        if rgb is not None:
+            lines.append('    .Colour "{}", "{}", "{}"'.format(*rgb))
+        lines.extend(['    .Create', 'End With'])
+        self.cst_file.model3d.add_to_history(f'Material: {name}', '\n'.join(lines))
 
     def new_component(self, name):
         """

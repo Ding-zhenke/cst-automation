@@ -122,6 +122,16 @@ End With"""
         """
         self.T_solver()
 
+    def configure_em_time_settings(self, settings):
+        """Configure current-project EM stability factor/output sampling without solving.
+
+        Settings are a sparse mapping of stability_factor (0 < f <= 1) and
+        output_sampling ('every_step' or 'automatic'). Native readback and
+        actual integration clocks remain unverified. Does not reset Solver.
+        """
+        from .em_time import configure_em_time_settings
+        return configure_em_time_settings(self, settings)
+
     def run(self):
         """
         执行当前 CST 工程的求解器计算，提交仿真任务
@@ -179,6 +189,28 @@ End With"""
         """
         self.cst_file.model3d.full_history_rebuild()
         get_guard_state(self).mark_rebuilt()
+
+    def configure_fem_solver(self, accuracy='1e-6', mesh_adaption=True):
+        """Configure CST general purpose tetrahedral F solver; never run it."""
+        from cst_solver.expressions import check_vba_text
+        if not check_vba_text(str(accuracy)).ok or type(mesh_adaption) is not bool:
+            raise ValueError('Explicit accuracy and boolean mesh_adaption required')
+        flag = 'True' if mesh_adaption else 'False'
+        code = ('ChangeSolverType "HF Frequency Domain"\nWith FDSolver\n'
+                ' .SetMethod "Tetrahedral", "General purpose"\n'
+                f' .AccuracyTet "{accuracy}"\n .Stimulation "All", "All"\n'
+                f' .MeshAdaptionTet "{flag}"\n .SweepConsiderAll "True"\nEnd With')
+        self.cst_file.model3d.add_to_history('General purpose FEM solver', code)
+
+    def configure_fd_frequency(self, settings):
+        """Append typed F-solver sample/adaptation intervals and sparse sweep controls.
+
+        Separate solve samples, mesh-adaptation points and interpolated outputs.
+        No solver reset/selection, rebuild, save or solve; readback is unverified.
+        Only explicit replace_intervals=True replaces existing interval rows.
+        """
+        from .frequency import configure_fd_frequency
+        return configure_fd_frequency(self, settings)
 
     def configure_fd_solver(self, accuracy='-60'):
         """
@@ -285,29 +317,46 @@ End With"""
 
         :param sequence_name: str, 序列名称
         """
+        from .sweep import validate_sequence_name
+        validate_sequence_name(sequence_name)
         f1 = f"""With ParameterSweep
-     .Reset
      .AddSequence "{sequence_name}"
 End With"""
         self.cst_file.model3d.add_to_history(f"ParamSweep Seq: {sequence_name}", f1)
 
     def add_sweep_parameter_samples(self, seq_name, param_name,
-                                     lower_bound, upper_bound, num_steps):
-        """
-        为参数扫描序列添加参数（线性采样）
+                                     lower_bound, upper_bound, num_steps,
+                                     logarithmic=False):
+        """Add native linear/logarithmic endpoint-inclusive samples; never solve.
 
-        :param seq_name: str, 序列名称
-        :param param_name: str, 参数名
-        :param lower_bound: float, 下界
-        :param upper_bound: float, 上界
-        :param num_steps: int, 步数
+        num_steps is the number of samples (at least two), not intervals.
+        Logarithmic bounds must be positive. Legacy calls remain linear and
+        accept finite decimal/scientific numeric-string bounds.
         """
-        f1 = f"""With ParameterSweep
-     .Reset
-     .AddParameter_Samples "{seq_name}", "{param_name}", "{lower_bound}", "{upper_bound}", "{num_steps}", "False"
-End With"""
-        self.cst_file.model3d.add_to_history(
-            f"ParamSweep: {param_name} [{lower_bound}:{upper_bound}]/{num_steps}", f1)
+        from .sweep import samples_command
+        code = ('With ParameterSweep\n'
+                + samples_command(seq_name, param_name, lower_bound, upper_bound,
+                                  num_steps, logarithmic,
+                                  allow_numeric_strings=True) + '\nEnd With')
+        self.cst_file.model3d.add_to_history(f'ParamSweep sampled: {param_name}', code)
+
+    def configure_sweep(self, sequence_name, parameters, replace_all=False):
+        """Configure mixed linear/logarithmic/discrete axes atomically; no solve."""
+        from .sweep import sweep_code
+        code=sweep_code(sequence_name, parameters, replace_all)
+        self.cst_file.model3d.add_to_history('Parameter sweep configuration', code)
+
+    def add_sweep_parameter_arbitrary_points(self, seq_name, param_name, points):
+        """Configure finite discrete scan points; never starts the solver."""
+        from .sweep import points_command
+        code = 'With ParameterSweep\n' + points_command(seq_name, param_name, points) + '\nEnd With'
+        self.cst_file.model3d.add_to_history(f'ParamSweep discrete: {param_name}', code)
+
+    def configure_discrete_sweep(self, sequence_name, parameters, replace_all=False):
+        """Validate all axes, then configure one sweep; never starts it."""
+        from .sweep import discrete_sweep_code
+        code = discrete_sweep_code(sequence_name, parameters, replace_all)
+        self.cst_file.model3d.add_to_history('Discrete parameter sweep', code)
 
     def start_parameter_sweep(self):
         """启动参数扫描"""

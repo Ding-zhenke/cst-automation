@@ -14,7 +14,17 @@ from typing import Iterable, Mapping, Optional
 
 __all__ = ['CSTPaths', 'CSTConfigurationError', 'CSTUnavailableError',
            'discover_cst_installations', 'get_cst_paths', 'diagnose_environment',
-           'describe_interface_abi', 'interpreter_abi_tag']
+           'describe_interface_abi', 'interpreter_abi_tag', 'environment_pid']
+
+
+def environment_pid(environment):
+    """Read DE.pid on the SDK thread; callers cache this integer for monitors."""
+    value = getattr(environment, 'pid', None)
+    try:
+        value = value() if callable(value) else value
+    except Exception:
+        return None
+    return value if type(value) is int and value > 0 else None
 
 
 class CSTConfigurationError(ValueError):

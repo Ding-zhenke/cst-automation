@@ -1,0 +1,224 @@
+"""Explicit Design Studio routes running exclusively on RunService's worker."""
+import logging
+import json
+import copy
+from pathlib import Path
+from uuid import uuid4
+
+from cst_solver.circuit.adapter import CircuitError
+from tpc_service.backends.base import ok_result, fail_result, artifact
+
+
+def contained(root, path):
+    root = Path(root).resolve()
+    path = (root / Path(path)).resolve()
+    if path != root and root not in path.parents:
+        raise CircuitError("circuit_spec_invalid", "Path must remain inside service workdir", path=str(path))
+    return path
+
+
+def register_circuit_handlers(service, *, replace=False, app_factory=None):
+    """Register opt-in circuit routes. app_factory is an explicit SDK boundary."""
+    if app_factory is None:
+        def app_factory(path):
+            from cst_solver import setup
+            return setup(path)
+
+    allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "inspect", "read_results", "package"},
+               "solve": {"run_task"}, "study": {"parameter_sequence", "run_parameter_study"}}
+
+    def handle(*, project, params, job, backend):
+        app = None
+        try:
+            operation = params.get("operation")
+            if operation not in allowed.get(job["kind"], set()):
+                raise CircuitError("circuit_spec_invalid", "Unknown kind/operation combination")
+            path = contained(service.workdir, project["path"])
+            if operation == 'run_parameter_study':
+                from cst_automation.circuit_studies import normalize_parameter_study
+                try:
+                    normalize_parameter_study(params.get('spec'))
+                except ValueError as exc:
+                    raise CircuitError('circuit_spec_invalid', str(exc)) from exc
+            if operation == "configure":
+                from cst_automation.circuit_schema import validate_circuit_spec
+                validate_circuit_spec(params.get("spec"))
+            if operation == 'configure_transient_task':
+                from cst_automation.circuit_tasks import transient_settings
+                transient_settings(params.get('settings'))
+                name = params.get('task_name')
+                if not isinstance(name, str) or not name.strip() or any(c in name for c in '\r\n\x00') or type(params.get('create', False)) is not bool:
+                    raise CircuitError('circuit_spec_invalid', 'Explicit task name and boolean create required')
+            if operation == 'configure_steady_state_task':
+                from cst_automation.circuit_tasks import steady_state_settings
+                from cst_automation.circuit_configuration import configuration_name, require
+                steady_state_settings(params.get('settings'))
+                configuration_name(params.get('task_name'))
+                require(type(params.get('create', False)) is bool, 'create must be boolean')
+            if operation == 'configure_em_time_settings':
+                from cst_automation.em_time import normalize_em_time_settings
+                normalize_em_time_settings(params.get('settings'))
+            if operation == 'configure_task_ports':
+                from cst_automation.circuit_configuration import configuration_name
+                from cst_automation.circuit_ports import task_port_settings
+                configuration_name(params.get('task_name'))
+                configuration_ports = copy.deepcopy(params.get('ports'))
+                if isinstance(configuration_ports, dict):
+                    for row in configuration_ports.values():
+                        signal = row.get('signal') if isinstance(row, dict) else None
+                        if isinstance(signal, dict) and signal.get('type') == 'import' and isinstance(signal.get('file'), str):
+                            signal['file'] = str(contained(service.workdir, signal['file']))
+                task_port_settings(configuration_ports)
+            if operation == 'configure_nonlinear_model':
+                from cst_automation.circuit_configuration import configuration_name, require
+                from cst_automation.circuit_models import nonlinear_model_settings
+                configuration_name(params.get('block_name'))
+                require(type(params.get('create', False)) is bool, 'create must be boolean')
+                configuration_settings = copy.deepcopy(params.get('settings'))
+                if isinstance(configuration_settings, dict) and configuration_settings.get('kind') == 'spice' and isinstance(configuration_settings.get('file'), str):
+                    configuration_settings['file'] = str(contained(service.workdir, configuration_settings['file']))
+                nonlinear_model_settings(configuration_settings)
+            if operation == 'stage_postprocessing_template':
+                from cst_automation.result_templates import validate_python_result_template
+                template_source = params.get('template_source')
+                if not isinstance(template_source, str) or not template_source.strip():
+                    raise CircuitError('circuit_spec_invalid', 'template_source must be an explicit workdir path')
+                configuration_source = contained(service.workdir, template_source)
+                if configuration_source.suffix.lower() not in ('.py', '.rtpy') or not configuration_source.is_file():
+                    raise CircuitError('circuit_spec_invalid', 'An existing .py or .rtpy template_source inside workdir is required')
+                try:
+                    validate_python_result_template(configuration_source.read_text(encoding='utf-8'))
+                except (OSError, UnicodeDecodeError, ValueError) as exc:
+                    raise CircuitError('circuit_spec_invalid', str(exc), template_source=str(configuration_source)) from exc
+                group, name = params.get('group'), params.get('name')
+                if not isinstance(group, str) or not group.strip() or not isinstance(name, str) or not name.strip():
+                    raise CircuitError('circuit_spec_invalid', 'Explicit template group and name are required')
+            if operation in ("read_results", "package"):
+                contained(service.workdir, params["destination"])
+            if operation in ("run_task", "parameter_sequence"):
+                if not isinstance(params.get("task_name"), str) or not params["task_name"] or params.get("mode") not in ("network", "transient_cosim"):
+                    raise CircuitError("circuit_spec_invalid", "Explicit task_name and valid mode required")
+                if operation == "run_task" and not params.get("expected_results"):
+                    raise CircuitError("circuit_spec_invalid", "Required result paths/run IDs must be explicit")
+            if operation == "read_results":
+                from cst_solver.circuit.results import CircuitResult
+                dest = contained(service.workdir, params["destination"])
+                report = CircuitResult(str(path)).export_csv(params["tree_path"], str(dest), run_id=params["run_id"])
+                return ok_result(saved=True, result_summary=report["metadata"], artifacts=[artifact(p) for p in report["artifacts"]])
+            if operation == 'stage_postprocessing_template':
+                from cst_automation.result_templates import stage_python_result_template
+                try:
+                    report = stage_python_result_template(
+                        str(configuration_source), str(contained(service.workdir, 'cst_template_library')),
+                        group=group, name=name)
+                except (OSError, ValueError) as exc:
+                    raise CircuitError('circuit_spec_invalid', str(exc), template_source=str(configuration_source)) from exc
+                return ok_result(saved=True, result_summary={**report, 'project_modified': False},
+                                 artifacts=[artifact(report['path'], kind='rtpy_template')])
+            app = app_factory(str(path))
+            if getattr(backend, "dialog_monitoring", False):
+                from cst_solver.environment import environment_pid
+                backend.dialog_pid = environment_pid(getattr(app, "project", None))
+            # EM configuration must also work on a plain 3D project without schematic access.
+            api = app.circuit if operation != 'configure_em_time_settings' else None
+            if operation == "inspect":
+                return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})
+            if operation in ("configure", 'configure_transient_task', 'configure_steady_state_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
+                try:
+                    if operation == 'configure_em_time_settings':
+                        from cst_solver.simulation.em_time import EMTimeConfigurationError
+                        try:
+                            report = app.configure_em_time_settings(params['settings'])
+                        except EMTimeConfigurationError as exc:
+                            code = 'circuit_build_partial' if exc.code == 'em_time_configuration_partial' else 'circuit_unavailable'
+                            raise CircuitError(code, str(exc), **exc.details) from exc
+                    elif operation == 'configure':
+                        report = api.apply(params['spec'])
+                    elif operation == 'configure_steady_state_task':
+                        report = api.configure_steady_state_task(params['task_name'], params['settings'], create=params.get('create', False))
+                    elif operation == 'configure_task_ports':
+                        report = api.configure_task_ports(params['task_name'], configuration_ports)
+                    elif operation == 'configure_nonlinear_model':
+                        report = api.configure_nonlinear_model(params['block_name'], configuration_settings, create=params.get('create', False))
+                    else:
+                        report = api.configure_transient_task(params['task_name'], params['settings'], create=params.get('create', False))
+                except CircuitError as exc:
+                    if exc.code != "circuit_build_partial":
+                        raise
+                    token = uuid4().hex
+                    partial = dict(exc.details)
+                    partial.update(stage=exc.details.get('stage', 'apply'), error=str(exc), saved=False)
+                    try:
+                        app.save()
+                        partial["saved"] = True
+                    except Exception as save_error:
+                        partial["save_error"] = str(save_error)
+                    if api is None:
+                        partial.update(readback=None, readback_status='unsupported')
+                    else:
+                        try: partial["readback"] = api.inspect()
+                        except Exception as read_error: partial["readback_error"] = str(read_error)
+                    try: partial["messages"] = [str(m) for m in app.get_messages()]
+                    except Exception as message_error: partial["message_error"] = str(message_error)
+                    audit = path.parent / path.stem / "circuit_failures" / (token + ".json")
+                    audit.parent.mkdir(parents=True, exist_ok=True)
+                    audit.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding="utf-8")
+                    return fail_result(exc.code, str(exc), saved=partial["saved"], run_identity={"run_token": token},
+                                       result_summary={"partial_build": partial}, artifacts=[artifact(str(audit), kind="failure_audit"), artifact(str(path), kind="partial_project")])
+                app.save()
+                return ok_result(saved=True, result_summary=report, artifacts=[artifact(str(path), kind="project")])
+            if operation == "package":
+                dest = contained(service.workdir, params["destination"])
+                report = api.bundle(str(dest))
+                return fail_result("circuit_result_unverified", "Copies staged; live link relocation/reopen is pending", saved=False,
+                                   result_summary=report, artifacts=[artifact(p) for p in report["artifacts"]])
+            if operation == 'run_parameter_study':
+                report = api.run_parameter_study(params['spec'])
+                artifacts = [artifact(report['manifest_path'], kind='study_manifest'),
+                             artifact(report['batch_path'], kind='study_archive')]
+                if report['status'] == 'succeeded':
+                    return ok_result(saved=report['saved'], result_summary=report, artifacts=artifacts)
+                error = (report.get('errors') or [{}])[0]
+                return fail_result(error.get('code', 'circuit_result_unverified'),
+                    error.get('message', 'Parameter study not verified'), saved=report.get('saved', False),
+                    result_summary=report, artifacts=artifacts)
+            if operation == "parameter_sequence":
+                points = params.get("points", [])
+                if not isinstance(points, list) or not 1 <= len(points) <= 100:
+                    raise CircuitError("circuit_spec_invalid", "Parameter sequence requires 1..100 explicit points")
+                reports = []
+                for point in points:
+                    api.set_properties(point["block_name"], point["properties"], units=point["units"])
+                    result = api.run_checked(params["task_name"], mode=params["mode"], expected_results=point["expected_results"], reuse="never")
+                    reports.append(result)
+                    if result["status"] != "succeeded":
+                        return _outcome(result, reports)
+                return ok_result(saved=True, result_summary={"points": reports})
+            result = api.run_checked(params["task_name"], mode=params["mode"], expected_results=params["expected_results"],
+                                     reuse=params.get("reuse", "never"), note=params.get("note", ""))
+            return _outcome(result)
+        except CircuitError as exc:
+            return fail_result(exc.code, str(exc), **exc.details)
+        except (KeyError, TypeError, ValueError) as exc:
+            return fail_result("circuit_spec_invalid", f"{type(exc).__name__}: {exc}")
+        except Exception as exc:
+            return fail_result("backend_failed", f"{type(exc).__name__}: {exc}")
+        finally:
+            if app is not None:
+                try:
+                    app.close()  # Existing attach ownership policy is preserved.
+                except Exception:
+                    logging.getLogger(__name__).exception("Circuit session cleanup failed; preserving operation evidence")
+
+    service.register_workflow("circuit", {kind: handle for kind in allowed}, replace=replace)
+
+
+def _outcome(result, sequence=None):
+    common = {"saved": result.get("saved", False),
+              "run_identity": {"run_token": result["run_token"], "task_name": result.get("task_name"), "mode": result.get("mode")},
+              "result_summary": {"circuit_outcome": result, "points": sequence},
+              "artifacts": [artifact(result["audit_path"], kind="run_audit")] if result.get("audit_path") else []}
+    if result["status"] == "succeeded":
+        return ok_result(**common)
+    error = (result.get("errors") or [{}])[0]
+    return fail_result(error.get("code", "circuit_result_unverified"), error.get("message", "Circuit run not verified"), **common)

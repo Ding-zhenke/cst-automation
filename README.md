@@ -12,7 +12,7 @@
 
 你可以只使用其中的曲线分析工具，也可以把它作为领域建模程序的底层依赖，逐步搭建从工程准备到结果报告的自动化流程。
 
-> 当前版本为 `0.1.0`。核心包支持 Python 3.9+；MCP extra 需要 Python 3.10+。真实 CST 操作需要本机 CST Studio Suite、可用许可证以及与 CST Python 扩展兼容的解释器。离线分析与 fake backend 可在没有 CST 的环境使用。
+> 当前开发版本为 `0.2.0.dev0`。核心包支持 Python 3.9+；MCP extra 需要 Python 3.10+。真实 CST 操作需要本机 CST Studio Suite、可用许可证以及与 CST Python 扩展兼容的解释器。离线分析与 fake backend 可在没有 CST 的环境使用。
 
 ## 导航
 
@@ -51,7 +51,7 @@
 | MCP 集成 | 工程、求解、任务查询、CSV 分析、报告与工具扩展 | `cst_mcp` |
 | Codex skills | 建模、仿真、结果与故障诊断操作指引 | [skills 索引](skills/README.md) |
 
-四个 skill 也可打包为一个按需选择 skill 的 Codex 插件，原有 skill 文件保持不变。构建和使用方式见 [Codex 插件指南](docs/guides/codex-plugin.md)。
+仓库中的八个 skill 也可打包为一个按需选择 skill 的 Codex 插件，原有 skill 文件保持不变。构建和使用方式见 [Codex 插件指南](docs/guides/codex-plugin.md)。
 
 上述功能描述的是代码提供的接口范围；具体 CST 版本、求解器与真实工程的可用性仍需在目标环境验证。
 
@@ -278,3 +278,13 @@ python -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py
 ## 许可证
 
 本项目采用 [MIT License](LICENSE)。CST Studio Suite 的使用仍受其自身许可证约束。
+
+## Design Studio 扩展状态
+
+`0.2.0.dev0` 增加原理图、电路任务、独立电路结果、依赖清点、服务和 MCP 的显式接口。CST 2026.1 已实测纯电路、批准的三维样例和三种线性 network 负载。后续复核通过真实线性瞬态联合的实际时间步收敛、两侧端口量、局部电场积分及普通网络对照；Simulated 采样的新运行无插值警告。非线性、通用映射、缓存及外部工程搬运仍按各自证据判定。详见 [时间步复核](docs/CIRCUIT_TIMESTEP_REPORT.md) 和 [首轮实机记录](docs/CIRCUIT_LIVE_REPORT.md)。
+
+见 [电路接口指南](docs/guides/circuit_cosimulation.md) 和 [验证记录](docs/VALIDATION.md)。三维样例须先审阅预览，再建模求解。
+
+常用瞬态任务设置已封装为 `app.circuit.configure_transient_task(...)`，并接入 service/MCP；配置不会启动求解。当前优先完善功能和 [场路联合 skill](skills/cst-circuit/SKILL.md)，暂缓追加专项实机验证。非线性现有失败及未验证项保留在 [非线性记录](docs/CIRCUIT_NONLINEAR_REPORT.md)。
+
+EM 稳定因子和时间信号每步输出可用 `app.configure_em_time_settings({"stability_factor": 0.5, "output_sampling": "every_step"})` 配置，service/MCP 同名入口只配置保存。新封装仅完成离线验证；请求因子不代表实际积分步长，历史提交不代表原生读回或物理验收。

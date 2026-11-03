@@ -119,7 +119,8 @@ def _refresh_pid_names():
     global _pid_fallback_time
     _pid_fallback_time = time.monotonic()
     out = subprocess.run(['tasklist', '/FO', 'CSV', '/NH'], capture_output=True,
-                         text=True, timeout=2, creationflags=0x08000000)
+                         text=True, encoding=('mbcs' if os.name == 'nt' else 'utf-8'),
+                         errors='replace', timeout=2, creationflags=0x08000000)
     if out.returncode:
         raise OSError(out.stderr.strip() or 'tasklist 查询失败')
     for row in csv.reader(out.stdout.splitlines()):
@@ -180,6 +181,33 @@ def _is_qt_dialog(klass, title, visible):
         return False
     low = (title or '').strip().lower()
     return low in _QT_DIALOG_TITLE_KEYWORDS or low.startswith(('请输入', 'cst warning', 'cst error'))
+
+
+def _is_scripting_control(window):
+    """Recognize the observed CST 2026 scripting overlay, never by title alone."""
+    labels = {b.get('text', '').strip() for b in window.get('buttons', [])}
+    return (window.get('class', '').startswith('Qt') and
+            window.get('class', '').endswith('QWindow') and
+            window.get('title') == 'CST Studio Suite 2026' and
+            window.get('owner_class', '').endswith('QWindowIcon') and
+            window.get('owner_pid') == window.get('pid') and
+            labels == {'Minimize', 'Switch to Interactive Mode'} and
+            not window.get('body', '').strip() and not window.get('read_errors'))
+
+
+def _is_startup_controller(window):
+    """Recognize observed controller/save progress; never dismiss a window."""
+    body = window.get('body', '').strip()
+    known_save = body == 'Saving model' or body.splitlines() == ['Saving model', '100%']
+    return (window.get('class', '').startswith('Qt') and
+            window.get('class', '').endswith('QWindowIcon') and
+            window.get('title') == 'CST DESIGN ENVIRONMENT 2026' and
+            window.get('owner_class', '').endswith('QWindowIcon') and
+            window.get('owner_pid') == window.get('pid') and
+            not window.get('buttons') and known_save and
+            window.get('text_readable') is True and window.get('text_complete') is True and
+            not window.get('truncated') and
+            not window.get('read_errors'))
 
 
 def _child_buttons(hwnd):
@@ -290,9 +318,12 @@ def list_windows(only_cst=True, *, pid=None):
         modal = bool(owner and not _user32.IsWindowEnabled(owner))
         windows.append(dict(hwnd=hwnd, pid=window_pid, process=name, title=title,
                             **{'class': klass}, visible=visible, owner=owner,
+                            owner_class=_class_name(owner) if owner else '',
+                            owner_pid=_pid_of(owner) if owner else None,
                             responding=not bool(_user32.IsHungAppWindow(hwnd)), modal=modal,
-                            is_dialog=klass == _DIALOG_CLASS or
-                            _is_qt_dialog(klass, title, visible) or (visible and modal)))
+                            is_dialog=klass != 'QtitanTitleBarGlowWindow' and (
+                                klass == _DIALOG_CLASS or
+                                _is_qt_dialog(klass, title, visible) or (visible and modal))))
     return windows
 
 
@@ -344,6 +375,10 @@ def list_dialogs(only_cst=True, *, pid=None):
             buttons = []
             dialog['read_errors'].append(str(exc))
         dialog['buttons'] = buttons or content.get('buttons', [])
+        # A short save-progress window may disappear while UIA reads it.
+        # This is only a current-window check, never evidence of SDK/solver success.
+        if not _user32.IsWindowVisible(dialog['hwnd']):
+            continue
         dialog['text_complete'] = bool(dialog.get('text_complete', dialog['text_readable']) and
                                        not dialog['read_errors'])
         progress = (content.get('has_progress', False) and not dialog['read_errors'] and
@@ -351,6 +386,9 @@ def list_dialogs(only_cst=True, *, pid=None):
                         for b in dialog['buttons']))
         dialog['blocking'] = not progress and (
             dialog.get('modal', True) or not dialog.get('owner'))
+        if _is_scripting_control(dialog) or _is_startup_controller(dialog):
+            dialog['window_role'] = 'scripting_control' if _is_scripting_control(dialog) else 'startup_controller'
+            dialog['blocking'] = False
         dialog['needs_visual_inspection'] = not dialog['text_complete']
         dialogs.append(dialog)
     return dialogs

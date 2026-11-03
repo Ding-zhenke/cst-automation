@@ -1,23 +1,154 @@
 # 验证记录
 
-记录 `cst-automation` 0.1.0 的拆分历史及后续验证。几何 API 检查、结果读取和真实 CST 求解分开判定。本地运行与 GitHub Actions 运行分别记录，不能相互替代。
+## 2026-11-03：工程复用与临时标签（离线）
 
-## 2026-10-27 维护验证
+- 隔离 HEAD 加本次修改的完整默认离线检查：824 passed，另有 3 项目录链接/MCP 子进程权限受限；这 3 项在批准环境重跑为 3 passed。针对性 22 项和插件打包 14 项通过。未连接 CST。
 
-- **Git 来源已恢复**：本机目录原为不含 `.git` 的源码副本。先保存文件快照，再在 `work/maintenance-20261027/upstream/` 克隆完整仓库并恢复根目录 Git 元数据；重建索引时保留全部工作文件。维护前远程 main 为 `07279b078af3484f6f0ad8c0ed6c9ed02db702f5`。该提交的 [Actions 40395424088](https://github.com/Ding-zhenke/cst-automation/actions/runs/40395424088) 已成功；这不是当前维护改动的 CI 结果。
-- **维护提交的远程 CI**：分支 `codex/portable-environment-validation` 的提交 `adf187b3fa254554effb7d328fd8e7a71b529538` 已推送；[Actions 40399304203](https://github.com/Ding-zhenke/cst-automation/actions/runs/40399304203) 的 Python 3.9、3.11、MCP 和 build（包含全新环境的 wheel 安装与 stdio 检查）四个 job 全部成功。修复及本记录通过 [草稿 PR #2](https://github.com/Ding-zhenke/cst-automation/pull/2) 提交审阅，未合并到 main。
-- **环境与 CLI**：发行包的兼容 `config.py` 不再携带机器路径；离线检查对缺失 SDK 目录、未发现 SDK、选中安装已知 ABI 不匹配报告 `unavailable` 并退出 1。`doctor --json` 已支持，默认仍输出 JSON。测试验证了未配置时发现安装、显式无效路径不回退、JSON 输出、退出码及自定义 SDK 的 ABI 归属。
-- **离线回归**：仓库 `.venv`（Python 3.13.9，不继承系统包）执行 `python -B -m pytest -o addopts='' -m "not gui" -q -p no:cacheprovider --basetemp=work/maintenance-20261027/pytest-full`：**490 passed, 1 deselected, 9 warnings**。警告仍为端口默认朝向提示；GUI 用例未运行。
-- **SDK 导入**：显式设置 `CST_INSTALL_PATH=E:\CST2026` 后，Python 3.13.9 / CST 2026 的 cp313 匹配，`doctor --probe` 实际导入 `cst.interface` 和 `cst.results` 成功，状态为 `importable`。该路径是本机验证参数，不是发行默认值；不代表许可证、readback 或 solver 已通过。
-- **MCP stdio**：新增真实子进程集成测试，使用 MCP Python SDK 1.30.0，完成初始化、9 个工具发现、读写注解、能力调用、未知工具/参数错误、假后端任务排队/状态/结果与关闭工程。测试阻止实际加载 CST，且检查请求 `run_id=7` 能原样返回；同时修复 FakeBackend 固定返回 run ID 0 的问题。通过的是 stdio 与 fake 任务链路，本包没有实现网络传输入口，不声称网络传输通过。
-- **发行制品**：构建 wheel 和 sdist 成功；构建后端最低版本改为支持 SPDX license 字符串的 `setuptools>=77`。制品不含 `work/`、`.venv/`、源码备份或 Git 元数据，wheel 内配置无机器路径。
-- **干净安装**：`work/maintenance-20261027/release-venv/` 由 `venv` 新建，`include-system-site-packages = false`；安装刚构建的 wheel 及声明的 NumPy/MCP 依赖。独立目录中清除 `PYTHONPATH`，四个包的加载路径均在该环境 `site-packages`，普通导入不改 `sys.path`、不加载 `cst`。曲线调用、缺失 SDK 的 doctor 退出码 1、安装版 stdio 握手/9 个工具发现/结构化错误均通过。可复用检查脚本为 `scripts/verify_wheel.py`；CI 的 build job 也执行该隔离安装检查。
-- **尚未验收**：真实 CST 几何重建、实际消息/UIA、S 参数结果树发现、远场导出、solver，以及相邻领域仓库联调。具体几何参数、端口及阶段证据方案见 [真机验收预览](REAL_CST_ACCEPTANCE.md)，等待用户审阅后才构造几何。运行中取消接口仍未开放。
-- 原始快照、构建日志、环境报告及隔离安装报告保存在被忽略的 `work/maintenance-20261027/`；本轮不修改相邻仓库或用户全局 MCP 配置。
+- 新增重复工程/源路径预检（含排队意图）、只读参数/实体/点查询、精确标签关闭与
+  临时工程退休审计、离散扫描配置及 MCP 操作枚举一致性检查。
+- 回归覆盖查询不写历史/重建/保存、关闭前保存、关闭后打开列表核对、失败保留状态、
+  临时文件删除后的基线恢复、扫描阶段重试去重和 fake worker 全流程。
+- 使用仓库 `.venv`，测试数据限定在本仓库 `work/session-discipline-fix`。本轮未启动
+  CST、未做真机读回或求解；原生 API 调用仅依据本机官方帮助及隔离替身测试。
 
-## 迁移阶段历史记录
+## 2026-10-30：通用电路参数研究（离线）
 
-以下为拆分阶段保留的历史结果，环境、依赖版本与当时的推送状态不能作为本轮的新证据。
+- 新增纯数据参数研究校验、CircuitAPI.run_parameter_study、StudyResult 历史归档/过滤/比较与保存结果读回接口；服务和 MCP 路由复用唯一 worker。具体 schema 和边界见 [通用参数研究](guides/circuit_parameter_studies.md)。
+- 已观察 RED→GREEN：新模块缺失、参数写入读回不一致、源数据未在写图前落盘、缺少服务/MCP 路由。针对性测试覆盖 EM 重建/求解先于电路、重复工况/批次不覆盖、失败中止且保留原始复数数据、单位不一致和归档摘要不匹配拒绝、原生汇总数组读回不一致不通过。
+- 无新 CST 进程、真实工程、EM/HB 求解、几何重建或原生保存关闭重开；不提高现有运行契约、EM 块映射、各电路求解器或 .cst 单文件打包能力的实机验收等级。第一版 EM 每点重算；全局参数单位由调用者确认；双向瞬态联合继续用既有接口。
+- 独立只读代码审查发现三项 Important，均用 RED→GREEN 回归修复：全目录/日志指纹不能证明指定 EM 数据已刷新；原始结果参数必须与当前全局参数相符；整批预检复用原生属性写入的静态限制。EM 现要求指定原生数据文件更新、原生 SUCCESS 及 EM 结果参数匹配；同值重复计算可依靠新文件证据通过，不要求曲线数值改变。
+- 最终完整默认离线回归：**874 passed, 2 deselected, 9 warnings**，29.46 秒；2 项为按默认 marker 排除的实机/界面检查，9 项为既有端口方向警告。包含 MCP stdio 握手。日志 `work/circuit-study-20261030/final.log`；修改前相关基线 87 passed，首次实现相关检查 119 passed。`git diff --check` 无格式问题。既有未提交修改原样保留，不提交/推送其他工作。
+
+
+## 2026-10-27：多对话持久 CST 会话
+
+- 新增显式 SessionManager、每会话独立 worker 与 DE、固定绝对根目录、私有恢复引用、
+  原子文件队列、完整进程身份校验、请求/阶段去重、检查点恢复及人工核对出口。
+  旧 RunService 临时模式不变；MCP 显式注册七个工具，也可用会话 CLI，无全局配置修改。
+- 实机空环境验收：双会话分别创建不同 DE；客户端退出后环境保留；连续调用复用
+  原环境；只终止测试 worker 后按同一 PID、进程启动时间和镜像路径重连原 DE；
+  关闭 A 后 B 仍能调用，最后分别关闭测试环境。另用 work 内空 MWS 工程验证创建、
+  保存、worker 丢失后的原环境/原文件复用与关闭；没有添加几何、端口、材料或求解。
+  记录：`work/session_validation/native_verified.json`、`native_project_verified.json`。
+- 初始沙箱 detached 启动在命令返回后未发现存活进程或启动回执；在允许独立进程
+  生存的执行环境复核通过。启动入口保留权限边界，不自动换目录或接入任意已有 DE。
+  不能将一次 Popen 返回 PID 当作可常驻证据。安装/ABI doctor 保存在同一目录。
+- 新测试先失败再实现，覆盖双会话/同名工程、实际子进程、客户端重建、worker 丢失、
+  原请求和阶段重发、别名请求冲突、创建未知窗口、保存检查点回执丢失、失败屏障
+  跨重启、关闭排队、凭据边界与 CLI/MCP 接入。人工恢复只采纳经核对的文件基线，
+  不把未知执行升级为成功；不可接管另一活动会话环境，可放弃未落盘的工程意图。
+- 独立代码审查发现并已修复：关闭请求覆盖失败屏障、人工恢复误接管其他会话 DE、
+  首次工程未保存后无恢复出口。三个针对性回归测试独立复跑通过，无新增 P1/P2。
+- 最终全库离线：`.venv/Scripts/python.exe -m pytest
+  --basetemp=work/session_validation/full_suite_final` → **776 passed, 2 deselected,
+  9 warnings**，警告为既有端口方向测试。日志 `full_suite_final.log`。受限环境的前次
+  全库运行有两项 CreateJunction 权限失败和 stdio 握手超时，未改测试时限；允许相关
+  本机操作后通过。一次中间全库运行遇到 fake worker 意外退出，无 traceback，原因
+  未确立；最终全库与独立聚焦测试通过，保留 `full_suite_native.log`，不宣称已证明
+  任意宿主/沙箱条件下进程永不退出。持久恢复负责在进程确实丢失后核对并续做。
+- 实机边界：原生 DE/空工程生命周期通过；非空几何阶段、繁忙求解中断、真实 circuit
+  持久借用及 solver 结果验收仍未执行。history/参数阶段 rebuild 和消息检查已接入，
+  但不能从离线测试或空工程验收提高这些能力的实机证据等级。SDK 未知副作用进入
+  needs_reconcile，不承诺任意命令 exactly-once。
+
+## 2026-10-27：剩余 HB 与后处理改动提交前检查（离线）
+
+- 独立代码审查后修复模板暂存目录连接越界、CST 不支持的默认/仅限位置入口参数，以及 Results 文件夹替换可能删除子节点的问题；补充先失败再通过的回归测试。明确 HB 数值沿用目标任务当前生效的单位，不自动切换局部单位。
+- 仓库 `.venv`（Python 3.11）完整离线测试：`755 passed, 2 deselected, 9 warnings`；排除 `gui/cst_live`，警告来自既有端口方向测试。MCP stdio 握手与目录连接测试在允许相应操作的隔离进程中通过。日志及 JUnit 记录保留在忽略目录 `work/verification_20261027/`。
+- 按 `pyproject.toml` 声明的构建依赖，在仓库内临时隔离环境中成功构建 wheel 与 sdist。未修改公共 Python 环境。原 `.venv` 的旧 setuptools 不满足构建声明，未将其无隔离构建失败算作通过。
+- 本轮未启动 CST、rebuild、原生工程读回或求解，离线检查不提高实机验收等级。skill 只保留通用操作与证据要求，不提炼用户私有模型参数；指南中的固定扫描范围改为调用方提供的数组。
+
+## 2026-10-26：原生 HB 扫描及后处理辅助接口
+
+- 将实际工程中使用的 Spectral Lines 基频/阶数、原生 Parameter Sweep 序列、指定 result ID 的复数谱线提取、Results 实数曲线写入及现有模板源码替换整理为通用代码接口。保留工程参数表达式，不固定模型路径、频段、端口、RF 方向定义或归一化公式。
+- 离线测试覆盖输入预检、错误任务类型、表达式保留、原生序列构造、显式运行身份、谱线缺失/重复、dB 禁止重复取对数，以及旧叶删除连带删除信号文件后的替换顺序。嵌入模板测试覆盖元数据保留、摘要冲突、越界路径和无效源码拒绝；只静态检查，不执行模板。
+- 本轮没有启动 CST、computer use、EM 或 HB；不将历史实际工程的求解验收转记为这些封装已完成实机验收。默认返回 readback_verified=False / solver_verified=False；模板替换还返回 native_save_required=True。用法见 `docs/guides/native_hb_postprocessing.md`。
+
+## 2026-10-23：T 求解器原生磁 Gyrotropic 接口（仅离线）
+
+- 新增 `setup.create_material_gyrotropic`，Normal + Gyrotropic + SI 模式；Larmor/旋磁角频率为 `larmor_omega/gyrotropic_omega`，单位 rad/s，避免与完整 Tensor formula 的 `f`（Hz）混淆。两个频率、阻尼、高频相对磁导率、电导率、介电常数及三分量方向均支持项目参数表达式。数值范围和单位方向校验先于访问工程；仅提交一个历史块。
+- 新增 30 项 Gyrotropic 测试，覆盖 SI 命令映射、单位刻度、默认与反向偏置、表达式保留、角频率不隐式换算、颜色及非法输入。材料相关及表达式/失败/环境回归共 **218 passed**。类型存根语法及 `git diff --check` 另行检查。
+- 全库默认离线检查为 **728 passed，1 failed，2 deselected**；唯一失败是 `test_circuit_stdio_handshake_and_offline_preview` 的 8 秒初始化超时。该项单独复测仍失败；从 `HEAD=4a19c4b` 导出的只读基线副本运行同一测试也复现，不能归为本轮材料变更回归。排除此项后全库为 **728 passed，3 deselected**（`-k 'not test_circuit_stdio_handshake_and_offline_preview'`）；没有修改该 MCP 测试或用延长超时掩盖问题。
+- 本机 Help 的 Dispersion 页明确区分 rad/s 角频率与 1/s 阻尼，HF Overview 将两个旋磁频率定义为 omega_l/omega_m；官方 One-way Transmission Device 为磁 Gyrotropic 的瞬态示例。接口未自动选择 T 求解器。
+- 偏置场来源模式仍沿用 CST Reset 默认；未猜测 `SetMagnetostaticDepSourceField` 的 Automatic/Homogeneous 枚举。在已有磁静态场源的工程中，实际来源需原生检查为 Homogeneous field 后才能依赖所给方向。没有执行原生材料读回、rebuild、来源切换、求解或性能测量；`readback_verified=False`、`solver_verified=False`。
+
+## 2026-10-23：完整复数磁导率张量接口（仅离线）
+
+- 新增 `setup.create_material_tensor`，覆盖全部九个复数常量分量，以及实部/虚部分离的 CST 参数与频率表达式；自动转换 `TensorFormulaImag` 所需的负虚部。同步公共协议、类型存根和 `docs/guides/material_tensors.md`。
+- `.venv/Scripts/python.exe -m pytest cst_solver/tests/test_material_tensor.py cst_solver/tests/test_material_dispersion.py cst_solver/tests/test_material_color.py cst_solver/tests/test_expressions.py cst_solver/tests/test_failures.py cst_solver/tests/test_environment.py`：**188 passed**。其中新增张量测试 19 项，覆盖九项索引与复数符号、完整表达式保留、颜色、非法矩阵/非有限数/冲突参数及提交前拒绝。`git diff --check` 通过。
+- 核对本机 CST 2026 Help：Tensor formula 仅四面体通用频域，不支持 T；原生磁 Gyrotropic/Polder 模型另有官方瞬态示例。计算开销说明为工程推断，无基准数据。
+- 未加载 CST、未修改真实工程、未做 rebuild/原生读回/求解或性能测量。参数表达式由 CST 实际解析及重建的行为仍待实机确认；`readback_verified=False`、`solver_verified=False`。
+
+## 2026-10-21：CST Python 后处理模板暂存接口（未执行检查）
+
+- 按本机 CST 2026 帮助新增 `.rtpy` 静态校验和服务目录暂存入口，并接入显式 MCP 工具。模板校验只解析 Python 语法和 `define/evaluate` 入口名，不导入或执行用户代码。
+- CST 官方帮助确认 Post-Processing 模板会在求解后执行；当前帮助没有记录通过 `SimulationTask` API 自动添加模板步骤的方法。用户仍需把 `cst_template_library` 加入 CST 库路径，并在 Post-Processing 任务中绑定一次模板。
+- 本轮未运行测试、未加载 CST、未打开或修改工程、未做原生读回或求解。模板代码读取 HB 结果的映射、原生绑定及求解后曲线刷新均未验证；不得把暂存成功当成目标图表联动完成。
+
+## 2026-10-20：任务、端口源和非线性模型通用封装（仅离线）
+
+- 扩展瞬态任务的自动/自适应/固定步进、Gear/Adams 算法与阶数、最小步长；新增 `configure_task_ports` 和 `configure_nonlinear_model`，接入 service 的串行 build 路由及两个显式 MCP 工具。
+- 相关离线套件 **179 passed，1 deselected**：覆盖配置单位与范围、源文件检查、原生调用顺序、模型稀疏更新、读回不一致、部分失败审计、worker 保存/关闭和 MCP 排队。排除的是既有 stdio 子进程传输检查，本轮没有新增传输协议。
+- 检查使用 fake/stub 原生边界；没有连接 CST、打开真实工程、rebuild 或执行求解。新组合接口的实机行为、积分时钟、信号完整参数、SPICE 器件等价、非线性物理指标均未由本轮离线通过证明。原有 `unverified` 判据和历史证据不变。
+- 公共协议、使用示例、开发重点和 `skills/cst-circuit/SKILL.md` 已同步；新 skill 格式检查通过。后续按实际工程需要验证，不主动追加专项实机矩阵。
+
+## 2026-10-19：EM 时间控制高层接口（仅离线）
+
+- 新增通用 `setup.configure_em_time_settings(settings)`：非空稀疏字典支持 `stability_factor`（有限数字 `(0,1]`）和 `output_sampling`（every_step/automatic）。纯数据校验先于工程访问；只提交当前 model3d 的历史块，不 Reset、不切换求解器、不重建、不修改 DS 或外部链接、不自动保存或求解。
+- service `build / configure_em_time_settings` 和同名 MCP 工具已显式接入唯一 worker，配置后保存；部分提交失败保留请求、原生命令、消息和失败审计。没有三维域时明确拒绝，不回退到 schematic。MCP 电路工具总数为八个。
+- 命令语义来自本机 CST 2026 官方 `special_vbasolver_solver_object.htm`：TimeStepStabilityFactor 乘到允许时间步，AutomaticTimeSignalSampling False 表示每个时间步落盘。该来源及既有脚本不构成本次高层组合接口的实机验收。
+- 完整离线回归 **642 passed，2 deselected，9 既有 warnings**；包含 MCP stdio 工具列表和普通离线预览，未运行 gui/cst_live。独立只读代码复核未发现阻塞问题。受限进程的握手超时保留日志，以正常本机子进程权限通过回归，没有延长测试时限。
+- wheel/sdist 构建、独立目标安装和四包导入通过，未加载 CST SDK；新 EM 模块及两个类型声明均在 wheel 中，两份更新 skill 均在 sdist 中。发行 Python 源码通过 Python 3.9 语法解析，未包含 CST 工程、DLL、锁或 work 产物；两份 skill 格式校验通过。
+- 返回 `readback=None/readback_status='unsupported'`，readback、实际积分时钟、每步输出和 solver 验证标志全为 False；没有伪造 getter 或从请求值推导实际 ps。本轮没有启动 CST、实机读回或求解；既有线性/非线性状态不变。
+- 日志、来源摘要和制品检查置于 `work/em-time-api/`；使用方法见 [EM 配置指南](guides/circuit_cosimulation.md#em-时间步与每步输出配置)，仓库场路及 simulation skill 已同步。
+
+## 2026-10-19：功能与 skill 优先的离线收尾
+
+- 按用户最新确认，先完成功能和 skill，暂缓追加实机验证；未再启动新的 CST 会话、读回或求解。此前已运行的非线性失败及 SPICE 未验证状态原样保留。
+- 新增 `CircuitAPI.configure_transient_task`，覆盖常用瞬态模式、时长、采样、请求积分步长、最大频率和精度；按工程现有单位换算，不改全局单位，不自动求解。实际积分时钟与输出网格仍需运行证据，返回值明确保留未验证标志。
+- 服务新增 `build / configure_transient_task`，MCP 显式增加 `configure_circuit_transient_task`，沿用串行 worker、部分失败审计和保存语义。仓库 `cst-circuit` skill 及接口指南同步更新；没有安装全局 skill 或修改公共环境。
+- 完整离线回归 **615 passed，2 deselected，9 既有 warnings**，包含 MCP stdio 握手；未运行 `gui` / `cst_live` 测试。新配置组合只取得离线验证，不计为新的 CST 实机验收。独立复核无阻塞问题；skill 格式校验通过。
+- 最终 wheel/sdist 构建和 work 内独立目标安装通过；四个包均从新安装目标导入，未加载 CST SDK。wheel 含新配置接口及类型声明，sdist 含场路 skill；全部发行 Python 源码通过 Python 3.9 语法解析，制品不含 CST 工程、原生 DLL、锁或 work 产物。
+- 测试日志和本轮制品检查保存在 `work/circuit-validation/20261019-timestep/`。新增功能及后续边界见 [开发重点](CIRCUIT_DEVELOPMENT.md) 和 [接口指南](guides/circuit_cosimulation.md)。
+
+## 2026-10-19：DS 实际时间步及线性瞬态联合复核
+
+- 核心 Python 电路封装仍为 `0.2.0.dev0`；详细内部时间步控制/原生诊断由验证脚本调用 SDK，尚未全部提供为独立高层 API。
+- 使用 DS Simulated 保存全部实际时间点、三维保存每个时间步；新日志无 DS 插值警告。23,868 单元同一网格的三档实际 DS/EM 步长一致为 **0.8189415936 / 0.4094707968 / 0.2047353984 ps**。固定 5 ps 请求不作为实际积分证明。
+- 三种负载和时间步矩阵的最大参考幅值误差 **0.16671%**、相位误差 **0.19072°**、两侧端口波形 RMS 差 **0.68278%**；时间步变化的最大基波幅值变化 **0.05042%**、相位变化 **0.03357°**、波形 NRMSE **0.07718%**。冻结门槛未放宽。
+- 普通网络瞬态原 100 MHz 起始数据用于 DC 的警告保留未验证。另一个同网格副本补算 0–5 GHz，DS 普通瞬态使用 Gear2/800 fs/向量拟合，无警告，公共契约 succeeded；任务执行期间 EM 日志/输出摘要不变。与真实联合稳态最大幅值差 **0.07698%**、相位差 **0.18437°**、NRMSE **0.33059%**。
+- 补齐独立三维局部电场：每个端口间隙 32 个内部采样点，按官方定向电压正积分，与该次 DS 电压比较。两个负载使用相同 **40,716 单元诊断网格**，不混入原 23,868 单元时间收敛矩阵。最大幅值差 **0.02129%**、相位差 **0.08690°**、波形 NRMSE **0.15303%**；负载改变后的局部场积分变化与 DS 变化也通过 3% 检查。端点探针在 PEC 上为零的三节点诊断没有通过，没有提升等级。
+- 独立只读复核重算原始曲线、场 NPZ 及逐行摘要，接受 V4 物理门槛。界面参考观察仍未验证；既有独立官方教程 SDK 参考没有冒称 UI 构建/执行。V5 非线性开始前的物理门槛已满足，其最终 UI、I–V、KCL、谐波和独立网格/时间收敛仍须另验。
+- 窗口修正：只识别完整可读、无按钮且进程/owner 匹配的已知保存进度正文；未知/空/截断正文保持阻塞。读取期间已消失的窗口不作为当前可见阻塞窗口，仍不据此推断 SDK 或 solver 成功。回归 **574 passed，2 deselected，9 既有 warnings**；受控原生消息框 **1 passed**。
+- 二极管封装修正通过独立审查：完整十五项实际属性/类型/单位读回，Berkeley 身份标注为原生参数模式证据，模型先写、参数最后读回；保存重开确认 IS=1e-14 A、N=1、RS=1 Ω、CJO=0 F、TT=0。该校准副本内另一个 SPICE 文件链接缺失，因此只计 D1 输入读回通过，不计整个工程可运行或 SPICE 依赖通过。
+- 新增二极管/SPICE 身份、单位及执行前后外部文件摘要检查后，正常本机子进程权限下完整离线套件 **593 passed，2 deselected，9 既有 warnings**。此前受限子进程的 MCP 握手超时保留失败日志，没有延长测试超时。wheel/sdist 构建及 work 内隔离安装/普通导入通过，不加载 CST SDK。
+- V5 内置二极管 1 V 真实联合已执行；同网格时间步减半和现代 MeshSettings 实际加密到 46,332 单元后，输出基波及二/三次谐波变化均低于原门槛，但 MWS 输出接口电流残差仍约 **1.812% > 1%**，保持 failed。普通网络瞬态同配置对照的接口残差约 1.48e-14，输出 NRMSE 差 0.07370%；不能用对照结果覆盖真实联合失败。手动将 DS 估计最大频率从自动 3.337 GHz 固定为批准范围内的 5 GHz，读数和残差不变。详见 [非线性排查](CIRCUIT_NONLINEAR_REPORT.md)。
+- 详细说明见 [时间步报告](CIRCUIT_TIMESTEP_REPORT.md)。原始工程、脚本、JSON/CSV、失败记录和阶段验收存于 `work/circuit-validation/20261019-timestep/`；旧证据目录保留。没有修改全局环境或迁移源，没有推送。
+
+## 2026-10-19：批准几何后的 CST 2026.1 实机阶段（0.2.0.dev0）
+
+- 三维样例按用户已确认的预览建模；原生读回 3 个实体、2 个离散端口，坐标和单位一致，依赖阶段重建并保存。网格 23,868 单元，低于 200,000 上限。
+- V1 保存关闭重开一致；V2 RLC 四条复数 S 对解析式最大误差 <3e-15，C=1→2→1 pF 回环和谐振检查通过；独立官方教程 SDK 副本差异 <1.3e-14；纯电路瞬态 RMS 误差 0.0507%。
+- V3 两个端口分别实际求解，原生 SUCCESS；25/50/100 Ω 的 DS network 加载与独立矩阵参考最大复数误差 3.12e-9。旧三维运行契约因非空 INFO 返回 failed 的原始记录保留，没有改写其默认口径，三维完成由独立原生状态及两次实际激励日志证明。
+- V4 三种负载真实 `cosimulation` 已运行，两侧任务/三维日志和电压/电流时间曲线均取得；稳态最大幅值误差 0.167%、相位误差 0.211°、两侧波形 RMS 差 0.560%。**DS 仍警告 5 ps 输出为插值，固定步长及关闭 auto solver 后提示仍在；严格验收保持 unverified，V5 非线性未启动。** 没有降低门槛或仅凭曲线更新时间宣称双向联合已验收。
+- V6 仅同工程固有 EM 块的 network 搬运/重开/重算通过，链接路径均在新副本内，与原曲线差异 0；外部 CST/SPICE 及瞬态搬运仍未验收。V7 的错误模式、缓存、缺失工程和错误引脚实机拒绝测试未提交额外求解；完整中断恢复矩阵未验收。
+- 真实 RunService 检查通过：原理图读回、RLC 参数变化后目标任务求解、保存导出均在唯一 worker；重复 request ID 未重复执行。该记录不代表 V4 通过 service/MCP 验收。
+- 最终离线回归：**571 passed，2 deselected，9 既有 warnings**；其中包含 MCP stdio 初始化、工具列表及离线预览。受限环境曾出现 stdio 子进程超时，正常本机进程权限重验通过。
+- 独立 GUI 自测：**1 passed**，读取受控消息框标题/正文/按钮后关闭测试自身消息框。修复测试的 Windows venv 启动器 PID 与实际窗口进程不一致的问题。实际 CST 窗口只读观察，没有点击 CST 弹窗。
+- 显式 opt-in 保存结果读回：**1 passed**，读取搬运副本的 `Tasks\\SP_Load\\S-Parameters\\S2,1`、显式 run 0；该测试本身不证明求解执行。
+- wheel/sdist 在 `work/circuit-development/build-env` 的既有隔离构建环境中构建通过；普通 `.venv` 的旧 setuptools 不支持现行 SPDX 许可字段，失败日志保留，没有修改全局环境或降低构建依赖。wheel 在工作目录独立安装/导入通过，四个模块均来自隔离目标，CST SDK 未加载；制品包含新证据模块及类型声明，不包含工程、DLL、会话锁或 work 产物。
+- 开发保持 `0.2.0.dev0`，不将尚未通过的 V4/V5 列为正式支持。详细输入、失败尝试、CST build、数值对照、服务/搬运范围见 [实机记录](CIRCUIT_LIVE_REPORT.md)。全部工程和原始证据在忽略目录 `work/circuit-validation/20261019-live/`，迁移源和用户全局配置未改动。
+
+## 2026-10-19：Design Studio 接口离线阶段（0.2.0.dev0）
+
+- 完整非界面、非实机回归：**540 passed，2 deselected，9 既有 warnings**。新增 56 项测试，覆盖单位、端点、目标结果归属、错误/审计、依赖、路径碰撞与 MCP 接入。
+- MCP stdio 初始化、工具列表及离线预览调用通过；该测试不连接 CST。
+- wheel/sdist 构建与独立目录安装/导入通过，CST SDK 未加载，制品不包含工程/DLL/工作目录产物。
+- 仅生成真实参数几何/端口预览。没有创建 CST 工程、rebuild、实机 readback 或求解。
+- 原生任务完成证据提取、三维映射与链接重定位仍待实机校准；运行/搬运返回保守的未验证状态，不能报告场路联合仿真已验收。
+- 详细证据、已知边界、样例坐标和审阅产物见 [本轮交付记录](CIRCUIT_OFFLINE_REPORT.md)。以下首发版本记录保留其历史含义。
+
+记录 `cst-automation` 0.1.0 拆分实现的离线验证。几何 API 检查、结果读取和真实 CST 求解分开判定。下列本地运行与 GitHub Actions 运行分别记录，不能相互替代。
 
 ## 源状态与隔离
 
@@ -47,7 +178,7 @@ python -B -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows
 - 首次 Actions 运行 [39219977888](https://github.com/Ding-zhenke/cst-automation/actions/runs/39219977888) 中，Python 3.9 核心测试 **481 passed, 1 skipped, 1 failed**。失败是 `test_interface_abi_match_is_reported_offline` 的测试数据重复：在 Python 3.9 上，硬编码 `cp39` 与运行时 ABI 标签相同；被测接口目录只会枚举到一个 `cp39` 文件。修复后的测试显式固定 `cp39` 作为运行时标签，并对发现的接口 ABI 去重后比较；本地回归测试通过。
 - 同一运行的 Python 3.11 核心测试为 **481 passed, 1 skipped, 1 failed**。唯一失败是上述真实桌面 UIA 测试在 hosted runner 的 PowerShell bridge 上 4 秒超时。该检查依赖交互式 Windows 桌面，不能作为离线 CI 测试；现在它标记为 `gui` 并从默认测试和 CI 排除，仍可在本地交互式 Windows 会话中显式运行。没有修改生产 UIA 逻辑或放宽其超时。
 - 构建和 MCP Actions job 在该次运行成功。该运行的 checkout/setup-python 步骤还报告 Node 20 弃用告警；工作流现改用 `actions/checkout@v7.0.1` 与 `actions/setup-python@v7.0.0`。
-- 上述 Actions 结果是修复前的远程证据。后续修复已推送，`b2ba37b` 的 [Actions 39229502176](https://github.com/Ding-zhenke/cst-automation/actions/runs/39229502176) 和 `07279b0` 的 Actions 均成功；不能把这些运行归于后续维护提交。
+- 上述 Actions 结果是修复前的远程证据。本次修改尚未推送，因此没有修复后的 Actions 结果；本地测试不能代替后续远程运行。
 
 ## MCP 与技能
 
@@ -70,4 +201,47 @@ wheel 使用本地 `.venv` 安装后，在独立工作目录导入 `cst_solver`�
 - TPC 和 em-enclosure 的 handler 注册形态与 `RunService.register_handler(kind, handler, *, replace=False)` 相符。TPC 现有 `_guards` 调用点有对应实现；本包现新增稳定公开入口 `cst_solver.guards`，本轮不改写 TPC 源调用点。
 - 本轮没有安装并联调相邻仓库，也没有修改它们；因此不报告真实跨包调用通过。
 - 没有在 CST Studio Suite 中执行真实几何重建、结果 readback 或求解。fake/mock、导入和制品安装均不构成这些验证。
-- GitHub private 仓库 `Ding-zhenke/cst-automation` 已创建；初始提交 `1e00a1f` 当时已在 `origin/main` 核验。迁移补充提交后来已推送，维护前最新 main 和对应 CI 见本页顶部的 2026-10-27 核验。
+- GitHub private 仓库 `Ding-zhenke/cst-automation` 已创建，`origin` 指向该仓库；初始提交 `1e00a1f` 已在 `origin/main` 核验。当时补充提交留在本地，后续提交和合并状态以当前 Git 历史为准。
+
+
+## 2026-10-28 周期稳态射击法配置（离线）
+
+新增 configure_steady_state_task 的纯数据校验、Python facade/adapter、类型声明、
+服务 build 路由及 MCP configure_circuit_steady_state_task。原生命令依据为本机
+CST 2026 Help 的 transient shooting 模式、steady state period detection/period/tolerance。
+离线测试覆盖自动/手动周期、任务局部单位、非法输入预检、任务冲突、部分失败、
+原生读回不一致、worker 保存及 MCP 排队；未连接 CST 或启动新求解。
+配置读回、实际周期相容性、射击法收敛、源归一化、宽带时域拟合和运行提速分别
+验收；当前后五项仍未验证。不把射击法称作电路包络或泵浦 HB 小信号接口。
+
+## 2026-11-03 建模 API 与技能核对（离线）
+
+- 以实际 setup mixin/signature、显式会话白名单及本机官方 CST 2026 VBA Help 核对。
+  全量可重复静态清单位于 scripts/audit_modeling_capabilities.py；普通导入未加载 CST SDK。
+- 新增聚焦 F 频率/四面体网格设置、混合原生扫描校验与相关会话预检；补齐基础体、
+  曲线、布尔、变换、拾取、WCS、材料及端口等明确路由。新设置返回 native readback
+  unsupported，readback_verified/mesh_verified/solver_verified 保持 False。
+- 回归修复边界 min/max、六边形曲线组、圆环半径转换、缩放因子、端口镜像；新增
+  具名实体/曲线项删除。会话执行拒绝只生成命令而不执行的 log_flag，阶段重试按 stage_id 去重。
+- 对本轮相关 API/会话回归运行得到 154 passed。全库离线运行得到 1053 passed、
+  3 failed、2 deselected；两个失败为 Windows CreateJunction 权限拒绝，一个为
+  既有 MCP stdio 初始化响应超时。三项在本机权限下独立复核全部通过；最终完整离线
+  复核为 **1061 passed、2 deselected**（41.73 s），未更改测试门槛。实机/GUI 测试未启用。
+- 新增网格频率与参数扫描技能，重写建模操作选择和语义参考；代表场景离线演练覆盖
+  空心圆柱、非默认曲线组孔洞、实体/端口分别变换、零态加对数材料扫描，以及按电尺寸
+  选择少点/Automatic 自适应。技能演练和命令测试均不代替原生几何读回及求解验收。
+- 未启动 CST 或执行真实网格/求解，未据此声明当前工程配置已生效或数值收敛。
+- 当时用户环境安装的公共插件 0.3.0 包含 11 个入口，构建的相对引用、入口集合与公共内容检查通过；
+  已正常安装并核验 enabled，三个本轮重点技能与仓库源码 SHA256 一致。此记录描述当时安装的插件；本仓库当前源清单与技能目录以 `plugin.json` 和 `skills/` 为准。
+
+## 2026-10-27 维护验证
+
+- **Git 来源已恢复**：本机目录原为不含 `.git` 的源码副本。先保存文件快照，再在 `work/maintenance-20261027/upstream/` 克隆完整仓库并恢复根目录 Git 元数据；重建索引时保留全部工作文件。维护前远程 main 为 `07279b078af3484f6f0ad8c0ed6c9ed02db702f5`。该提交的 [Actions 40395424088](https://github.com/Ding-zhenke/cst-automation/actions/runs/40395424088) 已成功；这不是当前维护改动的 CI 结果。
+- **维护提交的远程 CI**：分支 `codex/portable-environment-validation` 的提交 `adf187b3fa254554effb7d328fd8e7a71b529538` 已推送；[Actions 40399304203](https://github.com/Ding-zhenke/cst-automation/actions/runs/40399304203) 的 Python 3.9、3.11、MCP 和 build（包含全新环境的 wheel 安装与 stdio 检查）四个 job 全部成功。修复及本记录通过 [草稿 PR #2](https://github.com/Ding-zhenke/cst-automation/pull/2) 提交审阅，未合并到 main。
+- **环境与 CLI**：发行包的兼容 `config.py` 不再携带机器路径；离线检查对缺失 SDK 目录、未发现 SDK、选中安装已知 ABI 不匹配报告 `unavailable` 并退出 1。`doctor --json` 已支持，默认仍输出 JSON。测试验证了未配置时发现安装、显式无效路径不回退、JSON 输出、退出码及自定义 SDK 的 ABI 归属。
+- **离线回归**：仓库 `.venv`（Python 3.13.9，不继承系统包）执行 `python -B -m pytest -o addopts='' -m "not gui" -q -p no:cacheprovider --basetemp=work/maintenance-20261027/pytest-full`：**490 passed, 1 deselected, 9 warnings**。警告仍为端口默认朝向提示；GUI 用例未运行。
+- **SDK 导入**：显式设置 `CST_INSTALL_PATH=E:\CST2026` 后，Python 3.13.9 / CST 2026 的 cp313 匹配，`doctor --probe` 实际导入 `cst.interface` 和 `cst.results` 成功，状态为 `importable`。该路径是本机验证参数，不是发行默认值；不代表许可证、readback 或 solver 已通过。
+- **MCP stdio**：新增真实子进程集成测试，使用 MCP Python SDK 1.30.0，完成初始化、9 个工具发现、读写注解、能力调用、未知工具/参数错误、假后端任务排队/状态/结果与关闭工程。测试阻止实际加载 CST，且检查请求 `run_id=7` 能原样返回；同时修复 FakeBackend 固定返回 run ID 0 的问题。通过的是 stdio 与 fake 任务链路，本包没有实现网络传输入口，不声称网络传输通过。
+- **发行制品**：构建 wheel 和 sdist 成功；构建后端最低版本改为支持 SPDX license 字符串的 `setuptools>=77`。制品不含 `work/`、`.venv/`、源码备份或 Git 元数据，wheel 内配置无机器路径。
+- **干净安装**：`work/maintenance-20261027/release-venv/` 由 `venv` 新建，`include-system-site-packages = false`；安装刚构建的 wheel 及声明的 NumPy/MCP 依赖。独立目录中清除 `PYTHONPATH`，四个包的加载路径均在该环境 `site-packages`，普通导入不改 `sys.path`、不加载 `cst`。曲线调用、缺失 SDK 的 doctor 退出码 1、安装版 stdio 握手/9 个工具发现/结构化错误均通过。可复用检查脚本为 `scripts/verify_wheel.py`；CI 的 build job 也执行该隔离安装检查。
+- **尚未验收**：真实 CST 几何重建、实际消息/UIA、S 参数结果树发现、远场导出、solver，以及相邻领域仓库联调。具体几何参数、端口及阶段证据方案见 [真机验收预览](REAL_CST_ACCEPTANCE.md)，等待用户审阅后才构造几何。运行中取消接口仍未开放。
