@@ -210,7 +210,7 @@ cst-automation/
 ├── cst_solver/        # CST projects, modeling, simulation, results, diagnostics
 ├── tpc_service/       # General task service and backends
 ├── cst_mcp/           # MCP adapter and tool registration
-├── skills/            # Eight repository-local Codex skills
+├── skills/            # Eleven repository-local Codex skills
 ├── docs/              # Installation, usage, contracts, migration, validation
 ├── tests/             # Repository tests; packages also contain their own tests
 ├── .github/workflows/ # Windows CI tests and builds

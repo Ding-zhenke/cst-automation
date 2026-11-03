@@ -1,6 +1,6 @@
 # Codex 多 skill 插件
 
-一个 `CST Automation` 插件包含八个独立 skill，原有 `skills/` 文件保持不变：
+一个 `CST Automation` 插件包含十一个独立 skill，原有 `skills/` 文件保持不变：
 
 | Skill | 按需使用的场景 |
 | --- | --- |
@@ -10,6 +10,9 @@
 | `cst-parameter-study` | 参数扫描范围与原生线性、对数、离散扫描 |
 | `cst-circuit` | Design Studio 原理图、场路任务和电路结果 |
 | `cst-sessions` | 持久 CST 会话、工程恢复与生命周期 |
+| `cst-device-characterization` | 器件评价工况、指标和证据化报告 |
+| `cst-diode-loading` | 二极管表示、偏置/接口、寄生和数值有效性 |
+| `cst-figures` | 科研绘图、几何预览和可复现样式 |
 | `cst-results` | 读取、导出和分析结果 |
 | `cst-diagnostics` | 安装、SDK、弹窗与任务故障诊断 |
 
@@ -42,4 +45,4 @@ codex plugin list --marketplace cst-automation-local --json
 
 本版是纯 skill 插件，不包含 Python 运行库、CST SDK 或自动启动 MCP 的配置。执行指令前，目标工作环境仍需安装 `cst-automation`，真实操作需要匹配的 CST 环境；已有 MCP 服务可继续使用，见 [MCP 使用](mcp-usage.md)。插件文档不能代替运行库，也不能据此声称仿真通过。
 
-原有仓库内与用户级 skill 可继续保留；若宿主同时发现多个来源的同名 skill，应在选择器里核对来源，避免把两份副本当作不同能力。此前的隔离 CLI 检查覆盖 marketplace 发现、插件安装和四个 skill 元数据可见；当前八个 skill 的打包内容由仓库插件检查覆盖。实际对话中的自动选择和桌面端体验尚需单独验收。
+原有仓库内与用户级 skill 可继续保留；若宿主同时发现多个来源的同名 skill，应在选择器里核对来源，避免把两份副本当作不同能力。此前的隔离 CLI 检查覆盖 marketplace 发现、插件安装和四个 skill 元数据可见；当前十一个 skill 的打包内容由仓库插件检查覆盖。实际对话中的自动选择和桌面端体验尚需单独验收。
