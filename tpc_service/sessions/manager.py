@@ -12,7 +12,7 @@ from tpc_service.errors import ServiceError
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'close_project', 'configure_sweep', 'inspect', 'history',
-                        'set_parameters', 'solve', 'circuit', 'close'))
+                        'set_parameters', 'model_api', 'solve', 'circuit', 'close'))
 
 
 class SessionManager:
@@ -85,7 +85,7 @@ class SessionManager:
             raise ServiceError('invalid_session_argument', 'params must be an object')
         from .validation import validate
         validate(operation, params)
-        operation_id = operation_id or (params.get('stage_id') if operation in ('history', 'configure_sweep') else None) or request_id
+        operation_id = operation_id or (params.get('stage_id') if operation in ('history', 'configure_sweep', 'model_api') else None) or request_id
         if not isinstance(operation_id, str) or not operation_id or len(operation_id) > 512:
             raise ServiceError('invalid_session_argument', 'Invalid operation_id')
         fingerprint = digest({'operation': operation, 'params': params})

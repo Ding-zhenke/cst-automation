@@ -15,10 +15,10 @@ def validate(operation, params):
         return
     identifier(params.get('project_id'))
     if operation == 'configure_sweep':
-        from cst_solver.simulation.sweep import discrete_sweep_code
+        from cst_solver.simulation.sweep import sweep_code
         identifier(params.get('stage_id'))
         try:
-            discrete_sweep_code(params.get('sequence_name'), params.get('parameters'), params.get('replace_all', False))
+            sweep_code(params.get('sequence_name'), params.get('parameters'), params.get('replace_all', False))
         except (TypeError, ValueError) as exc:
             raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'inspect':
@@ -48,6 +48,15 @@ def validate(operation, params):
                 'Reviewed preview digest required')
         identifier(params.get('stage_id'))
         require(isinstance(params.get('name'), str) and bool(params['name'].strip()), 'History name required')
+    if operation == 'model_api':
+        import json
+        from .model_api import validate_calls
+        calls = params.get('calls')
+        validate_calls(calls)
+        identifier(params.get('stage_id'))
+        require(params.get('preview_digest') == hashlib.sha256(
+            json.dumps(calls,sort_keys=True,ensure_ascii=False).encode()).hexdigest(),
+            'Reviewed API call digest required')
     if operation == 'set_parameters':
         values = params.get('values')
         require(isinstance(values, dict) and bool(values), 'Nonempty values required')

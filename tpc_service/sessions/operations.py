@@ -124,11 +124,20 @@ def execute(runtime, job):
         return {'project': record, 'saved': True, 'backend': runtime.backend,
                 'readback_verified': False, 'solver_verified': False}
     app, record = runtime.project(params['project_id'])
+    api_result = {}
     if operation == 'configure_sweep':
         if runtime.backend == 'fake':
             app.cst_file['sweep'] = {k: params[k] for k in ('sequence_name', 'parameters')}
         else:
-            app.configure_discrete_sweep(params['sequence_name'], params['parameters'], params.get('replace_all', False))
+            app.configure_sweep(params['sequence_name'], params['parameters'], params.get('replace_all', False))
+    elif operation == 'model_api':
+        from .model_api import dispatch, validate_calls
+        validate_calls(params['calls'])
+        if runtime.backend == 'fake':
+            app.cst_file.setdefault('api_calls', []).extend(params['calls'])
+            api_result = {'python_api_calls':len(params['calls']), 'native_executed':False}
+        else:
+            api_result = dispatch(app, params['calls'])
     elif operation == 'history':
         code = params['vba']
         if not isinstance(code, str) or not code.strip() or len(code) > 1_000_000:
@@ -174,7 +183,7 @@ def execute(runtime, job):
                   'saved_digest': record['saved_digest'], 'saved': True, 'readback_verified': False,
                   'geometry_validation': validation}
     write(runtime.folder / 'checkpoints' / (job['job_id'] + '.json'), checkpoint)
-    return dict(checkpoint, backend=runtime.backend, solver_verified=False)
+    return dict(checkpoint, backend=runtime.backend, solver_verified=False, **api_result)
 
 
 def circuit(runtime, app, record, params):

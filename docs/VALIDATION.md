@@ -204,3 +204,23 @@ CST 2026 Help 的 transient shooting 模式、steady state period detection/peri
 原生读回不一致、worker 保存及 MCP 排队；未连接 CST 或启动新求解。
 配置读回、实际周期相容性、射击法收敛、源归一化、宽带时域拟合和运行提速分别
 验收；当前后五项仍未验证。不把射击法称作电路包络或泵浦 HB 小信号接口。
+
+## 2026-11-03 建模 API 与技能核对（离线）
+
+- 以实际 setup mixin/signature、显式会话白名单及本机官方 CST 2026 VBA Help 核对。
+  全量可重复静态清单位于 scripts/audit_modeling_capabilities.py；普通导入未加载 CST SDK。
+- 新增聚焦 F 频率/四面体网格设置、混合原生扫描校验与相关会话预检；补齐基础体、
+  曲线、布尔、变换、拾取、WCS、材料及端口等明确路由。新设置返回 native readback
+  unsupported，readback_verified/mesh_verified/solver_verified 保持 False。
+- 回归修复边界 min/max、六边形曲线组、圆环半径转换、缩放因子、端口镜像；新增
+  具名实体/曲线项删除。会话执行拒绝只生成命令而不执行的 log_flag，阶段重试按 stage_id 去重。
+- 对本轮相关 API/会话回归运行得到 154 passed。全库离线运行得到 1053 passed、
+  3 failed、2 deselected；两个失败为 Windows CreateJunction 权限拒绝，一个为
+  既有 MCP stdio 初始化响应超时。三项在本机权限下独立复核全部通过；最终完整离线
+  复核为 **1061 passed、2 deselected**（41.73 s），未更改测试门槛。实机/GUI 测试未启用。
+- 新增网格频率与参数扫描技能，重写建模操作选择和语义参考；代表场景离线演练覆盖
+  空心圆柱、非默认曲线组孔洞、实体/端口分别变换、零态加对数材料扫描，以及按电尺寸
+  选择少点/Automatic 自适应。技能演练和命令测试均不代替原生几何读回及求解验收。
+- 未启动 CST 或执行真实网格/求解，未据此声明当前工程配置已生效或数值收敛。
+- 公共插件 0.3.0 包含 11 个入口，构建的相对引用、入口集合与公共内容检查通过；
+  已正常安装并核验 enabled，三个本轮重点技能与仓库源码 SHA256 一致。

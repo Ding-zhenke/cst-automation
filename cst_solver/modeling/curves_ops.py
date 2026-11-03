@@ -31,7 +31,7 @@ class CurveOpsMixin:
         f1 = f"""
         With ExtrudeCurve
              .Reset 
-             .Name "{name} "
+             .Name "{name}"
              .Component "{component}"
              .Material "{material}"
              .Thickness "{thickness}" 

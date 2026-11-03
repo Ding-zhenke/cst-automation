@@ -14,6 +14,22 @@ class CurvesMixin:
     提供多边形、圆弧、圆、椭圆、直线、样条曲线等绘制功能
     """
 
+    def delete_curve_item(self, name, curve='curve1'):
+        """Delete a single item, retaining its curve group (Curve.DeleteCurveItem)."""
+        from .booleans import _local_name
+        name, curve = _local_name(name), _local_name(curve)
+        self.cst_file.model3d.add_to_history(
+            'Delete curve item: ' + curve + ':' + name,
+            f'Curve.DeleteCurveItem "{curve}", "{name}"')
+
+    def new_curve(self, name):
+        """Create a curve group using CST Curve.NewCurve."""
+        from cst_solver.expressions import check_vba_text
+        if not check_vba_text(name).ok:
+            raise ValueError('Invalid curve group name')
+        self.cst_file.model3d.add_to_history('Curve group: ' + name,
+                                             f'Curve.NewCurve "{name}"')
+
     def polyline(self, data, name='1', curve='curve1', log_flag=1):
         """
         绘制二维多边形折线/闭合轮廓（基础绘图函数）

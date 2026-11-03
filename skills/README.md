@@ -6,6 +6,8 @@ Codex skill entry points for this package:
 
 - [cst-modeling](cst-modeling/SKILL.md)
 - [cst-simulation](cst-simulation/SKILL.md)
+- [cst-mesh-frequency](cst-mesh-frequency/SKILL.md): electrical-size/cost assessment, frequency sampling and mesh-adaptation decisions.
+- [cst-parameter-study](cst-parameter-study/SKILL.md): linear/logarithmic/discrete native scans and server preparation.
 - [cst-circuit](cst-circuit/SKILL.md): Design Studio schematics, EM links, field-circuit tasks, circuit results, and service/MCP workflows.
 - [cst-results](cst-results/SKILL.md)
 - [cst-diagnostics](cst-diagnostics/SKILL.md)

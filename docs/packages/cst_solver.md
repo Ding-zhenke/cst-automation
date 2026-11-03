@@ -69,3 +69,72 @@ Shared band/resonance criteria are implemented once in `cst_automation.curves`. 
 - Update `setup.pyi` and `simulation/setup.pyi` when their public methods change, and add behavior-level offline tests.
 - Keep optional CST access lazy. Do not vendor CST modules or add `cst` to package dependencies.
 - Keep offline/mock evidence separate from real project readback and solver evidence.
+
+## Basic shapes and parameter sampling
+
+Use the existing Python methods before writing native commands. Their native
+history is an implementation detail, not a reason to bypass the API.
+
+| Shape | Existing setup API |
+|---|---|
+| Brick | `square(xmin, xmax, ymin, ymax, zmin, zmax, name, component, material)`; alias `create_brick` |
+| Solid or hollow cylinder | `cylinder(center, r, h, name, axis='z', component='component1', material='PEC')`; alias `create_cylinder` |
+| Sphere | `create_sphere(center, radius, name, component='component1', material='PEC')` |
+| Cone | `create_cone(bottom_radius, top_radius, height, name, center=None, axis='z', component='component1', material='PEC')` |
+| Torus | `create_torus(major_radius, minor_radius, name, center=None, axis='z', component='component1', material='PEC')` |
+
+For cylinders, `r=[outer_radius, inner_radius]`, `h=[axis_min, axis_max]`,
+and `center` is the two coordinates perpendicular to the selected axis. Use
+CST parameter-expression strings for dimensions that must remain parametric.
+These basic methods are explicitly available through session `model_api`.
+
+Parameter sweep configuration supports native linear, logarithmic and explicit
+point-list axes. For example, on the session-owned application:
+
+```python
+app.configure_sweep('dimensions', {
+    'length': {'mode': 'linear', 'start': 1, 'stop': 3, 'samples': 5},
+    'scale': {'mode': 'logarithmic', 'start': 1, 'stop': 100, 'samples': 3},
+    'state': [0, 1],
+})
+```
+
+The same mapping is accepted by session `configure_sweep`, together with
+`project_id` and stable `stage_id`. Range descriptors retain their CST-native
+sampling mode; they are not expanded into arbitrary points. Counts include both
+endpoints. A logarithmic range cannot include zero: use a separate discrete
+zero-state sequence when required. Configuration does not start a solver.
+
+## Modeling workflow and focused F controls
+
+The maintained [modeling skill](../../skills/cst-modeling/SKILL.md) routes to an
+[operation map](../../skills/cst-modeling/references/api-selection.md) and
+[geometry/material/port semantics](../../skills/cst-modeling/references/model-operations.md).
+They distinguish existing wrappers, explicit session routes and unsupported
+native effects. `scripts/audit_modeling_capabilities.py --output work/api-audit`
+generates the full current setup signature/source/route inventory without CST.
+
+`configure_fd_frequency(settings)` separates broadband intervals, mesh-adaptation
+frequencies and interpolated output resolution. Interval fields are start, stop,
+spacing, samples and optional boolean adaptation (False by default). Explicit
+`replace_intervals=True` replaces interval definitions; otherwise they append.
+`adaptation_frequencies` adds Single rows with adaptation True. Automatic-row
+adaptation is selectable: estimate electrical size and mesh cost first, using
+few-point adaptation for expensive problems and automatic adaptation when
+appropriate for affordable ones. See [mesh/frequency selection](../../skills/cst-mesh-frequency/SKILL.md).
+
+`configure_tetrahedral_mesh(settings)` uses documented global tetrahedral density,
+local per-solid edge constraints and bounded pass/Delta-S refinement controls.
+It replaces use of hexahedral density and legacy speculative MeshShapes controls
+for F tetrahedral work. Both methods preflight without SDK access, submit focused
+commands, and return unverified native settings/mesh/solver flags. Python callers
+rebuild/save explicitly; persistent sessions perform their usual checkpoint.
+See the [public schemas](../PUBLIC_API.md#typed-frequency-domain-sampling-and-tetrahedral-mesh-configuration).
+
+Basic modeling audit corrections include matching boundary faces, passing a
+nondefault curve group to hexagonal profiles, translating torus major/minor
+radii to native outer/inner extents, actually submitting scale factors, and
+using correct port names/destination rules for mirror. `delete_solid` and
+`delete_curve_item` provide focused object removal. Session `model_api` explicitly
+registers geometry operations and rejects nonexecuting log_flag modes; native
+shape and material readback remain independent checks.

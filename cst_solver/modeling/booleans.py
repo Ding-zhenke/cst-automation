@@ -8,11 +8,25 @@ CST 布尔运算 Mixin 模块
 """
 
 
+def _local_name(value):
+    """Validate a single object/group name before composing native commands."""
+    if (not isinstance(value, str) or not value.strip() or len(value) > 512
+            or any(ord(c) < 32 or ord(c) == 127 or c in ':"' for c in value)):
+        raise ValueError('A nonempty local name without colon, quotes or controls is required')
+    return value
+
+
 class SolidOpsMixin:
     """
     CST 布尔运算 Mixin
     提供实体相加、相减、相交、插入、倒角、弯曲等操作
     """
+
+    def delete_solid(self, name, component='component1'):
+        """Delete only a named solid; no model reset or solve (Solid.Delete)."""
+        name, component = _local_name(name), _local_name(component)
+        self.cst_file.model3d.add_to_history(
+            'Delete solid: ' + component + ':' + name, f'Solid.Delete "{component}:{name}"')
 
     def add(self, name1, name2, component1='component1', component2='component1'):
         """

@@ -14,6 +14,24 @@ class WCSMixin:
     提供局部坐标系创建、旋转、平移、对齐、重置等功能
     """
 
+    def set_wcs_basis(self, origin, normal, u_vector):
+        """Activate a local WCS with explicit origin, normal and U direction."""
+        from cst_solver.expressions import check_vba_text
+        vectors = [origin,normal,u_vector]
+        if any(not isinstance(v,(list,tuple)) or len(v)!=3 for v in vectors):
+            raise ValueError('Three-component WCS vectors required')
+        if any(not check_vba_text(str(x)).ok for v in vectors for x in v):
+            raise ValueError('Invalid WCS vector')
+        def args(v): return ', '.join('"'+str(x)+'"' for x in v)
+        code = ('WCS.ActivateWCS "local"\nWCS.AlignWCSWithGlobalCoordinates\n'
+                + 'WCS.SetNormal '+args(normal)+'\nWCS.SetUVector '+args(u_vector)
+                + '\nWCS.SetOrigin '+args(origin))
+        self.cst_file.model3d.add_to_history('Local WCS basis', code)
+
+    def activate_global_wcs(self):
+        """Activate global coordinates without redefining local geometry."""
+        self.cst_file.model3d.add_to_history('Global WCS', 'WCS.ActivateWCS "global"')
+
     def wcs_reset(self):
         """
         将工作坐标系重置为全局坐标系 (WCS)

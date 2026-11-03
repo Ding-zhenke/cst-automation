@@ -333,3 +333,122 @@ started. The operation is explicitly registered in the MCP operation enum.
 - 服务显式注册 `build / configure_steady_state_task`，MCP 增加
   `configure_circuit_steady_state_task`，参数 `task_name/settings/create`。沿用串行 worker、
   保存、部分失败审计；非法输入必须在打开 SDK 前拒绝。未新增运行模式或改变运行证据。
+
+## 2026-10-28: Typed session modeling API
+
+`model_api` takes explicit project_id, stage_id, calls (method/args/kwargs) and a SHA256 preview_digest of canonical JSON calls (sort_keys=True, ensure_ascii=False). Only the static whitelist in sessions/model_api.py is callable; all signatures are bound before the first mutation. No scripts, eval, dynamic imports, solver run, file open/close or arbitrary attributes. Methods execute on the original session-owned app. Native stages rebuild and save through the usual checkpoint. Fake stages only record calls. This routing does not itself certify geometry or results.
+
+Added setup.new_curve(name), set_wcs_basis(origin, normal, u_vector), activate_global_wcs(), configure_fem_solver(accuracy='1e-6', mesh_adaption=True). They submit focused history through the owning API; no solve. ExtrudeCurve now preserves the exact requested name; parameter sweep helpers omit unsupported Reset.
+
+## Native linear, logarithmic and discrete parameter sweeps
+
+`setup.add_sweep_parameter_samples(seq_name, param_name, lower_bound, upper_bound,
+num_steps, logarithmic=False)` now exposes CST's native logarithmic flag. The
+existing five-argument call remains linear. `num_steps` is the number of samples,
+including endpoints, not the number of intervals. Bounds are finite numbers with
+`lower_bound < upper_bound`; logarithmic bounds must both be positive. Sample
+counts are integers in [2, 10000]. Configuration never invokes Start.
+
+`setup.configure_sweep(sequence_name, parameters, replace_all=False)` accepts a
+mapping of parameter names to either numeric point lists or range descriptors
+`{"mode": "linear" | "logarithmic", "start": number, "stop": number, "samples": int}`.
+All axes are checked before submitting one native history entry. It emits
+`AddParameter_Samples` for ranges, retaining their native GUI sampling mode;
+point lists emit `AddParameter_ArbitraryPoints`. Axes in the same sequence form
+the Cartesian product. `configure_discrete_sweep` retains its point-list-only
+contract. Session `configure_sweep` accepts the same mixed mapping without
+changing its operation name, stage deduplication, or configuration-only scope.
+
+The session `model_api` route also accepts the already implemented basic-shape
+methods `create_brick`, `cylinder`, `create_cylinder`, `create_sphere`,
+`create_cone`, and `create_torus`, plus the configuration-only sweep methods.
+This extends explicit routing; it does not enable arbitrary Python or solving.
+
+### Sweep configuration bounds and combination semantics
+
+Mixed and discrete configurations accept at most 100 axes and 10000 samples per
+axis, and at most 1000000 Cartesian cases per sequence. Sequence names cannot
+contain control characters or double quotes. A native sequence evaluates all
+combinations; simultaneous/zipped axes are not supported by this contract.
+Independent sequences are separate experiments, not another Cartesian axis.
+Validation completes before any DeleteAllSequences or AddSequence command.
+The legacy low-level `add_sweep_parameter_samples` additionally accepts finite
+decimal/scientific numeric strings for bounds; arbitrary expressions remain
+unsupported. Mixed `configure_sweep` bounds stay numeric and reject strings.
+
+## Typed frequency-domain sampling and tetrahedral mesh configuration
+
+`setup.configure_fd_frequency(settings)` accepts a sparse mapping:
+`sampling_intervals` is a list of `{start, stop, spacing, samples}` with optional
+boolean `adaptation` (default False) and spacing
+`automatic|linear|logarithmic|single` and `samples=None` only for automatic;
+`adaptation_frequencies` is a list of positive single-frequency adaptation
+points. Optional `output_samples` (integer >=2), `output_spacing`
+(`automatic|linear|logarithmic|log_linear`), `sweep_error` (0,1],
+`sweep_minimum_samples`, `sweep_error_checks` (positive integers), and
+`stop_sweep_if_converged` (boolean) control broadband sampling independently.
+Sample intervals append to existing ones; this sparse operation does not clear
+inherited intervals. Explicit `replace_intervals=True` resets sample intervals
+before adding the supplied rows; it requires at least one interval/adaptation
+point. Inspect existing settings before choosing append or replacement.
+Frequencies use the current project frequency unit. `output_spacing` controls
+the shared adaptive-sweep/result-data frequency-axis mode in CST; it is not an
+independent output-only setting. An automatic interval starting at zero does
+not establish an actual DC solve; native omission/remapping is reported.
+Automatic-interval adaptation is supported when explicitly requested; selection
+depends on electrical size and expected mesh cost, not a universal ban. Large
+problems normally keep automatic adaptation off and use a few explicit points.
+
+`setup.configure_tetrahedral_mesh(settings)` accepts sparse positive
+`steps_per_wavelength`, `minimum_steps`, boolean `material_refinement`,
+`local_solids=[{solid: "component:name", max_step: positive number}]`, and
+`adaptation={enabled, min_passes, max_passes, max_delta_s, delta_s_checks,
+refinement_percentage}`. Adaptation values are optional; passes/checks are
+positive integers, max_delta_s is in (0,1], refinement_percentage in (0,100].
+Sizes use current project geometry units. Keys outside these schemas fail
+before history submission. These calls use documented tetrahedral commands,
+not hexahedral LinesPerWavelength or speculative MeshShapes region commands.
+
+Both APIs validate the entire request before submitting history. They do not
+reset, choose a solver, rebuild, save or solve. Return values record requested
+settings/history submission with readback_verified and solver_verified False.
+No cross-case mesh/solution reuse switch is promised. Session `model_api`
+explicitly registers both configuration methods; MCP uses that existing route.
+
+### Modeling audit corrections and explicit session coverage
+
+`boundary` now sends each xmin/xmax, ymin/ymax and zmin/zmax value to the
+matching native face (previously reversed). `create_hexagonal_prism` preserves
+the requested curve group. `create_torus` keeps the documented centerline/tube
+major/minor radii and converts them to native OuterRadius=major+minor and
+InnerRadius=major-minor, including parameter expressions. Existing scripts
+that compensated for the former incorrect mapping must remove that workaround.
+
+Session `model_api` additionally registers basic prisms/wires, curve creation
+and extrusion, boolean intersection/insertion, transforms, picks, WCS changes,
+custom/tensor materials, explicit waveguide/discrete/lumped ports and monitors.
+The maintained whitelist remains in `tpc_service/sessions/model_api.py`; SDK
+lifecycle, arbitrary property setters, filesystem import/export and solving
+remain separate operations. Signatures are checked for the full batch; new
+frequency, tetrahedral-mesh and sweep settings also get pure payload preflight
+before any call executes. `stage_id` is the default operation identity for
+`model_api`, so a new request ID cannot accidentally replay the same stage.
+
+`setup.delete_solid(name, component="component1")` and
+`setup.delete_curve_item(name, curve="curve1")` delete only the named object,
+using documented Solid.Delete and Curve.DeleteCurveItem commands. Names are
+nonempty local names without colon, control characters or quotes; group names
+are separate. Neither API clears the model or starts solving. Both are explicit
+reviewed-geometry session methods. `model_api.configuration_receipts` retains
+the typed frequency/mesh return receipts; their unverified flags remain False.
+`scale(name,factor,center=None,component="component1")` emits the requested
+native ScaleFactor for a numeric/symbolic scalar or three-component vector;
+the prior implementation omitted the factor entirely. Input is validated before
+history submission. Offline command tests do not certify native geometry.
+`mirror(...,object="Port")` uses native port names without component prefixes
+and AutoDestination=False. Integer port IDs normalize to "Port N"; shape
+mirroring retains its component-qualified names. This corrects the old shape
+rules incorrectly applied to ports.
+Executing session `model_api` batches reject `log_flag` values other than the
+integer 1 before any batch mutation. Code-generation-only log_flag=0 belongs
+outside this route and cannot produce a successful modeled-stage receipt.

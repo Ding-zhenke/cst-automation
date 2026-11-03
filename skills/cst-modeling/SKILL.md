@@ -1,18 +1,81 @@
 ---
 name: cst-modeling
-description: Plan, preview, create, or inspect general CST geometry through cst_solver. Use for entity, material, boolean, import/export, or port geometry work.
+description: Use when planning, previewing, creating, changing or checking CST solids, curve profiles, boolean operations, transforms, picks, coordinates, materials, boundaries or ports through cst-automation.
 ---
 
-# CST modeling
+# CST 建模
 
-For actual Codex modeling, first apply [persistent conversation sessions](../cst-sessions/SKILL.md).
-Follow [project reuse and minimal delivery](../cst-sessions/references/project-lifecycle.md):
-one approved topology, one final CST and its modeling Python; PNG-only schematic
-output by default. Update parameters/settings in place. Read-only probes and
-report output stay outside replay history. Close temporary check tabs after use.
+实际工程操作先用 [cst-sessions](../cst-sessions/SKILL.md)，复用已绑定工程、worker
+和 DE。同一拓扑的参数、材料、网格、扫描设置在原工程更新；不因换参数或核验另建
+工程副本。新对话与明确恢复按会话规范处理，不连接任意活动窗口。
 
-Before constructing or materially changing geometry, derive a preview from the actual model parameters and show the intended geometry, ports, coordinate system, and key dimensions. Wait for the user's review before beginning construction. A text-only concept sketch does not verify geometry.
+## 先将建模意图映射到已有操作
 
-Keep units and coordinate conventions explicit. Prefer small, inspectable operations through `cst_solver`; preserve the user's existing project and unrelated work. After each dependent geometry stage, rebuild and record messages, entity counts, and output paths. Treat a clean rebuild as geometry evidence only; it does not establish solver success or device performance.
+在提交前读 [API 操作与参数语义](references/api-selection.md)，并检查当前运行库的
+模块路径、真实签名和会话白名单。列出本次对象、采用的 API、输入参数与依赖阶段。
+API 生成 VBA 是正常实现；调用方重新拼接已有 Brick/Cylinder/Transform 等命令是绕过
+API。不得为“一次性提交”改写整台设备。会话未路由已有方法时补显式路由；确实没有
+封装的可复用操作才补 API。最小原生命令只用于有依据的真实缺口，需说明缺少什么。
 
-Read [the API guide](../../docs/packages/cst_solver.md) when choosing `setup` methods and [Python usage](../../docs/guides/python-usage.md) for examples.
+任务属于领域器件时，同时加载可用的领域 skill。TPC 加载 `topological-modeling`
+及相关晶格/模板技能，让领域包决定晶格、相位和路径；本包负责通用 CST 操作，不
+引入领域包依赖。不能因为底层都调用 CST 就跳过领域建模规范。
+
+## 参数与几何审阅
+
+1. 先读目标工程及当前要求，明确长度/频率单位、全局坐标、传播方向、层叠、材料、
+   端口编号与法向、源工程和输出位置。参数值、公式、说明分开记录；不从旧案例猜值。
+2. 独立尺寸和派生尺寸保留为参数及联动公式。`para(name,value,expression=说明)` 中
+   value 是数值/可执行公式，expression 是含义、单位和关系说明；会话用
+   `set_parameters` 的 values/expressions。不要用数值展开破坏可扫描的依赖关系。
+3. 新建或实质修改几何前，从**同一组真实参数**生成等比例预览；俯视/剖面按需要选，
+   标出孔、薄层、开口、接触、端口、坐标和关键尺寸，等待审阅。已有批准范围继续
+   有效，不反复确认例行步骤。只有文字概念或截图看起来相似不算几何核对。
+4. 扫描前离线检查参数极值与约束：正尺寸、内外半径、净间隙、接触/重叠、薄层位置、
+   端口离结构的关系。变拓扑与同拓扑扫参区别处理；不直接删除仍被公式/历史引用的参数。
+
+## 按依赖阶段构建
+
+- 先单位、参数、组件、曲线组和材料，再基础实体/轮廓、定位与复制、布尔、局部特征，
+  最后材料赋值、边界、端口和监视器。按实际依赖调整，不把每个基础体都当成一个完整
+  重建阶段，也不在整个设备结束后才首次检查。
+- 基础体优先对应 API；孔洞明确使用切割体及 subtract。区分 `component:name`
+  与 `curve:name`，指定组名、材料、轴向、中心与尺寸的实际语义。
+- 布尔前明确目标与工具、保留材料/独立对象的意图。孔、相交、插入和合并不互换。
+  参数化后要检查工具是否被消费、组件是否变化、是否出现零厚度/多余小实体。
+- 变换明确中心、矢量、角度、复制/原位、重复数、合并和对象种类；端口不随实体自动
+  旋转。局部 WCS 完成后恢复全局坐标，再设置全局端口或对称边界。面/棱 ID 会随
+  布尔与参数改变，按实际几何重新拾取；不复用失效编号。
+- 需要改删对象时用明确名称的 rename/change_component/delete_solid 或
+  delete_curve_item；不要通过清空整个模型规避局部修改。导入的外部文件要记录真实
+  来源、单位、依赖与可搬移性，不能因通用路由未开放就另连工程。
+
+复杂操作的顺序与限制见 [装配、坐标、材料和端口](references/model-operations.md)。
+
+## 材料、边界和端口不是附带设置
+
+选择 PEC、有限电导率、介质、薄层或张量时说明物理表示和求解器兼容性。显示颜色不是
+材料赋值。全复数 epsilon/mu 张量及独立 U/V 轴用 `create_material_full_tensor`；
+`create_material_tensor` 仍是标量 epsilon 的便利接口。核对系数、符号、坐标轴和实体
+赋值；内置宏 Load Settings 读取其 INI，默认对话框不能充当已有材料读回。
+
+明确每个边界面、背景性质与外扩空间；对称/周期边界须与几何及激励一致。端口核对
+编号、位置、朝向、范围、模式、极化和参考面；先选择自由放置/拾取波导端口、离散
+端口或集总元件的正确 API。场监视器与传输曲线输出分开设置。
+
+## 设置与验收
+
+求解前读取 [cst-mesh-frequency](../cst-mesh-frequency/SKILL.md)：先估计材料/模式内的
+电尺寸和网格成本，再决定 Automatic 行是否参与自适应。大模型通常只选少数 Single
+点迭代，小且可负担的模型可用 Automatic 自适应；不能一刀切或只沿用默认 automation。
+扫描使用 [cst-parameter-study](../cst-parameter-study/SKILL.md)，明确线性/对数/离散、
+工况数、几何约束和网格有效范围。真正求解交给 [cst-simulation](../cst-simulation/SKILL.md)。
+
+每个依赖阶段保留稳定 stage_id/request_id，重建、读实际消息，再用 inspect 核对参数、
+实体、材料、体积和关键点；端口/设置使用相应真实读回能力。缺读回就保留未验证，不
+用 history 调用成功代替。超时查原任务与现场，不复制/重放未知阶段。探测输出在 Python
+写报告，不污染模型回放历史；弹窗按实际标题、正文、按钮和进程归属诊断。
+
+交付原工程最终 CST、必需配套目录、可复现建模 Python 和所需 PNG；阶段副本、备份、
+额外矢量格式和压缩包按用户需求提供。检查用临时标签完成后关闭，保留工作 DE。
+分别报告配置提交、原生读回、几何重建、实际求解和数值收敛；不以其中一项代替另一项。

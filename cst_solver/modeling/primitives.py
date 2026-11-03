@@ -206,8 +206,8 @@ class ModelingPrimitivesMixin:
             .Component "{component}"
             .Material "{material}"
             .Axis "{axis}"
-            .OuterRadius "{major_radius}"
-            .InnerRadius "{minor_radius}"
+            .OuterRadius "({major_radius})+({minor_radius})"
+            .InnerRadius "({major_radius})-({minor_radius})"
             .Xcenter "{center[0]}"
             .Ycenter "{center[1]}"
             .Zcenter "{center[2]}"
@@ -323,7 +323,7 @@ class ModelingPrimitivesMixin:
         for i in range(7):
             tmp = [f'({a})*cosd({i * 60})', f'({a})*sind({i * 60})']
             data.append(tmp)
-        f1 = self.polyline(data, name, log_flag=0)
+        f1 = self.polyline(data, name, curve=curve, log_flag=0)
         f2 = self.extrude(f'{curve}:{name}', f'{name}', f'{h}',
                           component=component, material=material, log_flag=0)
         f1 = f1 + f2
