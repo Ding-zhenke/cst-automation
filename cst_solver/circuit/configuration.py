@@ -1,6 +1,5 @@
 """Native writes for reusable source/model settings, separate from execution."""
 import math
-from pathlib import Path
 
 from cst_automation.circuit_schema import unit_info
 from cst_automation.circuit_configuration import file_snapshot
@@ -124,11 +123,16 @@ def configure_nonlinear_model(adapter, name, settings, *, create=False):
             obj.SetSpiceModel(settings['spice_model'])
             actual = adapter.spice_readback(name)
             actual['file'] = str(adapter.select('Block', name).GetFile())
-            if Path(actual['file']).resolve() != Path(settings['file']) or actual['spice_model'] != settings['spice_model']:
-                raise RuntimeError('Native SPICE file/model mismatch')
-            if settings['spice_filter'] is not None and actual['spice_filter'].casefold() != settings['spice_filter'].casefold():
-                raise RuntimeError('Native SPICE dialect mismatch')
-        after_pins = adapter.pins(name)
+            from cst_automation.spice_identity import verify_spice_identity
+            from cst_solver.run_contract import project_path_of
+            after_pins = adapter.pins(name)
+            evidence = verify_spice_identity(settings, actual['file'], project_path_of(adapter.app), name,
+                                             actual, after_pins)
+            actual['spice_verification'] = evidence
+            if evidence['mismatches']:
+                raise RuntimeError('Native SPICE identity mismatch: ' + ', '.join(evidence['mismatches']))
+        if settings['kind'] == 'berkeley_diode':
+            after_pins = adapter.pins(name)
         check_files(settings['files'])
     except Exception as exc:
         raise CircuitError('circuit_build_partial', f'Model configuration write/readback failed: {exc}',

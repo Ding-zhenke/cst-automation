@@ -1,5 +1,12 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-03：SPICE 缓存身份核验（离线回归）
+
+- `configure_nonlinear_model` 不再要求 SPICE `GetFile()` 与 `SetFile` 路径相等。输入保持兼容；请求源快照增加字节数及可解析的 `.SUBCKT` 端口顺序。只支持唯一、简单的子电路声明；复杂语法、编码及 include/lib 依赖闭包保持 unknown。
+- `readback.spice_verification` 保留 requested_source_path、native_file_reference、project_path、block_name、resolution_base、resolved_cache_path、source/cache 快照及原始错误。相对引用仅按已绑定工程文件的父目录解析，不用 cwd；缓存归属只在当前工程资源目录 `Model/DS/Block/<block_name>/` 下确认，符号链接按实际目标检查。工程资源内的其他未校准布局（含无法绑定的 sibling/numeric block 目录）保持 unknown，资源外引用为归属不符。源路径直引单独标为 source_reference，不冒充缓存归属已验证。
+- 内容按批准源 SHA-256 比较（即使路径相同也检查）；端口按批准子电路声明的名称和顺序比对，模型和显式方言独立核验。内容/模型/方言/端口/缓存归属的明确不一致进入 `circuit_build_partial`，失败 readback 保留各维度证据；缓存文件不可读或声明无法解析保持 unknown，`verification_complete=False`。原生 metadata/pins 查询异常仍按已有部分失败处理，不伪造完整核验表。未知不等于通过，整体 readback_verified、saved_reopen_verified 和 solver_verified 仍为 False。
+- 顶层内容核验不证明依赖闭包、接线/极性或器件仿真语义；不调用 `SetCacheFiles`，不自动重导入、保存重开或求解。核验仅在调用方授权的稳定副本上读取源和原生返回的缓存文件。无新增 service/MCP 操作或隐式 SDK 加载。
+
 ## 2026-10-26：原生 HB 扫描与后处理代码接口
 
 - `cst_solver.circuit.native` 接受已打开工程的原生 `schematic`（也可使用 CST 模板的 `calling_app`），不加载 SDK、不启动求解、不自动保存。`configure_hb_task(schematic, task_name, tones, *, diamond=False, create=False)` 配置 Spectral Lines 的基频/阶数表达式；`replace_parameter_sweep_sequences(schematic, task_name, sequences)` 显式替换已有原生 Parameter Sweep 的全部序列，保留任务及其子任务。HB 频率数值沿用目标任务当前生效的频率单位（可能为局部单位），不切换单位；扫参点沿用原生参数单位，字符串表达式原样保留。调用方必须先核对单位。
