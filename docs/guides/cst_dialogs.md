@@ -54,6 +54,51 @@ python -m cst_solver.dialogs --watch --pid 12345
 保存、覆盖、参数输入、错误/警告不自动确认。自动确认后也保留阻塞证据，要求核查本次步骤。
 Qt 的虚拟按钮无法用标准 Win32 Button 发送路径操作，返回 `no_match`/`stale_or_foreign`，须据实际界面处理。
 
+## 结果失效弹窗的 API 预处理
+
+`Results May Get Incompatible With Model` 表示模型变更将使已有结果失效。
+优先在提交变更前通过 CST API 处理结果，减少对 Computer Use 的依赖。
+这不是让旧结果在修改后的模型上继续有效。
+
+先根据用户已有指令确定结果保留范围。需要保留的结果先导出或归档，并核验产物；
+已有授权足够时继续执行，不重复确认。保留范围仍不明确时，再询问必要的选择。
+不能因为用户要求“跳过弹窗”就默认删除全部结果。
+
+| 已核对的接口 | 含义与限制 |
+|---|---|
+| CST VBA `DeleteResults` | 官方说明为删除当前工程的全部结果；不能据此保证保留结果缓存，也不能等同于弹窗中的第一项。 |
+| CST VBA `AskForDeleteResults` | 有结果时显示删除结果对话框，不能用于无交互地绕过提示。 |
+| Python `de.set_quiet_mode(True)` | 抑制消息框；官方明确排除需要用户输入的对话框。 |
+| Python `de.quiet_mode_enabled()` | 在上下文内开启静默模式，退出时恢复原状态；同样不能保证跳过该多选弹窗。 |
+
+静默模式的调用形式如下，`de`、`project` 必须来自当前对话已绑定的会话，
+`vba_code` 是已审阅且获授权的变更代码：
+
+```python
+with de.quiet_mode_enabled():
+    project.model3d.add_to_history("Reviewed model change", vba_code)
+```
+
+需要清理时，在变更前通过已核实的宏执行接口调用 `DeleteResults`；
+确认目标工程及 3D/原理图上下文，不能混用两者的清理范围。
+不要把结果清理本身写成模型历史步骤，也不要编造 `delete_results()` 等未确认的 Python 方法。
+若要求保留缓存，先核对当前版本对应的精确接口和行为，再执行；没有证据时不声称它等价于
+“Delete current and parametric results (keep result cache)”。
+
+如果弹窗已经阻塞原 SDK 调用，先记录并处理原任务的阻塞状态；
+原调用返回前不追加清理宏、不重放变更。需要界面操作时仍遵守上面的 PID、窗口和选项核对规则。
+处理后读取原调用返回值/异常、CST 消息与实际状态，保留弹窗监测。
+
+依据为本机 CST Studio Suite 2026 官方帮助，路径相对于安装目录：
+
+- `Online Help/Python/source/cst.interface.html`：`DesignEnvironment.set_quiet_mode`、`quiet_mode_enabled`。
+- `Online Help/mergedProjects/VBA_3D/common_vbaapp/common_vbaappapplication_object.htm`：`DeleteResults`、`AskForDeleteResults`。
+- `Online Help/mergedProjects/VBA_DES/special_vbacommands/projectobject.htm`：原理图 `DeleteResults`。
+- `Online Help/mergedProjects/3D/common_general/common_general_result_question.htm`：各个删除/缓存/另存选项的含义。
+
+上述为文档核对结论；尚未在真实工程上验收该弹窗的消除效果或缓存保留行为，
+也不代表仓库新增了自动清理接口。实际操作以当前安装版本帮助为准，不提高求解或真机验收等级。
+
 ## 服务与 MCP
 
 `CstBackend` 默认开启巡检，可配置 `dialog_poll=1.0`、`dialog_timeout=None`。
