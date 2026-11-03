@@ -59,7 +59,8 @@ class Runtime:
             if environment_pid(app.project) != identity['pid'] or not alive(identity):
                 raise ServiceError('session_environment_mismatch', 'Exact CST identity mismatch')
             paths = {os.path.normcase(str(Path(p).resolve())) for p in app.project.list_open_projects()}
-            expected = {os.path.normcase(p['path']) for p in state['projects'].values() if Path(p['path']).is_file()}
+            expected = {os.path.normcase(p['path']) for p in state['projects'].values()
+                        if Path(p['path']).is_file() and not p.get('tab_closed')}
             if not expected.issubset(paths):
                 raise ServiceError('session_project_mismatch', 'Recorded projects are no longer open in the owned DE')
             self.app = app
@@ -84,9 +85,23 @@ class Runtime:
         self.check_saved(record)
         app = self.environment()
         if project_id not in self.handles:
-            app.open(record['path'])
+            if self.backend == 'cst':
+                from .project_lifecycle import path_key
+                opened = {path_key(p): p for p in app.project.list_open_projects()}
+                existing = opened.get(path_key(record['path']))
+                if existing:
+                    app.cst_file = app.project.get_open_project(existing)
+                    app.cst_file.activate()
+                else:
+                    app.open(record['path'])
+            else:
+                app.open(record['path'])
             self.handles[project_id] = app.cst_file
         app.cst_file = self.handles[project_id]
+        if record.get('tab_closed'):
+            state = self.state()
+            state['projects'][project_id]['tab_closed'] = False
+            self.update(projects=state['projects'])
         return app, record
 
     def check_saved(self, record):

@@ -11,7 +11,7 @@ from uuid import uuid4
 from tpc_service.errors import ServiceError
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
-OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'inspect', 'history',
+OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'close_project', 'configure_sweep', 'inspect', 'history',
                         'set_parameters', 'solve', 'circuit', 'close'))
 
 
@@ -85,7 +85,7 @@ class SessionManager:
             raise ServiceError('invalid_session_argument', 'params must be an object')
         from .validation import validate
         validate(operation, params)
-        operation_id = operation_id or (params.get('stage_id') if operation == 'history' else None) or request_id
+        operation_id = operation_id or (params.get('stage_id') if operation in ('history', 'configure_sweep') else None) or request_id
         if not isinstance(operation_id, str) or not operation_id or len(operation_id) > 512:
             raise ServiceError('invalid_session_argument', 'Invalid operation_id')
         fingerprint = digest({'operation': operation, 'params': params})
@@ -112,6 +112,8 @@ class SessionManager:
                 raise ServiceError('session_closing', 'Session is closing or closed')
             if state['status'] == 'needs_reconcile' and operation not in ('inspect', 'close'):
                 raise ServiceError('session_needs_reconcile', 'Inspect uncertain operations before further writes')
+            from .project_lifecycle import check_project_intent
+            check_project_intent(state, [read(p) for p in (folder / 'jobs').glob('*.json')], operation, params)
             state['sequence'] = maximum_sequence + 1
             job = {'job_id': 'job-' + uuid4().hex, 'session_id': session_id,
                    'sequence': state['sequence'], 'request_id': request_id, 'operation_id': operation_id,

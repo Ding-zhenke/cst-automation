@@ -1,5 +1,11 @@
 # 多对话 CST 持久会话
 
+工程复用、临时标签关闭和最小交付遵循
+[工程生命周期](../../skills/cst-sessions/references/project-lifecycle.md)。
+`close_project` 只保存并关闭一个登记标签，正式 DE 保留；临时工程关闭后转入
+`retired_projects` 审计记录。扫描配置使用 `configure_sweep`，只读原生检查使用
+`inspect(native_readback=true)`，核验报告不进入可重播的几何历史。
+
 每个对话使用独立恢复引用、独立 worker、独立 CST DE 和独立工程目录。首次真实操作
 启动 DE，后续复用。回复结束、停止等待、MCP 断线都不关闭 DE。只有明确 close 请求
 才在已接受任务完成后保存并释放。源码讨论和预览不用启动。

@@ -26,6 +26,8 @@ def execute(runtime, job):
                     return {'closed': True, 'saved': False, 'already_exited': True, 'backend': 'cst'}
             app = runtime.environment()
             for project_id, record in state['projects'].items():
+                if record.get('tab_closed'):
+                    continue
                 app, _ = runtime.project(project_id)
                 runtime.save(app, project_id)
             # Session layer owns this recorded DE even after exact attach; low-level attach.close is borrowed.
@@ -44,9 +46,42 @@ def execute(runtime, job):
         result = {'project': record, 'backend': runtime.backend, 'readback_verified': False, 'solver_verified': False}
         if runtime.backend == 'cst':
             result['messages'] = [str(m) for m in app.get_messages()]
+            if params.get('native_readback'):
+                from .inspection import inspect_native
+                result['native_readback'] = inspect_native(app, params)
+                result['messages'].extend(str(m) for m in app.get_messages())
+                result['readback_verified'] = not result['native_readback']['errors'] and not result['messages']
         else:
             result['offline_model'] = app.cst_file
+            if params.get('native_readback'):
+                result['native_readback'] = {'native_executed': False, 'errors': ['Native queries require CST']}
         return result
+    if operation == 'close_project':
+        project_id = params['project_id']
+        state = runtime.state()
+        record = state['projects'].get(project_id) or state.get('retired_projects', {}).get(project_id)
+        if not record:
+            raise ServiceError('project_not_registered', 'Cannot close an unregistered project')
+        if record.get('tab_closed'):
+            return dict(project_id=project_id, tab_closed=True, already_closed=True,
+                        retired=project_id in state.get('retired_projects', {}),
+                        saved=record.get('saved', False), environment_closed=False, backend=runtime.backend)
+        app, record = runtime.project(project_id)
+        record = runtime.save(app, project_id)
+        if runtime.backend == 'cst':
+            app.cst_file.close()
+            from .project_lifecycle import path_key
+            if path_key(record['path']) in {path_key(p) for p in app.project.list_open_projects()}:
+                raise ServiceError('session_project_close_unverified', 'Owned project is still open after close', project_id=project_id)
+        runtime.handles.pop(project_id, None)
+        state = runtime.state()
+        state['projects'][project_id].update(tab_closed=True)
+        retired = record.get('lifetime') == 'temporary'
+        if retired:
+            state.setdefault('retired_projects', {})[project_id] = state['projects'].pop(project_id)
+        runtime.update(projects=state['projects'], retired_projects=state.get('retired_projects', {}))
+        return dict(project_id=project_id, tab_closed=True, saved=True,
+                    retired=retired, environment_closed=False, backend=runtime.backend)
     if operation == 'start':
         runtime.environment()
         return {'environment': runtime.state()['environment'], 'backend': runtime.backend}
@@ -72,7 +107,9 @@ def execute(runtime, job):
                 raise ServiceError('workdir_escape', 'Import destination cannot be inside source results directory')
             copy_project(source, str(path))
         state['projects'][project_id] = {'project_id': project_id, 'path': str(path),
-                                          'source_path': source, 'saved': False}
+                                          'source_path': source, 'saved': False,
+                                          'lifetime': params.get('lifetime', 'working'),
+                                          'copy_reason': params.get('copy_reason')}
         runtime.update(projects=state['projects'])
         app = runtime.environment()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,7 +124,12 @@ def execute(runtime, job):
         return {'project': record, 'saved': True, 'backend': runtime.backend,
                 'readback_verified': False, 'solver_verified': False}
     app, record = runtime.project(params['project_id'])
-    if operation == 'history':
+    if operation == 'configure_sweep':
+        if runtime.backend == 'fake':
+            app.cst_file['sweep'] = {k: params[k] for k in ('sequence_name', 'parameters')}
+        else:
+            app.configure_discrete_sweep(params['sequence_name'], params['parameters'], params.get('replace_all', False))
+    elif operation == 'history':
         code = params['vba']
         if not isinstance(code, str) or not code.strip() or len(code) > 1_000_000:
             raise ServiceError('invalid_session_argument', 'Explicit bounded VBA history required')

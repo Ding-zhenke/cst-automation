@@ -6,6 +6,10 @@ description: Plan, preview, create, or inspect general CST geometry through cst_
 # CST modeling
 
 For actual Codex modeling, first apply [persistent conversation sessions](../cst-sessions/SKILL.md).
+Follow [project reuse and minimal delivery](../cst-sessions/references/project-lifecycle.md):
+one approved topology, one final CST and its modeling Python; PNG-only schematic
+output by default. Update parameters/settings in place. Read-only probes and
+report output stay outside replay history. Close temporary check tabs after use.
 
 Before constructing or materially changing geometry, derive a preview from the actual model parameters and show the intended geometry, ports, coordinate system, and key dimensions. Wait for the user's review before beginning construction. A text-only concept sketch does not verify geometry.
 

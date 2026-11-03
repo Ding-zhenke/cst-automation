@@ -6,6 +6,10 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 # CST simulation
 
 For actual Codex operations, first apply [persistent conversation sessions](../cst-sessions/SKILL.md).
+For server scan preparation, use [the project lifecycle](../cst-sessions/references/project-lifecycle.md):
+configure the original project without starting a solve, check corners in place,
+restore defaults, and retain the final file with its modeling Python. Use session
+`configure_sweep` for discrete points; do not produce per-corner backup projects.
 
 For Design Studio schematics, EM links, or field-circuit tasks, use [cst-circuit](../cst-circuit/SKILL.md). Its current development scope prioritizes functions and skills; do not start dedicated validation solves unless required by the user's engineering task.
 

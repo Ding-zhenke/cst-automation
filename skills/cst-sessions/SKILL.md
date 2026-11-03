@@ -7,6 +7,8 @@ description: Manage independent persistent CST environments for separate convers
 
 For actual CST work in Codex conversations, use the persistent session entry point by default.
 Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
+Read [project reuse and delivery](references/project-lifecycle.md) for scans, native
+checks, relocation checks, temporary tabs, backups and final artifacts.
 
 - Before the first actual modeling call, allocate one conversation-specific recovery reference with
   the CLI or ensure_cst_session. Use an explicit authorized absolute root, normally this repository's
@@ -21,8 +23,10 @@ Read [the session guide](../../docs/guides/conversation_sessions.md). Do not cha
   never resubmit uncertain work under a fresh ID or copy/rebuild the original model automatically.
 - needs_reconcile requires scene evidence. Do not automatically call reconcile_cst_session: only
   use it after explicit user review of the saved baseline and idle state; preserve evidence levels.
-- Leave the DE running between tasks and replies. Close only after the user explicitly asks. A CLI
-  or MCP disconnect is not a close request. Close affects only the bound session.
+- Keep the working project and its DE between tasks and replies. Close temporary check tabs with
+  session `close_project` as part of finishing the check; save first and verify its receipt.
+  A failed/uncertain check retains its evidence until resolved. Closing the whole DE requires the
+  user's request; disconnecting is not such a request. Never close unrelated sessions.
 - If sandbox launch/identity checks fail, preserve exact diagnostics and use the approved execution
   context for this same fixed entry point; do not invent paths, attach targets or launch workarounds.
 - Keep native/process/offline/geometry/solver evidence separate. Fake backend never certifies CST.

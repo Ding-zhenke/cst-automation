@@ -7,7 +7,7 @@ cst_solver.setup — 类型存根文件
 此文件由工具自动生成，覆盖所有 Mixin 模块的方法。
 """
 
-from typing import Any, List, Dict, Tuple, Optional, Union
+from typing import Any, List, Dict, Tuple, Optional, Union, Sequence
 
 import os
 from cst_solver.circuit import CircuitAPI
@@ -535,6 +535,10 @@ class _SolverMixin:
                                     lower_bound: float, upper_bound: float,
                                     num_steps: int) -> None: ...
     def start_parameter_sweep(self) -> None: ...
+    def add_sweep_parameter_arbitrary_points(self, seq_name: str, param_name: str,
+                                             points: Sequence[float]) -> None: ...
+    def configure_discrete_sweep(self, sequence_name: str, parameters: Dict[str, Sequence[float]],
+                                 replace_all: bool = False) -> None: ...
     def configure_optimizer(self, goal: str = '',
                             max_iterations: str = '100') -> None: ...
     def add_optimizer_goal(self, name: str, goal_type: str, operator: str,

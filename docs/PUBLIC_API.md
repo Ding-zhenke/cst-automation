@@ -268,7 +268,51 @@ service.register_handler("build", offline_build)
 
 ## Session native inspection without history
 
-The existing session `inspect` operation accepts opt-in `native_readback: true`, with bounded `sample_points` (id, solid, xyz `point`) and optional standard-view `captures` (name, view, hide_components). Native parameter expressions/descriptions, solid volumes and point tests are read on the owning worker, outside history/rebuild. Capture paths are confined to session artifacts. Errors remain explicit and set `readback_verified=false`; this does not verify a solve. Default inspect behaviour is unchanged.
+Session `inspect` accepts opt-in `native_readback: true`, with optional bounded
+`parameter_names`, `solid_names`, and `sample_points` (id, solid, xyz `point`).
+Omitted name lists enumerate the current model (at most 10000 entries per list).
+Parameters (value and expression), solid material assignments, volumes and point
+tests use native queries on the owning worker, without history, rebuild or save.
+Volumes and coordinates use the project's geometry units. Query failures remain
+explicit in `native_readback.errors` and set `readback_verified=false`; successful
+queries certify only these reads, never geometry acceptance or solver success.
+Fake sessions return `native_executed=false`, never native verification. Unsupported
+inspection options, including the previously documented but unimplemented
+`captures`, are rejected before queueing; image export remains a separate API.
+
+### Project reuse and tab lifetime
+
+`create_project` / `import_project` accept `lifetime="working"` (default) or
+`"temporary"`. Reusing an existing project ID fails before queueing; importing
+the same source again requires a nonempty `copy_reason` (independent topology,
+reference or an explicitly needed relocation check). Queued intents participate
+in this check. A source matching a registered working path is also a duplicate.
+Ordinary parameter/solver/material changes and scan corners reuse the original
+project ID. A different filename alone does not establish a different topology.
+
+New session operation `close_project(project_id)` saves and closes only the
+registered tab, retaining its file, digest, record, worker and DE. Its receipt
+reports `tab_closed`, `saved` and `environment_closed=false`. Repeating it on a
+closed tab does not reopen it. Later explicit operations can reopen that same
+saved path; worker recovery skips intentionally closed tabs. Errors do not
+discard handles or mark a failed close successful. Temporary checks must submit
+this operation on completion; it is separate from closing the whole session.
+The MCP session-operation enum explicitly includes this operation.
+Native close is confirmed by listing open paths. Closed temporary projects move
+from `projects` to `retired_projects`, retaining their path and saved digest as
+audit records; reconciliation no longer requires those temporary files. Their
+project IDs cannot be reused, and repeated close is idempotent. No file is deleted
+by this operation. Working projects remain registered and can be reopened.
+
+`setup.add_sweep_parameter_arbitrary_points(seq_name, param_name, points)` accepts
+a nonempty bounded list of finite numbers and emits official
+`AddParameter_ArbitraryPoints`; it only configures and never starts a solve.
+`setup.configure_discrete_sweep(sequence_name, parameters, replace_all=False)`
+validates all axes before one history submission. `parameters` maps names to
+point lists. Explicit `replace_all=True` deletes old sequences before defining
+the requested sweep. Session `configure_sweep` carries these three fields plus
+`project_id` and stable `stage_id`; retries deduplicate by stage. No solve is
+started. The operation is explicitly registered in the MCP operation enum.
 
 
 ## 2026-10-28：周期稳态射击法配置（仅离线验证）

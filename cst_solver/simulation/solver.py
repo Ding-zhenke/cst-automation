@@ -319,6 +319,18 @@ End With"""
         self.cst_file.model3d.add_to_history(
             f"ParamSweep: {param_name} [{lower_bound}:{upper_bound}]/{num_steps}", f1)
 
+    def add_sweep_parameter_arbitrary_points(self, seq_name, param_name, points):
+        """Configure finite discrete scan points; never starts the solver."""
+        from .sweep import points_command
+        code = 'With ParameterSweep\n' + points_command(seq_name, param_name, points) + '\nEnd With'
+        self.cst_file.model3d.add_to_history(f'ParamSweep discrete: {param_name}', code)
+
+    def configure_discrete_sweep(self, sequence_name, parameters, replace_all=False):
+        """Validate all axes, then configure one sweep; never starts it."""
+        from .sweep import discrete_sweep_code
+        code = discrete_sweep_code(sequence_name, parameters, replace_all)
+        self.cst_file.model3d.add_to_history('Discrete parameter sweep', code)
+
     def start_parameter_sweep(self):
         """启动参数扫描"""
         f1 = """ParameterSweep.Start

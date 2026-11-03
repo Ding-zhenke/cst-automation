@@ -14,8 +14,24 @@ def validate(operation, params):
         require(not params, 'start/close take no params')
         return
     identifier(params.get('project_id'))
+    if operation == 'configure_sweep':
+        from cst_solver.simulation.sweep import discrete_sweep_code
+        identifier(params.get('stage_id'))
+        try:
+            discrete_sweep_code(params.get('sequence_name'), params.get('parameters'), params.get('replace_all', False))
+        except (TypeError, ValueError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'inspect':
+        from .inspection import validate_options
+        validate_options(params)
+    if operation == 'close_project':
+        require(not set(params) - {'project_id', 'depends_on'}, 'close_project takes only project_id and depends_on')
     if operation in ('create_project', 'import_project'):
         require(params.get('project_type', 'MWS') in ('MWS', 'DS'), 'project_type must be MWS or DS')
+        require(params.get('lifetime', 'working') in ('working', 'temporary'), 'Invalid project lifetime')
+        if 'copy_reason' in params:
+            require(isinstance(params['copy_reason'], str) and 0 < len(params['copy_reason'].strip()) <= 1000,
+                    'Explicit nonempty copy_reason required')
         if operation == 'import_project':
             path = params.get('source_path')
             require(isinstance(path, str) and Path(path).is_absolute() and
@@ -24,6 +40,10 @@ def validate(operation, params):
     if operation == 'history':
         code = params.get('vba')
         require(isinstance(code, str) and 0 < len(code) <= 1_000_000, 'Bounded VBA required')
+        if params.get('domain', 'model3d') == 'model3d':
+            import re
+            require(not re.search(r'(?im)(?:^|:)\s*(?:Open\s+[^\r\n]+\s+For\s+(?:Output|Append|Binary)|(?:Print|Write|Close)\s*#)', code),
+                    'File-writing probes do not belong in replay history; use inspect and write reports in Python')
         require(params.get('preview_digest') == hashlib.sha256(code.encode()).hexdigest(),
                 'Reviewed preview digest required')
         identifier(params.get('stage_id'))
