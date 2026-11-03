@@ -6,7 +6,7 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'extrude','add','subtract','create_elliptical_cylinder',
     'create_brick','cylinder','create_cylinder','create_sphere','create_cone','create_torus',
     'configure_sweep','configure_discrete_sweep','add_sweep_parameter_arbitrary_points',
-    'create_material_full_tensor','change_material','boundary','set_background',
+    'change_material','boundary','set_background',
     'create_waveguide_port_free','configure_fem_solver','set_frequency_range',
     'create_field_monitor','add_parameter_sweep_sequence','add_sweep_parameter_samples',
     'set_wcs_basis','activate_global_wcs',
