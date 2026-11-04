@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05：已关闭过程工程退休与独立文件清理（真实会话反馈）
+
+- 来源模型会话报告：在任务全部结束、标签已关闭、无排队任务后，仅退出原 worker，保留原 DE 和恢复引用，加载 `01202cb` / 插件 `0.3.14`。随后通过同一会话提交 close_project(retire=True, expected_digest=..., confirm_idle=True, review_note=...)，一个旧 working 过程副本的 job succeeded。
+- 回执 saved/tab_closed/retired=True，environment_closed/files_deleted=False，idle_verified=False 按契约保留；同一记录由 projects 移至 retired_projects，未重开工程。此项确认真实会话登记退休流程，不调用 native SDK，不称本轮取得新的原生关闭证明。
+- 随后由所属会话独立核对正式交付摘要、必要内嵌依赖、旧过程副本摘要及待删精确路径和无 reparse，再仅删除已退休的一个过程 .cst 及同名资源目录。原始来源、正式交付、日志、DE 和恢复引用保留。文件删除属于调用方后续清理，不是退休 API 自动删除。
+- 本聊天仅登记来源实证反馈，未独立重读交付/原始审计，未访问或操作保留的 DE、worker、会话状态或文件。原退休、清理及最终交付审计由所属会话保留；通用文档不复制器件参数、数据、机器进程或私有工程路径。
+- 验证范围仅为真实会话的关闭登记退休与调用方独立 FS 清理；不新增求解验收，不提升模板首次注册、自动回调或通用参数 ByRef 桥接的实机等级。任务已交付后的状态由所属会话维护，本聊天不启动监测或追加求解。
+
 ## 2026-11-05：已关闭 working 过程工程显式退休（离线）
 
 - close_project 新增 retire=True、expected_digest、confirm_idle=True 与 review_note，仅在已登记关闭/保存、位于所属会话 projects/<project_id> 过程目录且请求/登记/磁盘摘要相同时移动到 retired_projects。保留 lifetime、原摘要和退休审阅记录；默认 working 关闭不退休、temporary 原规则不变。
