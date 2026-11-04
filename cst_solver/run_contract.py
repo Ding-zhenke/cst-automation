@@ -112,8 +112,9 @@ def result_conventions() -> Dict[str, Any]:
         's_db': '20*log10(abs(S))',
         'zero_magnitude_db': -300.0,
         'run_id_default': 0,
-        'run_id_semantics': ('run_id=0 是「当前最新结果」的别名，不是历史 run 编号；'
-                             '要固定某次运行必须显式给出具体 run_id'),
+        'run_id_semantics': ('run_id=0 是「当前最新结果」的别名；正数 run_id 也可能是可被同参数重算覆盖的参数状态编号，'
+                             '不能单独固定一次执行。读取时显式指定 run_id；固定执行须另存完整原始结果、'
+                             '原生日志、参数以及工程和结果内容摘要'),
         'port_mode_naming': 'S<i>,<j> 对应 cst_solver 的端口编号 i、j（模式 1 为基模）',
         'length_unit': 'mm（CST 工程单位，见 cst_solver.units.get_units）',
         'source': ('cst_solver/_result_core.py::_to_db 与 '

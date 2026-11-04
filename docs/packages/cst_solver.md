@@ -155,6 +155,12 @@ commands, and return unverified native settings/mesh/solver flags. Python caller
 rebuild/save explicitly; persistent sessions perform their usual checkpoint.
 See the [public schemas](../PUBLIC_API.md#typed-frequency-domain-sampling-and-tetrahedral-mesh-configuration).
 
+Global density/material controls currently use legacy `Mesh` commands, marked by
+`global_controls_backend="legacy_mesh"` and a warning. The active modern HF Tet
+MeshSettings group is not read back; native effectiveness must be checked before
+relying on a requested density change. Solid local limits and adaptive controls
+are separate command paths, with separate effect/convergence evidence.
+
 Basic modeling audit corrections include matching boundary faces, passing a
 nondefault curve group to hexagonal profiles, translating torus major/minor
 radii to native outer/inner extents, actually submitting scale factors, and

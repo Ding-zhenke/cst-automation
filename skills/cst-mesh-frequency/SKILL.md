@@ -98,3 +98,13 @@ Configuration receipts currently have native settings readback unsupported and
 readback_verified/mesh_verified/solver_verified False. Session rebuild/save does
 not turn them into mesh or solver evidence. Report requested settings separately
 from checked native flags, actual mesh cells/DOF, convergence and solved results.
+
+The current global tetrahedral density/material setters still use legacy `Mesh`
+commands. Their receipt identifies `global_controls_backend="legacy_mesh"` and
+warns that effectiveness on a modern active HF Tet group is unverified. Global
+`MeshSettings.Set` and local `ItemMeshSettings` use different keys by mesh/group/item
+type; do not transfer Hex or LF examples into HF Tet. Inspect the actual active
+group/effective mesher input and resulting mesh before claiming a density change.
+An unchanged initial cell count is a diagnostic clue, not proof that all refinement
+was ineffective. Local Solid limits and adaptive MeshAdaption3D controls need their
+own effect evidence. Keep the actual mesh-convergence result separate.

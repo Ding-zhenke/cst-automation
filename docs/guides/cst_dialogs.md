@@ -115,6 +115,19 @@ with de.quiet_mode_enabled():
 原调用返回前不追加清理宏、不重放变更。需要界面操作时仍遵守上面的 PID、窗口和选项核对规则。
 处理后读取原调用返回值/异常、CST 消息与实际状态，保留弹窗监测。
 
+### Qt 选项的程序化处理证据
+
+已在真实 CST 2026 Qt 弹窗中通过 UI Automation 读取并核对窗口归属、标题、完整选项
+和按钮，程序化选择 `Store current results in result cache`，在下一次独立只读检查
+确认该选项 `selected=True` 后再 Invoke 确定按钮。选择可能异步生效，不把选择请求
+返回当作已选中。这个流程只适用于归属及语义已核对、且已有结果保留授权的现场。
+
+原 SDK 调用阻塞期间没有追加 SDK 写入；原调用返回后，guard 仍保留
+`blocked_by_dialog` 失败证据。继续前读取原任务返回、实际保存历史、几何和工程摘要，
+核对现场及会话保存基线后恢复，不能把错误框消失当作整个阶段成功，也不盲目重放。
+该现场证明了选项可程序化操作，没有证明缓存内容完整可读或 DeleteResults/quiet
+模式能消除提示；不对所有 Qt 弹窗作同样保证。
+
 依据为本机 CST Studio Suite 2026 官方帮助，路径相对于安装目录：
 
 - `Online Help/Python/source/cst.interface.html`：`DesignEnvironment.set_quiet_mode`、`quiet_mode_enabled`。

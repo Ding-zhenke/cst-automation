@@ -73,6 +73,13 @@ class MeshMixin:
         """
         requested = normalize_tetrahedral_mesh_settings(settings)
         commands = []
+        has_global_controls = bool(set(requested) & {
+            'steps_per_wavelength', 'minimum_steps', 'material_refinement'})
+        warnings = ([
+            'Global controls use legacy Mesh setters; effectiveness on the modern active '
+            'HF Tet MeshSettings group is unverified. Inspect native effective settings '
+            'before relying on a density change.'
+        ] if has_global_controls else [])
         for key, native in (('steps_per_wavelength', 'StepsPerWavelengthTet'),
                             ('minimum_steps', 'MinimumStepNumberTet')):
             if key in requested:
@@ -91,7 +98,9 @@ class MeshMixin:
                             ('refinement_percentage', 'RefThetaFactor')):
             if key in adaptation:
                 commands.append(f'MeshAdaption3D.{native} "{_numeric_text(adaptation[key])}"')
-        return _submit_configuration(self, requested, commands, 'Configure tetrahedral mesh')
+        return _submit_configuration(self, requested, commands, 'Configure tetrahedral mesh',
+            warnings=warnings, global_controls_backend='legacy_mesh' if has_global_controls else None,
+            active_mesh_settings_group=None)
 
     def set_mesh_properties(self, max_cell=None, min_cell=None,
                             lines_per_wavelength=10, mesh_type='PBA'):

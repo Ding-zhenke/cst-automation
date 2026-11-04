@@ -94,6 +94,23 @@ def test_tetrahedral_mesh_uses_local_solid_edge_limits_and_separate_adaptation()
     assert report['mesh_verified'] is False
 
 
+def test_global_tet_controls_identify_legacy_backend_without_claiming_active_group():
+    app = App()
+    report = app.configure_tetrahedral_mesh({'steps_per_wavelength': 12})
+    assert report['global_controls_backend'] == 'legacy_mesh'
+    assert report['active_mesh_settings_group'] is None
+    assert report['readback'] is None and not report['mesh_verified']
+    assert report['warnings']
+
+
+def test_local_and_adaptive_configuration_does_not_claim_global_density_submission():
+    app = App()
+    report = app.configure_tetrahedral_mesh({'adaptation': {'max_passes': 3}})
+    assert report['global_controls_backend'] is None
+    assert report['active_mesh_settings_group'] is None
+    assert report['warnings'] == []
+
+
 def test_explicit_replacement_configures_three_adaptation_points_and_one_sweep():
     app = App()
     report = app.configure_fd_frequency({

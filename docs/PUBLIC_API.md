@@ -463,6 +463,18 @@ settings/history submission with readback_verified and solver_verified False.
 No cross-case mesh/solution reuse switch is promised. Session `model_api`
 explicitly registers both configuration methods; MCP uses that existing route.
 
+Tetrahedral global `steps_per_wavelength`, `minimum_steps`, and material refinement
+currently submit legacy `Mesh` setters: the receipt reports
+`global_controls_backend="legacy_mesh"` and an explicit warning. This does not
+establish effectiveness on a modern active HF Tet mesh-settings group.
+`active_mesh_settings_group=None` records the missing native group readback;
+local-only/adaptation-only calls report global_controls_backend=None. Local
+solid limits use `Solid.SetMeshStepwidthTet`; adaptation uses FDSolver and
+MeshAdaption3D. Those paths are separate. Global/local MeshSettings keys vary
+by mesh type, group and item type; do not infer a new mesh size from a history
+setter or an unchanged initial cell count. Native effective settings and mesh
+generation remain separate acceptance evidence.
+
 ### Frequency-domain CPU parallelization
 
 `setup.configure_fd_parallelization(settings)` configures CPU parallelization on
