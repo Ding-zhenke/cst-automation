@@ -53,6 +53,20 @@ on automatic adaptation and not permission to weaken convergence targets.
 | Pass/Delta-S refinement convergence | same API → `adaptation` |
 | Linear-equation residual | `configure_fem_solver(accuracy=...)`; independent of mesh/Delta-S convergence |
 
+For a parameter-linked EM model band, define the project parameters first and
+call `app.set_frequency_range("fmin", "fmax")` with expression strings. Numeric
+Python variables passed as `set_frequency_range(fmin, fmax)` produce fixed
+bounds. The existing session `model_api` call is
+`{"method": "set_frequency_range", "args": ["fmin", "fmax"]}`; use this wrapper
+rather than caller-written `Solver.FrequencyRange` history. Derived expression
+strings are supported by the same wrapper. Check the active runtime source
+when diagnosing linkage; changing skill text does not update Python code.
+
+`configure_fd_frequency` interval endpoints and adaptation points currently
+accept numeric values only. They do not create parameter references or update
+the model band. Recheck those separately configured rows when changing band
+parameters; quoted model-band expressions alone do not establish their linkage.
+
 Use focused typed settings and inspect runtime signatures. For F tetrahedral
 mesh, do not substitute hexahedral `LinesPerWavelength`, arbitrary MeshSettings
 keys or old MeshShapes region wrappers. Refine actual high-field gaps, contacts,

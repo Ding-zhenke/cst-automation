@@ -247,12 +247,15 @@ class ParametersMixin:
         """
         设置 CST 仿真的求解频率范围
 
-        :param fmin: float/str, 起始频率
-        :param fmax: float/str, 终止频率
+        :param fmin: float/str, 起始频率数值或 CST 参数表达式（工程频率单位）
+        :param fmax: float/str, 终止频率数值或 CST 参数表达式（工程频率单位）
+
+        参数表达式须作为字符串下发，保留在 CST 中的参数依赖；不能先在
+        VBA 中求值成数值。原生语法见 CST 2026 Python Tutorial 的 Solver Setup。
         """
         f1 = """
         'Set Freq
-        Solver.FrequencyRange %s, %s
+        Solver.FrequencyRange "%s", "%s"
         """ % (fmin, fmax)
         self.cst_file.model3d.add_to_history("Freq_range", f1)
 
@@ -260,6 +263,9 @@ class ParametersMixin:
         """
         设置频率范围（蛇形命名）
         等同于 freq_limit()
+
+        例如 ``set_frequency_range('fmin', 'fmax')`` 引用已有工程参数；
+        ``set_frequency_range(0, 140)`` 则使用固定数值。
         """
         self.freq_limit(fmin, fmax)
 

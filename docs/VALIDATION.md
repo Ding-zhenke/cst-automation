@@ -256,3 +256,10 @@ CST 2026 Help 的 transient shooting 模式、steady state period detection/peri
 - 官方 DS 模板枚举需要运行中的后处理任务；尚无已核实的配置专用首次注册
   入口。资源审计和任务顺序读回不能作为首次绑定认证。本次未新增 bind MCP
   或声称首次注册可用，未提交/发布该未完成能力。
+
+## 2026-11-04 EM 频率范围参数引用修复
+
+- `set_frequency_range` / 旧别名 `freq_limit` 的原生频段命令改为带引号的表达式参数，保留 `fmin`、`fmax` 和组合表达式；数值端点保持兼容。语法依据为本机 CST 2026 Python Tutorial 的 Solver Setup。
+- 会话 `model_api` 已有显式注册，本次补测位置参数和关键字参数均经过真实封装，未新增跨包协议。新增 10 项回归在修复前全部失败，修复后通过；频率及会话相关 92 项测试通过。
+- 全库离线回归最终为 **1133 passed, 2 deselected, 9 warnings**（45.56 s），日志：`work/frequency-range-fix/full-unrestricted.log`。初次受限运行的 `test_staging_rejects_link_redirecting_group_outside_library` 与 `test_template_staging_is_sdk_free_and_stays_in_workdir[True]` 因 Windows 目录链接权限失败；允许测试所需本机权限后均通过。
+- 本次仅验证命令生成和会话路由，没有操作真实 CST 工程、读回原生频率参数依赖或执行求解。
