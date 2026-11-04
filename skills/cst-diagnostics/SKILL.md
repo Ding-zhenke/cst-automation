@@ -9,6 +9,22 @@ Start with `python -m cst_solver doctor --json` and preserve the complete diagno
 
 For a stall, inspect the actual dialog title, body, buttons, process ID, and owning CST process before any response. Do not blindly dismiss prompts or rerun a write while the original SDK call may still be blocked. A timeout or a closed dialog is not success; state the observed status and next actionable step.
 
+## History errors: code and text first
+
+Minimize Computer Use. Read the original session job/exception, CST messages and PID-scoped
+`cst_solver.dialogs` snapshot first; the session worker already monitors dialogs independently
+of the blocked SDK call. No routine screenshots or UI clicks are needed when this evidence is
+complete. Read [the recovery procedure](../../docs/guides/cst_dialogs.md#历史错误优先代码诊断)
+for bounded programmatic acknowledgement and the conditions requiring visual inspection.
+
+For `Method or property not found`, trace the reported command to its source and check the
+installed official VBA help and existing Python wrapper before correcting it. For example,
+the CST 2026 DiscretePort help does not document `DiscretePort.Delete`; do not invent a
+replacement method or treat this as proof of a missing port. A new empty project avoids
+inherited history, but cannot make unsupported commands valid. Fix the source, retain the
+failure evidence, and verify the corrected stage; never suppress the error or disable history
+to report success. An unresolved call must return before any further SDK write or retry.
+
 ## Result incompatibility prompts: prefer API preparation
 
 For `Results May Get Incompatible With Model`, read the [API handling guidance](../../docs/guides/cst_dialogs.md#结果失效弹窗的-api-预处理) before resorting to Computer Use.

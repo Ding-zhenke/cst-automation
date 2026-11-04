@@ -54,6 +54,32 @@ python -m cst_solver.dialogs --watch --pid 12345
 保存、覆盖、参数输入、错误/警告不自动确认。自动确认后也保留阻塞证据，要求核查本次步骤。
 Qt 的虚拟按钮无法用标准 Win32 Button 发送路径操作，返回 `no_match`/`stale_or_foreign`，须据实际界面处理。
 
+## 历史错误优先代码诊断
+
+默认尽量少用 Computer Use。先读取原会话 job 的异常、`runtime_diagnostics`、CST
+消息以及目标 PID 的弹窗快照；文本和归属已完整时，不为同一信息重复截图或开界面。
+
+1. 对 `History Error` 保存报错命令及所属 stage/request，追溯生成它的 Python/API
+   或有来源依据的 VBA，并核对本机当前版本官方帮助。以
+   `Method or property not found. (DiscretePort.Delete "12")` 为例，本机 CST 2026
+   的 `DiscretePort` 帮助未列出 `Delete`；不能由此认定只是端口 12 不存在，也不能
+   猜另一个删除方法继续试。帮助位置为安装目录下
+   `Online Help/mergedProjects/VBA_3D/special_vbaports/special_vbaports_discrete_port_object.htm`。
+2. 如果错误框必须关闭才能让原调用返回，且标题、完整正文、按钮、PID/HWND 已核对，
+   可使用已有 `dismiss_dialogs` 指定该窗口、完整按钮文字和 `expected_message`
+   完整 `(title, body)` 进行定向确认，再确认窗口消失。错误框不加入后台自动确认
+   白名单；若有保存、覆盖或其它选择，按已知授权判断，不能一律点 OK。
+3. 读取原调用最终返回/异常，确认现场和保存基线后再修正源代码与失败阶段；原调用
+   仍阻塞时不追加 SDK 写入、不重放。会话进入 `needs_reconcile` 时仍遵守会话恢复
+   的显式核对规则，不能为绕开它换 request_id 或新建工程。
+4. 只有正文/按钮不可读、归属不明、程序化点击返回 `no_match`/`stale_or_foreign`，
+   或需要接口无法提供的界面信息时，才升级到 Computer Use；按实际界面核对后处理。
+   处理后复查原任务、CST 消息及模型，不把关闭错误框当作修复成功。
+
+新器件用空工程和经审查的建模代码避免继承旧历史；已有失败工程不能靠屏蔽错误、
+禁用历史步骤或循环点击 OK 获得验收。此流程复用现有接口，不代表已新增自动修复器，
+也不代表该截图对应的真实工程已修复。
+
 ## 结果失效弹窗的 API 预处理
 
 `Results May Get Incompatible With Model` 表示模型变更将使已有结果失效。

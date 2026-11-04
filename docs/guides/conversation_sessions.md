@@ -30,6 +30,10 @@ ensure 原子保存恢复引用，不打开 CST。中断 ensure 后使用原文�
 
 把明确参数保存为 `work\create-project.json`：
 
+新器件默认使用下面的 `create_project` 从空工程开始，复用经审查的建模代码而非旧
+`.cst` 模板。`import_project` 用于要求续改/恢复的已有工程或确需保留的工程内容。
+创建后各阶段、同拓扑扫参和中断恢复继续使用同一 project_id，不反复新建空工程。
+
 ```json
 {"project_id": "model-main", "project_type": "MWS"}
 ```

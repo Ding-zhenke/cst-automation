@@ -17,6 +17,10 @@ checks, relocation checks, temporary tabs, backups and final artifacts.
   turns reuse it. New chats/forks create new bindings unless the user explicitly asks to recover one.
 - Route every modeling, configuration, solve and online read through this session with an explicit
   project_id. Never use connect_to_any, last-active-window routing, or standalone setup/close scripts.
+- For a new device, default to create_project (an empty MWS/DS project), reusing reviewed modeling
+  code rather than importing an old CST as a template. Use an existing project for requested
+  continuation/recovery or required project content. Once bound, retain that project across stages,
+  scans and retries; a clean start is not permission to discard uncertain work.
 - Complete actual-parameter geometry preview and wait for review under cst-modeling before history
   submission. Stable stage_id and request_id identify retries. A preview hash does not prove review.
 - Query original job receipts after a timeout/disconnect. Resume the original worker when lost;

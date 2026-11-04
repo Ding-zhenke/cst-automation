@@ -41,7 +41,8 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
         for entry in entries:
             text = (extracted / entry).read_text(encoding="utf-8")
             for target in re.findall(r"\]\(([^)]+)\)", text):
-                resolved = ((extracted / entry).parent / target).resolve()
+                # Markdown heading fragments are not part of the file path.
+                resolved = ((extracted / entry).parent / target.split("#", 1)[0]).resolve()
                 assert extracted.resolve() in resolved.parents
                 assert resolved.is_file(), (entry, target)
         assert all(n == "LICENSE" or n == ".codex-plugin/plugin.json"

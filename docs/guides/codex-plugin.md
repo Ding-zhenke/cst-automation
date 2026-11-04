@@ -32,6 +32,11 @@
 
 ## 使用与边界
 
+0.3.1 的默认建模流程是新器件从空工程开始，复用经审查的建模代码；绑定后的
+续改、扫描和恢复仍使用同一工程。历史错误先读任务、CST 消息和弹窗文本，修正源
+代码，仅在文本或程序化处理不足时使用 Computer Use。规则由 `cst-modeling`、
+`cst-sessions`、`cst-diagnostics` 及其配套文档提供，保留默认按任务选择技能。
+
 在 PowerShell 中可将 marketplace 包解压到一个长期保留的目录，然后添加并安装：
 
 ```powershell
