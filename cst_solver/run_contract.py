@@ -22,12 +22,12 @@ r"""
 --------------------------
 =========================  ====================================================
 ``submitted``              提交调用返回且未抛异常
-``messages_clean``         完整读取后判空；未读/读取失败为 None（读取即清空）
+``messages_clean``         完整读取且无非 INFO；未读/读取失败为 None
 ``results_exist``          结果指纹里能看到结果文件或 run id
 ``results_changed``        结果指纹在提交**前后**发生变化
 ``status='succeeded'``     三者同时成立
-``status='failed'``        提交抛异常，或消息非空
-``status='unverified'``    没有异常、也没有消息，但结果缺失/未变化/查不到 ——
+``status='failed'``        提交抛异常，或明确 ERROR/未知类型消息
+``status='unverified'``    WARNING 待审阅、消息未完整读或结果缺失/未变化/查不到 ——
                            **不得**当作成功
 =========================  ====================================================
 
@@ -51,6 +51,7 @@ P2 的任务层在此基础上加 ``queued`` / ``running``。映射规则：
 import json
 import os
 import uuid
+from cst_automation.run_messages import observe_messages
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -73,7 +74,10 @@ RUN_STATUSES = ('succeeded', 'failed', 'unverified', 'interrupted')
 #: 本模块可能产出的错误码
 RUN_ERROR_CODES = (
     'run_exception',            # 提交调用抛了异常
-    'run_messages',             # 提交后 CST 消息非空（CST 不抛异常，这是唯一线索）
+    'run_messages',             # 明确 ERROR 或无法解释的原生消息
+    'run_warnings',             # WARNING 需审阅，不等于执行异常
+    'prior_messages_unreadable',
+    'prior_messages_not_persisted',
     'messages_unreadable',      # 读消息本身失败
     'messages_not_read',        # 未读取不能视作消息干净
     'results_missing',          # 工程里找不到任何结果
@@ -432,22 +436,27 @@ class RunContract:
             results_changed = key_before != key_after
         results_exist = _has_results(fingerprint_after)
 
-        message_list = [str(m) for m in (messages or [])]
+        message_list, message_summary = observe_messages(messages or [])
         errors: List[Dict] = []
         warnings: List[str] = []
 
-        if error:
+        if record.get('pre_submit_error'):
+            status = 'unverified'
+            errors.append(_error(record['pre_submit_error'], '提交前消息边界读取或持久化失败；没有调用求解器'))
+        elif error:
             status = 'failed'
             errors.append(_error('run_exception',
                                  f'提交求解时抛出异常：{error}', retryable=True,
                                  error=error))
-        elif message_list:
+        elif message_summary['error'] or message_summary['unknown']:
             status = 'failed'
             errors.append(_error(
                 'run_messages',
-                f'提交后 CST 消息非空（{len(message_list)} 条）：'
-                f'CST 不抛异常，消息是唯一线索',
+                '提交后队列含明确错误或未知消息；保留原始类型及来源范围',
                 messages=message_list))
+        elif message_summary['warning']:
+            status = 'unverified'
+            errors.append(_error('run_warnings', '提交后队列警告需要审阅，不能提升为通过', messages=message_list))
         elif results_changed is None:
             # 指纹不可用时先报这一条：此时「有没有结果」其实是**不知道**，
             # 报 results_missing 会误导（把探测失败说成没有结果）
@@ -496,13 +505,25 @@ class RunContract:
             'mesh_convergence': 'unknown',
             'validation_passed': False,
             'submitted': bool(record.get('submitted')),
+            'execution_returned': record.get('submitted') is True,
             'messages': message_list,
+            'message_summary': message_summary,
+            'queue_empty': not message_list if messages_state == 'read' else None,
+            'prior_messages': record.get('prior_messages', []),
+            'prior_messages_state': record.get('prior_messages_state', 'not_read'),
+            'prior_message_summary': record.get('prior_message_summary', None),
+            'prior_messages_read_error': record.get('prior_messages_read_error'),
+            'prior_messages_persist_errors': record.get('prior_messages_persist_errors', []),
+            'prior_messages_review_required': record.get('prior_messages_review_required', False),
+            'prior_messages_recorded': record.get('prior_messages_recorded', False),
+            'message_scope': ('post_boundary_queue' if record.get('prior_messages_recorded') else 'pending_queue_unbounded'),
+            'native_run_message_binding_verified': False,
             'messages_state': messages_state,
             'messages_read_attempted': messages_state != 'not_read',
             'messages_read': messages_state == 'read',
             'messages_read_error': read_error,
             'message_source': message_source,
-            'messages_clean': not message_list if messages_state == 'read' else None,
+            'messages_clean': not any(message_summary[k] for k in ('warning', 'error', 'unknown')) if messages_state == 'read' else None,
             'native_solver_status': 'unknown',
             'native_warnings_state': 'unknown',
             'native_warnings': None,
@@ -516,7 +537,7 @@ class RunContract:
                 'fingerprint_before': fingerprint_before,
                 'fingerprint_after': fingerprint_after,
                 'probe': getattr(self.probe, '__name__', str(self.probe)),
-                'status_rule': ('succeeded 需同时满足：提交未抛异常、消息完整读取且为空、'
+                'status_rule': ('succeeded 为 API 观察状态，需提交未抛异常、消息完整读取且无非 INFO、'
                                 '结果存在且指纹变化；results_changed 是必要条件'
                                 '而非充分条件（真机判据见 P4/V7）'),
             },
@@ -531,6 +552,7 @@ class RunContract:
 
     def run_and_record(self, submit: Callable[[], Any], *,
                        read_messages: Optional[Callable[[], Sequence[Any]]] = None,
+                       read_prior_messages: Optional[Callable[[], Sequence[Any]]] = None,
                        note: str = '', message_source: str = 'callback') -> Dict[str, Any]:
         """
         组合入口：拍照 → 调用 ``submit()`` → 读消息 → 判定 → 落盘。
@@ -538,6 +560,8 @@ class RunContract:
         :param submit: 可调用, 真正的求解提交（如 ``app.run``）
         :param read_messages: 可调用 可选, 读 CST 消息（如 ``app.get_messages``）；
             读取即清空，所以必须在判定前读、并立刻落盘
+        :param read_prior_messages: 提交前单独读消息并先持久化；失败不提交，
+            不按文本去重或把时间边界当作原生 Run ID 绑定
         :param note: str, 备注
         :param message_source: reader 的来源，默认 callback；不推断日志覆盖范围
         :return: dict, 同 :meth:`after_submit`
@@ -545,6 +569,37 @@ class RunContract:
         if not isinstance(message_source, str) or not message_source.strip():
             raise ValueError('message_source must be a nonempty string')
         record = self.before_submit(note=note)
+        if read_prior_messages is not None:
+            # Establish a usable audit before a possibly consuming queue read.
+            # A crash between native read and captured-message persistence still
+            # remains an unresolved observation, never a clean/successful run.
+            intent = dict(record, phase='before_messages', submitted=False)
+            available, _, persist_errors = self._persist(intent)
+            if not available:
+                record['pre_submit_error'] = 'prior_messages_not_persisted'
+                record['prior_messages_persist_errors'] = persist_errors
+                return self.after_submit(record, messages=[], messages_state='not_read', message_source=message_source)
+            prior = []
+            try:
+                for message in read_prior_messages():
+                    prior.append(message)
+                record['prior_messages_state'] = 'read'
+            except Exception as exc:
+                record['prior_messages_state'] = 'read_failed'
+                record['prior_messages_read_error'] = f'{type(exc).__name__}: {exc}'
+                record['pre_submit_error'] = 'prior_messages_unreadable'
+            record['prior_messages'], summary = observe_messages(prior)
+            record['prior_message_summary'] = summary
+            record['prior_messages_review_required'] = any(summary[k] for k in ('warning', 'error', 'unknown'))
+            record['phase'] = 'before_submit'
+            record['submitted'] = False
+            recorded, _, persist_errors = self._persist(record)
+            record['prior_messages_persist_errors'] = persist_errors
+            record['prior_messages_recorded'] = recorded and record['prior_messages_state'] == 'read'
+            if not recorded:
+                record.setdefault('pre_submit_error', 'prior_messages_not_persisted')
+            if record.get('pre_submit_error'):
+                return self.after_submit(record, messages=[], messages_state='not_read', message_source=message_source)
         error: Optional[str] = None
         try:
             submit()

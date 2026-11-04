@@ -7,6 +7,44 @@ from tpc_service.errors import ServiceError
 from .store import lock, process_identity, read, write
 
 
+def _known_saved_solve(job, error, state, monitor_failure):
+    """Only a returned operation + its verified saved receipt avoids uncertainty."""
+    if (job.get('operation') != 'solve' or error.get('code') != 'session_solve_unverified'
+            or monitor_failure or state.get('uncertain_jobs') or state.get('launch_intent')
+            or state.get('status') != 'ready'):
+        return False
+    details = error.get('details', {})
+    project_id = job.get('params', {}).get('project_id')
+    project = state.get('projects', {}).get(project_id, {})
+    outcome = details.get('outcome', {})
+    digest = details.get('saved_digest')
+    if (details.get('project_id') != project_id or details.get('saved') is not True
+            or details.get('execution_returned') is not True or outcome.get('execution_returned') is not True
+            or outcome.get('submitted') is not True or not outcome.get('run_token')
+            or project.get('saved') is not True or not digest or project.get('saved_digest') != digest):
+        return False
+    try:
+        from .native import file_digest
+        return (Path(outcome['project']).resolve() == Path(project['path']).resolve()
+                and file_digest(project['path']) == digest)
+    except (KeyError, TypeError, ValueError, OSError):
+        return False
+
+
+def _finish_failed_job(job, error, state, *, monitor_failure=None):
+    known = _known_saved_solve(job, error, state, monitor_failure)
+    job.update(status='failed', error=error, finished_at=time.time())
+    if known:
+        details = error['details']
+        job['result'] = dict(saved=True, saved_digest=details['saved_digest'],
+                             solver_outcome=details['outcome'], execution_state='returned_saved',
+                             review_required=True)
+        state['status'] = 'ready'
+    else:
+        state['status'] = 'close_failed' if job['operation'] == 'close' else 'needs_reconcile'
+    state['last_error'] = error
+
+
 def run(folder):
     from .native import Runtime
     import os
@@ -61,9 +99,9 @@ def run(folder):
             if job is None:
                 time.sleep(.1)
                 continue
+            monitor = None
             try:
                 from contextlib import nullcontext
-                monitor = None
                 if runtime.backend == 'cst':
                     from cst_solver.dialogs import DialogMonitor
                     def diagnostic(event):
@@ -83,11 +121,9 @@ def run(folder):
             except Exception as exc:
                 error = exc.to_dict() if isinstance(exc, ServiceError) else {
                     'code': 'session_operation_failed', 'message': repr(exc)}
-                job.update(status='failed', error=error, finished_at=time.time())
                 with lock(folder / 'state.lock'):
                     state = read(folder / 'session.json')
-                    state['status'] = 'close_failed' if job['operation'] == 'close' else 'needs_reconcile'
-                    state['last_error'] = error
+                    _finish_failed_job(job, error, state, monitor_failure=monitor.failure if monitor else None)
                     write(folder / 'session.json', state)
             with lock(folder / 'state.lock'):
                 write(folder / 'jobs' / (job['job_id'] + '.json'), job)

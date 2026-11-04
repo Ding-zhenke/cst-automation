@@ -11,7 +11,7 @@ from uuid import uuid4
 from tpc_service.errors import ServiceError
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
-OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'close_project', 'configure_sweep', 'inspect', 'history',
+OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
                         'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close'))
 
 
@@ -90,7 +90,7 @@ class SessionManager:
             raise ServiceError('invalid_session_argument', 'Invalid operation_id')
         fingerprint = digest({'operation': operation, 'params': params})
         folder = self._folder(session_id)
-        with lock(folder / 'state.lock'):
+        with lock(self.root / 'registry.lock'), lock(folder / 'state.lock'):
             state = self._state(folder, credential)
             alias_path = folder / 'requests' / (digest(request_id) + '.json')
             alias = read(alias_path)
@@ -114,6 +114,9 @@ class SessionManager:
                 raise ServiceError('session_needs_reconcile', 'Inspect uncertain operations before further writes')
             from .project_lifecycle import check_project_intent
             check_project_intent(state, [read(p) for p in (folder / 'jobs').glob('*.json')], operation, params)
+            from .formal_paths import PROJECT_OPERATIONS, assert_path_unclaimed
+            if operation in PROJECT_OPERATIONS:
+                assert_path_unclaimed(self.root, folder, operation, params)
             state['sequence'] = maximum_sequence + 1
             job = {'job_id': 'job-' + uuid4().hex, 'session_id': session_id,
                    'sequence': state['sequence'], 'request_id': request_id, 'operation_id': operation_id,

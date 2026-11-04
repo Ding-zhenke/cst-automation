@@ -1,5 +1,11 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-04：分级消息与已返回保存的求解回执
+
+- RunContract 保留 JSON 可表达的原生消息对象；只按原生 type=INFO/WARNING/ERROR 分级，不靠正文关键词或解析历史 repr 升级证据。INFO 不单独导致失败；WARNING 保持 unverified/需审阅；ERROR 和未知类型保守 failed。messages_clean 表示完整读取且没有非 INFO 消息，queue_empty 另记真实空队列；原生完成、网格/数值和 validation_passed 不因 API 状态提升。
+- `RunContract.run_and_record(..., read_prior_messages=None)` 先写审计意图以确认可用，再于提交前读取并立即持久化旧队列。`setup.run_checked(read_messages=True)` 同时使用前后读取；前读或前置记录落盘失败不提交。保留 prior_messages/state/summary/审阅标志，提交后消息不按文本相同去重；message_scope 为 post_boundary_queue 或 pending_queue_unbounded，均不宣称原生 Run ID 绑定。回溯旧 repr 记录不自动修改历史状态。
+- session solve 仍将非 succeeded outcome 记为失败；若有明确执行返回回执、保存成功、登记摘要与当前磁盘一致、同工程/运行身份，且没有未知前序或弹窗失败，保留完整 outcome/save receipt，session 可保持 ready。ready 只代表会话可继续受控操作，不是警告、结果或物理验收通过。调用者须审阅失败 job，不得据 ready 自动宣称成功。缺回执、保存失败、摘要变化、未知执行或模态错误仍 needs_reconcile；已有 needs_reconcile 不自动解除。
+
 ## 2026-11-04：Qt glow 的结构识别先于正文预算
 
 `list_dialogs` 对精确 `QtitanTitleBarGlowWindow` 增加读取前结构校验：空标题、可见/响应中、
@@ -671,3 +677,29 @@ configuration-only registration/import command has been established. Do not
 expose a service/MCP `bind` operation which merely writes files. Automatic
 plot delivery requires an actual binding plus native save/reopen acceptance;
 staging, task creation and static Results curves do not meet that contract.
+
+## Explicit session working paths and existing formal projects
+
+`SessionManager.submit(..., operation='create_project'|'import_project', params=...)`
+accepts optional absolute `working_path` (`.cst`) together with
+`authorize_working_path=true`. Authorization covers only that exact path in
+that durable request; no global directory allowlist is changed. Omitting both
+retains the existing session-local `projects/<project_id>/model.cst` default.
+Create/import reject existing destinations and paired results directories.
+Import copies its explicit source and never saves over that source.
+
+The explicitly registered `adopt_project` operation requires `project_id`,
+`working_path`, `authorize_working_path=true`, `expected_digest` (SHA-256 of
+the saved file), and a nonempty `review_note`. It opens that existing baseline
+in place without copying or saving it during adoption. Later normal writes
+operate on that authorized formal path. The durable owner, project ID, path,
+digest and adoption review remain in the same session recovery records.
+Destination claims, including queued jobs, are exclusive among sessions in
+the same session root; different roots and external processes are not an
+OS-wide ownership registry. Resume uses the original reference/project ID,
+never a new adopt/import request. Offline tests do not certify native opening,
+saving, recovery, or solving.
+Failed project-operation journals retain their destination claim until
+explicit reconciliation resolves the receipt, including failures before
+the native-open result could be registered as a project. A state-only change
+does not release an uncertain claim.

@@ -10,10 +10,10 @@ def path_key(path):
 
 
 def check_project_intent(state, jobs, operation, params):
-    if operation not in ('create_project', 'import_project'):
+    if operation not in ('create_project', 'import_project', 'adopt_project'):
         return
     records = list(state['projects'].values())
-    records.extend(j['params'] for j in jobs if j['operation'] in ('create_project', 'import_project')
+    records.extend(j['params'] for j in jobs if j['operation'] in ('create_project', 'import_project', 'adopt_project')
                    and j['status'] in ('queued', 'running'))
     for record in records:
         if record['project_id'] == params['project_id']:

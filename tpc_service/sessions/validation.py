@@ -26,7 +26,7 @@ def validate(operation, params):
         validate_options(params)
     if operation == 'close_project':
         require(not set(params) - {'project_id', 'depends_on'}, 'close_project takes only project_id and depends_on')
-    if operation in ('create_project', 'import_project'):
+    if operation in ('create_project', 'import_project', 'adopt_project'):
         require(params.get('project_type', 'MWS') in ('MWS', 'DS'), 'project_type must be MWS or DS')
         require(params.get('lifetime', 'working') in ('working', 'temporary'), 'Invalid project lifetime')
         if 'copy_reason' in params:
@@ -37,6 +37,16 @@ def validate(operation, params):
             require(isinstance(path, str) and Path(path).is_absolute() and
                     Path(path).suffix.lower() in ('.cst', '.prj') and Path(path).is_file(),
                     'Existing absolute CST source_path required')
+        if 'working_path' in params or 'authorize_working_path' in params:
+            from .formal_paths import working_path
+            working_path(Path.cwd(), params)
+        if operation == 'adopt_project':
+            require('working_path' in params, 'Explicit working_path required for adoption')
+            value = params.get('expected_digest')
+            require(isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value),
+                    'Explicit saved expected_digest required')
+            require(isinstance(params.get('review_note'), str) and 0 < len(params['review_note'].strip()) <= 1000,
+                    'Explicit bounded review_note required for adoption')
     if operation == 'reload_project':
         value = params.get('expected_digest')
         require(isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value), 'Explicit saved expected_digest required')

@@ -85,7 +85,7 @@ def execute(runtime, job):
     if operation == 'start':
         runtime.environment()
         return {'environment': runtime.state()['environment'], 'backend': runtime.backend}
-    if operation in ('create_project', 'import_project'):
+    if operation in ('create_project', 'import_project', 'adopt_project'):
         project_id = identifier(params['project_id'])
         state = runtime.state()
         if project_id in state['projects']:
@@ -93,9 +93,27 @@ def execute(runtime, job):
         project_type = params.get('project_type', 'MWS')
         if project_type not in ('MWS', 'DS'):
             raise ServiceError('invalid_session_argument', 'project_type must be MWS or DS')
-        path = contained(runtime.folder, runtime.folder / 'projects' / project_id / 'model.cst')
-        if path.exists():
-            raise ServiceError('project_exists', 'Unregistered file exists; reconcile instead of overwriting')
+        from .formal_paths import check_destination
+        path = check_destination(runtime.folder, operation, params)
+        if operation == 'adopt_project':
+            # Open the reviewed saved file before registering it, without save/copy.
+            # A lost native-open receipt is reconciled through the original job.
+            app = runtime.environment()
+            app.open(str(path))
+            if file_digest(path) != params['expected_digest']:
+                raise ServiceError('session_digest_mismatch', 'Saved baseline changed during adoption')
+            record = {'project_id': project_id, 'path': str(path), 'source_path': None,
+                      'saved': True, 'saved_digest': params['expected_digest'],
+                      'lifetime': params.get('lifetime', 'working'), 'copy_reason': None,
+                      'path_authorization': {'working_path': str(path), 'operation': operation},
+                      'adoption_review': {'review_note': params['review_note'],
+                                          'expected_digest': params['expected_digest']}}
+            state = runtime.state()
+            state['projects'][project_id] = record
+            runtime.update(projects=state['projects'])
+            runtime.handles[project_id] = app.cst_file
+            return {'project': record, 'adopted': True, 'saved': False, 'backend': runtime.backend,
+                    'readback_verified': False, 'solver_verified': False}
         source = None
         if operation == 'import_project':
             source = str(Path(params['source_path']).resolve())
@@ -110,6 +128,9 @@ def execute(runtime, job):
                                           'source_path': source, 'saved': False,
                                           'lifetime': params.get('lifetime', 'working'),
                                           'copy_reason': params.get('copy_reason')}
+        if 'working_path' in params:
+            state['projects'][project_id]['path_authorization'] = {
+                'working_path': str(path), 'operation': operation}
         runtime.update(projects=state['projects'])
         app = runtime.environment()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,9 +219,11 @@ def execute(runtime, job):
         if runtime.backend == 'fake':
             raise ServiceError('offline_solver_unavailable', 'Fake sessions cannot certify a solve')
         result = app.run_checked(project_path=record['path'], note=str(params.get('note', '')))
-        runtime.save(app, params['project_id'])
+        saved = runtime.save(app, params['project_id'])
         if result.get('status') != 'succeeded':
-            raise ServiceError('session_solve_unverified', 'Solver did not confirm success', outcome=result)
+            raise ServiceError('session_solve_unverified', 'Solver outcome requires review', outcome=result,
+                               project_id=params['project_id'], saved=True, saved_digest=saved.get('saved_digest'),
+                               execution_returned=result.get('execution_returned') is True)
         return {'saved': True, 'solver_outcome': result, 'backend': 'cst'}
     elif operation == 'circuit':
         return circuit(runtime, app, record, params)
