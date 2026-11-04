@@ -12,4 +12,4 @@
 - CST 弹窗需读取实际标题、正文、按钮和进程归属；不凭等待超时或关闭弹窗推断成功。
 - 使用本仓库 `.venv` 或隔离测试目录；不修改相邻仓库、用户全局 MCP 配置或公共 Python 环境。
 - 迁移源 `D:\成电博士生涯\自动建模算法尝试\TPC` 严格只读；所有备份、构建、测试和开发产物放在本仓库，`work/` 忽略且不发布。
-- GitHub 私有仓库已创建，初始提交已推送到 `origin/main`；后续本地提交由主会话统一推送。CST 真机 readback 与 solver 验收状态以 `docs/VALIDATION.md` 为准。
+- GitHub 私有仓库已创建，初始提交已推送到 `origin/main`；后续本地提交由主会话统一推送。默认在 `main` 提交并推送；除非用户另行明确要求，不创建或推送修复分支。CST 真机 readback 与 solver 验收状态以 `docs/VALIDATION.md` 为准。
