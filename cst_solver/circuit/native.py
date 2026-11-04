@@ -208,6 +208,37 @@ def replace_parameter_sweep_sequences(schematic, task_name, sequences):
             'readback_verified': False, 'solver_verified': False}
 
 
+def read_project_run_parameters(project, result_id, *, expected_project_path, receipt_root, confirm_idle=False):
+    """Query one existing project using VBA ByRef, never a guessed Python ABI.
+
+    Only the owning session may call this after confirming idle. This function
+    does not independently detect idle, connect, save, solve, or close a project.
+    """
+    from cst_automation.run_parameter_bridge import prepare_run_parameter_query, parse_run_parameter_receipt
+    from cst_solver.native import execute_vba
+    if confirm_idle is not True:
+        raise ValueError('The owning caller must first confirm the project is idle')
+    expected = Path(expected_project_path)
+    if not expected.is_absolute() or Path(project.filename()).resolve() != expected.resolve():
+        raise ValueError('Owned native project does not match the registered path')
+    request = prepare_run_parameter_query(expected, result_id, receipt_root=receipt_root)
+    output = Path(request['output_path'])
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        raise ValueError('Refusing to reuse an existing query receipt')
+    import json
+    manifest = output.with_suffix('.request.json')
+    with manifest.open('x', encoding='utf-8') as stream:
+        json.dump(request, stream, ensure_ascii=False, indent=2)
+    execute_vba(project, request['vba_code'], target='schematic')
+    if Path(project.filename()).resolve() != expected.resolve():
+        raise ValueError('Native project identity changed during the query')
+    report = parse_run_parameter_receipt(output.read_bytes(), request=request)
+    report.update(artifact_path=str(output), manifest_path=str(manifest),
+                  idle_asserted_by_caller=True, idle_verified=False)
+    return report
+
+
 def resolve_schematic_result_id(schematic, tree_paths, *, read_parameters, expected_parameters,
                                 requested_id=None, rtol=1e-10, atol=1e-12):
     """Read target IDs and stored combinations through a caller-verified reader.

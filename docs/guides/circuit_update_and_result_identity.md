@@ -65,3 +65,7 @@ solver_verified/execution_identity_verified 保持 False。若要接受缓存，
 依据本机已安装官方帮助：VBA_DES/special_vbacommands/result_tree_object.htm、
 projectobject.htm，以及 DES/analysis/postprocessing/post_processing_template_layout_python.htm。
 本接口的离线替身测试不替代真实模板执行或 solver 验收。
+
+## 文档约定的 ByRef 读取入口
+
+[工程绑定的存储参数桥接](project_bound_run_parameter_bridge.md)提供显式会话只读入口，使用 VBA Variant ByRef 避免猜 Python ABI。仅由所属会话在实际空闲后核验；不能据此假定 Post 回调内嵌套宏或 Python ByRef 已通过。

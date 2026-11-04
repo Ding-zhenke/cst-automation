@@ -33,6 +33,10 @@ Update 抛异常及 post 回调的运行身份，先读[异常审计与参数绑
 回调按所有必要曲线共同正 Schematic ID 和真实存储参数组合定位，不取 last/max；旧 gate
 可被合法复用，但参数匹配不认证完整缓存或本轮新执行。
 
+固定正 ID 的实际存储参数可使用[工程绑定 ByRef 查询](../../docs/guides/project_bound_run_parameter_bridge.md)。
+仅在所属会话确认为空闲后做首次只读核验；不猜 Python ByRef 返回形式，不在运行中的
+Post evaluate 内自动嵌套宏。文档/离线契约通过仍保持 native_bridge_verified=False。
+
 ### 自动后处理是模型交付核对项
 
 - 用户要求求解后自动出图时，交付必须包含实际原生模板绑定、正确的父任务和 HB→Post 顺序、启用状态、内嵌源码与调用方设置，以及原生保存关闭重开后的绑定证据。仅有 `.rtpy`、库目录暂存、Post 空任务或静态 Results 曲线均不算完成。首次绑定、同名冲突及后续替换要分别说明；不能把“替换已绑定源码”描述成“首次注册”。

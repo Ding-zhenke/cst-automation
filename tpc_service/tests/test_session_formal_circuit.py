@@ -93,3 +93,67 @@ def test_trusted_host_grant_is_bound_to_one_exact_project(tmp_path):
     result = handlers['build'](project=other, params={'operation': 'inspect'}, job={'kind': 'build'}, backend=None)
     assert result['ok'] is False
     factory.assert_not_called()
+
+
+def test_session_run_parameter_query_is_bound_and_does_not_save_or_close(tmp_path, monkeypatch):
+    runtime, app, record = session(tmp_path)
+    app.cst_file = object()
+    from cst_solver.circuit import native
+    from tpc_service.sessions.operations import execute
+    from tpc_service.sessions import store
+    runtime.backend = 'cst'; runtime.app = app; runtime.handles = {'p': app.cst_file}
+    runtime.check_saved = Mock(); runtime.project = Mock()
+    monkeypatch.setattr(store, 'alive', lambda identity: True)
+    reader = Mock(return_value={'parameters': {'tone': 2.5},
+                               'artifact_path': str(runtime.folder/'receipt.txt'), 'native_bridge_verified': False})
+    monkeypatch.setattr(native, 'read_project_run_parameters', reader)
+    result = execute(runtime, {'operation': 'circuit', 'params': {'project_id': 'p', 'kind': 'build',
+        'settings': {'operation': 'read_run_parameters', 'result_id': 'Schematic:RunID:3', 'confirm_idle': True}}})
+    assert result['ok'] is True and result['saved'] is False
+    assert result['result_summary']['run_parameters']['native_bridge_verified'] is False
+    reader.assert_called_once_with(app.cst_file, 'Schematic:RunID:3', expected_project_path=record['path'],
+        receipt_root=runtime.folder/'run_parameter_queries', confirm_idle=True)
+    app.close.assert_not_called()
+    runtime.project.assert_not_called()
+    runtime.check_saved.assert_called_once_with(record)
+
+
+def test_parameter_query_requires_idle_assertion_before_opening_project(tmp_path):
+    from tpc_service.circuit import register_circuit_handlers
+    runtime, app, record = session(tmp_path)
+    handlers = {}; factory = Mock(return_value=app)
+    service = SimpleNamespace(workdir=str(runtime.folder), register_workflow=lambda name, routes, **kw: handlers.update(routes))
+    register_circuit_handlers(service, app_factory=factory, authorized_project_path=record['path'], borrowed_project=True)
+    out = handlers['build'](project=record, params={'operation': 'read_run_parameters',
+        'result_id': 'Schematic:RunID:3'}, job={'kind': 'build'}, backend=None)
+    assert out['ok'] is False
+    factory.assert_not_called()
+
+
+def test_generic_parameter_query_cannot_open_or_close_a_project(tmp_path):
+    from tpc_service.circuit import register_circuit_handlers
+    runtime, app, record = session(tmp_path)
+    handlers = {}; factory = Mock(return_value=app)
+    service = SimpleNamespace(workdir=str(runtime.folder), register_workflow=lambda name, routes, **kw: handlers.update(routes))
+    register_circuit_handlers(service, app_factory=factory, authorized_project_path=record['path'])
+    out = handlers['build'](project=record, params={'operation': 'read_run_parameters',
+        'result_id': 'Schematic:RunID:3', 'confirm_idle': True, 'borrowed_project': True}, job={'kind': 'build'}, backend=None)
+    assert out['ok'] is False
+    factory.assert_not_called(); app.close.assert_not_called()
+
+
+@pytest.mark.parametrize('issue', ['no_app', 'no_handle', 'closed', 'dead'])
+def test_query_does_not_restore_open_or_connect_a_missing_cached_project(tmp_path, monkeypatch, issue):
+    from tpc_service.sessions.operations import execute
+    from tpc_service.sessions import store
+    runtime, app, record = session(tmp_path)
+    runtime.backend = 'cst'; runtime.app = app; runtime.handles = {'p': object()}
+    runtime.project = Mock()
+    if issue == 'no_app': runtime.app = None
+    if issue == 'no_handle': runtime.handles.clear()
+    if issue == 'closed': record['tab_closed'] = True
+    monkeypatch.setattr(store, 'alive', lambda identity: issue != 'dead')
+    with pytest.raises(ServiceError):
+        execute(runtime, {'operation': 'circuit', 'params': {'project_id': 'p', 'kind': 'build',
+            'settings': {'operation': 'read_run_parameters', 'result_id': 'Schematic:RunID:3', 'confirm_idle': True}}})
+    runtime.project.assert_not_called()

@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05：工程绑定的存储参数 ByRef 桥接（文档/离线契约）
+
+- 根据本机官方 Project/GetParameterCombination 的 Variant ByRef 名称/double 数组及 Boolean 返回契约，生成显式 schematic 查询宏，拒绝 Run 0/非 Schematic ID，不猜 Python 代理的输出参数形式。宏先核对实际工程资源主目录，再查询固定正 ID；使用唯一请求 token、UTF-16 code-unit hex、完整计数/结束标记和有限数值回执。
+- 仅通过所属会话 circuit/build/read_run_parameters 暴露；要求原 worker 已有 app/缓存工程句柄、未关闭登记及存活原环境身份，不走 Runtime.project/environment 恢复，不 attach、重开标签、创建/关闭 DE 或保存/求解。通用服务没有可信 host 借用上下文时，在 app_factory 前拒绝，JSON 无法伪造授权。
+- confirm_idle=True 只是所属调用方的空闲断言，idle_verified/native_bridge_verified/solver_verified 保持 False。调用清单/生成宏与原始输出单独留审计；不覆盖原失败日志，不把解析成功或已有曲线提升为桥接、模板、缓存或求解验收。
+- 新增 26 项离线回归，完整检查 1419 passed、3 skipped、2 deselected。独立审查发现并修正 code-unit 端序及通用服务连接/关闭路径问题，分别补红绿回归；再次审查无阻塞发现。未连接或操作当前 CST/worker/工程，实机宏编译、返回值及回调嵌套重入仍待所属会话在空闲时分别核验。
+- 所属会话可按[工程绑定桥接说明](guides/project_bound_run_parameter_bridge.md)选一个真实正 ID 作首次只读核验；示例 ID 不保证存在。此方案不证明可在运行中的 evaluate 内嵌套调用宏，不触发扫描，也不改变既有失败 job 或恢复状态。
+
 ## 2026-11-05：Update 异常审计与存储运行参数绑定（离线）
 
 - 所属模型会话报告父任务 Update 抛错、后处理缺点且未保存；本聊天只读检查指定模板源码，确认存在接受未枚举正 ID 和按最大编号回退的分支，未以实际存储参数组合约束。原始错误仍由所属会话保留；具体缺点的因果关系及缓存复用正确性继续以其独立原生读回为准。

@@ -1,5 +1,11 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-05：工程绑定的存储参数 ByRef 桥接
+
+新增纯构建/解析契约 `cst_automation.run_parameter_bridge.prepare_run_parameter_query(project_path, result_id, *, receipt_root)` 与 `parse_run_parameter_receipt(payload, *, request)`；只接受固定正 Schematic ID，为每次请求生成独立 token/输出路径。VBA 在显式 schematic 上校验 GetProjectPathName("Project") 后调用文档所载 GetParameterCombination(resultID, names, values) 的 Variant ByRef；不猜 Python tuple/输出参数形式，不查 Current Run 0。
+
+`cst_solver.circuit.native.read_project_run_parameters(project, result_id, *, expected_project_path, receipt_root, confirm_idle=False)` 仅在调用方明确 confirm_idle=True 且既有 project.filename 与登记路径一致时，执行一次固定生成的只读宏，核对回执 token、实际资源路径、ID、计数与有限参数值；不保存/关闭/求解/重连。circuit/build 新增显式 read_run_parameters（result_id、confirm_idle=True），审计输出仍限 service.workdir；沿既有 submit_cst_session_operation 提交；通用 circuit 服务无可信 borrowed_project host 标志时在 app_factory 前拒绝此操作，JSON 不能伪造该标志。 会话查询要求已有 app/缓存工程句柄、未关闭登记及存活原环境；不调用可能 attach/重开标签的 Runtime.project/environment 恢复路径。此为文档/离线契约验证，native_bridge_verified=False；confirm_idle 是调用方断言，不是库独立探测空闲。仅由所属会话在实际空闲后首次只读核验。
+
 ## 2026-11-05：Update 异常审计与后处理运行身份
 
 `CircuitAPI.run_checked` 区分 update_call_state（not_called/calling/returned/raised）与 execution_returned（仅正常返回为 True），并保留 failure_stage、原始异常及磁盘/日志变化证据。Update 包装调用抛错返回 Python 不证明原生执行停止或 DE 空闲；保存策略为 deferred_until_idle，saved=False，未知写入围栏保留。异常路径不再误记为结果读取失败，不盲目保存、重跑或提高验证等级；所属会话确认空闲后独立保存，不改历史失败回执。

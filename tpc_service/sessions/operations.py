@@ -144,6 +144,21 @@ def execute(runtime, job):
         record = runtime.save(app, project_id)
         return {'project': record, 'saved': True, 'backend': runtime.backend,
                 'readback_verified': False, 'solver_verified': False}
+    if operation == 'circuit' and params.get('settings', {}).get('operation') == 'read_run_parameters':
+        # A read probe must not trigger Runtime.project/environment recovery,
+        # opening a closed tab, attaching, or creating another environment.
+        from .store import alive
+        state = runtime.state()
+        record = state.get('projects', {}).get(params['project_id'])
+        app = getattr(runtime, 'app', None)
+        handle = getattr(runtime, 'handles', {}).get(params['project_id'])
+        if (runtime.backend != 'cst' or not record or record.get('tab_closed')
+                or app is None or handle is None or not alive(state.get('environment'))):
+            raise ServiceError('session_query_requires_open_project',
+                               'Read query requires the existing live environment and cached owned project')
+        runtime.check_saved(record)
+        app.cst_file = handle
+        return circuit(runtime, app, record, params)
     app, record = runtime.project(params['project_id'])
     if operation == 'reload_project':
         reviewed = runtime.state().get('last_resolution', {})
@@ -278,7 +293,7 @@ def circuit(runtime, app, record, params):
     handlers = {}
     service = SimpleNamespace(workdir=str(runtime.folder),
                               register_workflow=lambda name, values, **kw: handlers.update(values))
-    register_circuit_handlers(service, app_factory=lambda path: BorrowedApp(), authorized_project_path=str(path))
+    register_circuit_handlers(service, app_factory=lambda path: BorrowedApp(), authorized_project_path=str(path), borrowed_project=True)
     kind = params.get('kind', 'build')
     if kind not in handlers:
         raise ServiceError('invalid_session_argument', 'Invalid circuit kind')

@@ -17,7 +17,7 @@ def contained(root, path):
     return path
 
 
-def register_circuit_handlers(service, *, replace=False, app_factory=None, authorized_project_path=None):
+def register_circuit_handlers(service, *, replace=False, app_factory=None, authorized_project_path=None, borrowed_project=False):
     """Register routes; an optional trusted host grant scopes one project only.
 
     The grant is not a request parameter and does not change input/output roots.
@@ -27,12 +27,14 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
         if not Path(authorized_project_path).is_absolute():
             raise ValueError('Authorized project path must be absolute')
         project_scope = Path(authorized_project_path).resolve()
+    if type(borrowed_project) is not bool or (borrowed_project and (app_factory is None or project_scope is None)):
+        raise ValueError('Borrowed project requires an explicit factory and exact trusted path')
     if app_factory is None:
         def app_factory(path):
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "package"},
+    allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "package"},
                "solve": {"run_task"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
     def handle(*, project, params, job, backend):
@@ -47,6 +49,14 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                 path = Path(project['path']).resolve()
                 if path != project_scope:
                     raise CircuitError('circuit_spec_invalid', 'Project does not match the trusted host grant')
+            if operation == 'read_run_parameters':
+                if not borrowed_project:
+                    raise CircuitError('circuit_unavailable', 'Run parameter query requires the owning borrowed session')
+                from cst_automation.run_parameter_bridge import prepare_run_parameter_query
+                if params.get('confirm_idle') is not True:
+                    raise CircuitError('circuit_spec_invalid', 'Owning caller must confirm idle before querying')
+                # Validate the fixed ID and binding before any native opening.
+                prepare_run_parameter_query(path, params.get('result_id'), receipt_root=Path(service.workdir).resolve())
             if operation == 'run_parameter_study':
                 from cst_automation.circuit_studies import normalize_parameter_study
                 try:
@@ -139,6 +149,12 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                 from cst_solver.environment import environment_pid
                 backend.dialog_pid = environment_pid(getattr(app, "project", None))
             # EM configuration must also work on a plain 3D project without schematic access.
+            if operation == 'read_run_parameters':
+                from cst_solver.circuit.native import read_project_run_parameters
+                report = read_project_run_parameters(app.cst_file, params['result_id'], expected_project_path=str(path),
+                    receipt_root=contained(service.workdir, 'run_parameter_queries'), confirm_idle=True)
+                return ok_result(saved=False, result_summary={'run_parameters': report, 'solver_verified': False},
+                                 artifacts=[artifact(report['artifact_path'], kind='run_parameter_query')])
             api = app.circuit if operation != 'configure_em_time_settings' else None
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})
