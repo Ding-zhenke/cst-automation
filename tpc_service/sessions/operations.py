@@ -253,6 +253,20 @@ def circuit(runtime, app, record, params):
     """Reuse existing explicit circuit workflow without its temporary DE lifecycle."""
     from types import SimpleNamespace
     from tpc_service.circuit import register_circuit_handlers
+    from .project_lifecycle import path_key
+
+    project_id = record.get('project_id')
+    registered = runtime.state().get('projects', {}).get(project_id)
+    if (project_id != params.get('project_id') or not registered or
+            path_key(record['path']) != path_key(registered['path'])):
+        raise ServiceError('session_project_mismatch', 'Circuit project must match the registered session project')
+    path = Path(registered['path']).resolve()
+    folder = Path(runtime.folder).resolve()
+    if path != folder and folder not in path.parents:
+        grant = registered.get('path_authorization') or {}
+        if (grant.get('operation') not in ('create_project', 'import_project', 'adopt_project') or
+                not grant.get('working_path') or path_key(grant['working_path']) != path_key(path)):
+            raise ServiceError('session_path_authorization_required', 'Circuit routing requires the exact registered formal path grant')
 
     class BorrowedApp:
         def __getattr__(self, name):
@@ -264,7 +278,7 @@ def circuit(runtime, app, record, params):
     handlers = {}
     service = SimpleNamespace(workdir=str(runtime.folder),
                               register_workflow=lambda name, values, **kw: handlers.update(values))
-    register_circuit_handlers(service, app_factory=lambda path: BorrowedApp())
+    register_circuit_handlers(service, app_factory=lambda path: BorrowedApp(), authorized_project_path=str(path))
     kind = params.get('kind', 'build')
     if kind not in handlers:
         raise ServiceError('invalid_session_argument', 'Invalid circuit kind')

@@ -1,5 +1,10 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-04：正式工程的 circuit 路由
+
+session circuit 使用同一登记 project_id/规范路径；外部正式工程还须具有匹配的 path_authorization（create/import/adopt）。只把这一文件的可信授权交给 `register_circuit_handlers(..., authorized_project_path=None)`，不接受请求参数伪造该授权。默认通用服务仍要求工程位于 workdir；所有 destination、模板源和输入文件仍按原 workdir 检查，不扩大到正式目录。
+未更新的旧父日志不作为当前叶任务错误：无新日志时 completed=False、log_changed=False，历史错误单独保留；有曲线但无本轮日志仍 unverified，不用结果数量补执行证明。
+
 ## 2026-11-04：分级消息与已返回保存的求解回执
 
 - RunContract 保留 JSON 可表达的原生消息对象；只按原生 type=INFO/WARNING/ERROR 分级，不靠正文关键词或解析历史 repr 升级证据。INFO 不单独导致失败；WARNING 保持 unverified/需审阅；ERROR 和未知类型保守 failed。messages_clean 表示完整读取且没有非 INFO 消息，queue_empty 另记真实空队列；原生完成、网格/数值和 validation_passed 不因 API 状态提升。

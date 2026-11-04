@@ -168,7 +168,7 @@ def test_session_route_refreshes_handle_after_reopen_even_on_partial_failure(reg
     state = {'projects': {'own-project': record}}
     runtime = SimpleNamespace(folder=source.parent, handles={'own-project': old_handle},
                               state=lambda: state, update=lambda **values: state.update(values))
-    params = {'kind': 'build', 'settings': dict(kwargs, operation='register_postprocessing_template',
+    params = {'project_id': 'own-project', 'kind': 'build', 'settings': dict(kwargs, operation='register_postprocessing_template',
         parent_task='Sweep', hb_task='Sweep\\HB', post_task='Sweep\\Post', template_source=str(source))}
     if partial:
         with pytest.raises(ServiceError): circuit(runtime, app, record, params)

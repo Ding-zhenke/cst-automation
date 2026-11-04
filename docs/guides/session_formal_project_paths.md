@@ -87,3 +87,24 @@ rejection, paired copy preservation, unchanged adoption, changed digest,
 queued ownership claims, same-file aliases, and request deduplication.
 Native CST opening, saving and recovery require separate acceptance in an
 explicitly idle authorized session; these tests do not certify them.
+
+## Circuit routing of a registered formal project
+
+Session `circuit` operations reuse the registered project ID and canonical
+path. For paths outside the session workdir, the stored authorization must
+match the exact formal path and the create/import/adopt operation that
+registered it. The trusted host passes that one project file to the circuit
+handler; request JSON cannot introduce this grant. The generic circuit service
+keeps its workdir-only project rule when no trusted grant is provided.
+
+This allows existing inspect/run_task/read_results routing for the registered
+formal file. It does not broaden destination, package, input-model or template
+source paths: explicit paths remain inside the original session workdir. The
+borrowed app does not close or replace the owning session environment.
+Project saves and existing project-resource failure audits retain their
+project-owned locations; the grant does not authorize arbitrary export paths.
+
+No fresh leaf-task log remains a separate evidence gap even when spectra are
+readable. An unchanged parent log's errors are historical; no new log segment
+means completed=False, not proof of the leaf failing or succeeding. Fresh
+errors still prevent completion, and result counts do not replace run evidence.

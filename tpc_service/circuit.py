@@ -17,8 +17,16 @@ def contained(root, path):
     return path
 
 
-def register_circuit_handlers(service, *, replace=False, app_factory=None):
-    """Register opt-in circuit routes. app_factory is an explicit SDK boundary."""
+def register_circuit_handlers(service, *, replace=False, app_factory=None, authorized_project_path=None):
+    """Register routes; an optional trusted host grant scopes one project only.
+
+    The grant is not a request parameter and does not change input/output roots.
+    """
+    project_scope = None
+    if authorized_project_path is not None:
+        if not Path(authorized_project_path).is_absolute():
+            raise ValueError('Authorized project path must be absolute')
+        project_scope = Path(authorized_project_path).resolve()
     if app_factory is None:
         def app_factory(path):
             from cst_solver import setup
@@ -33,7 +41,12 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             operation = params.get("operation")
             if operation not in allowed.get(job["kind"], set()):
                 raise CircuitError("circuit_spec_invalid", "Unknown kind/operation combination")
-            path = contained(service.workdir, project["path"])
+            if project_scope is None:
+                path = contained(service.workdir, project["path"])
+            else:
+                path = Path(project['path']).resolve()
+                if path != project_scope:
+                    raise CircuitError('circuit_spec_invalid', 'Project does not match the trusted host grant')
             if operation == 'run_parameter_study':
                 from cst_automation.circuit_studies import normalize_parameter_study
                 try:

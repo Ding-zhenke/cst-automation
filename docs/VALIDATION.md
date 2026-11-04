@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-11-04：外部正式工程的 circuit 路由衔接
+
+- session circuit 原先将已授权的正式工程再次按 workdir 拒绝。现仅将同一登记 project_id/规范路径及精确授权传给 handler；默认服务、输出目标、模板/模型输入的原 workdir 约束保留。
+- 新增离线回归覆盖 external formal inspect/run_task/read_results、缺失/伪造/他工程授权、不可扩展导出目标、默认服务及可信 grant 的单工程绑定。借用 app 不关闭原会话；无真实 CST 调用。
+- 合入远端模板注册实现并补齐测试请求 project_id 后，完整离线回归：1345 passed、3 skipped、2 deselected；没有连接 CST 或刷新运行 worker。
+- 叶任务日志没有新片段时 completed=False；历史父日志错误单独保留，不冒充叶任务错误。新增回归覆盖未更新父日志、追加成功叶片段和本轮真实错误。不以可读曲线数量提升执行验收。
+
 ## 2026-11-04：消息级别、保存回执、正式路径与 HB 放行门槛
 
 - RunContract 保留结构化消息，INFO 不因非空失败；WARNING 保持 unverified，ERROR/未知消息保持 failed。提交前先确认审计可写，再保存前队列，提交后队列不按正文去重；没有原生 Run ID 绑定时仍明确范围未知。原生完成、网格、数值与 API 状态分别记录，不以文件变化替代验收。
