@@ -22,6 +22,20 @@ class CircuitAPI:
     def inspect(self):
         return self.adapter.inspect()
 
+    def register_python_result_template(self, parent_task, hb_task, post_task, template_source, *,
+                                        result_name, template_name, group, result_type, settings,
+                                        eval_type='single_run', create=False, conflict='error', expected_registration_sha256=None):
+        """Register embedded configuration and verify native archive persistence; never solve."""
+        from .template_registration import register_python_result_template
+        self._spec = None
+        try:
+            return register_python_result_template(self.app, parent_task, hb_task, post_task,
+                template_source, result_name=result_name, template_name=template_name, group=group,
+                result_type=result_type, settings=settings, eval_type=eval_type, create=create, conflict=conflict,
+                expected_registration_sha256=expected_registration_sha256)
+        finally:
+            self._adapter = None  # Native reopen invalidates the old schematic handle.
+
     def list_block_types(self):
         return [{"type": name, "evidence": "documented_offline_adapter", "live_verified": False} for name in BLOCK_TYPES]
 

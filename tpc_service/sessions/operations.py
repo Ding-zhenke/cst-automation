@@ -269,6 +269,13 @@ def circuit(runtime, app, record, params):
     if kind not in handlers:
         raise ServiceError('invalid_session_argument', 'Invalid circuit kind')
     result = handlers[kind](project=record, params=params['settings'], job={'kind': kind}, backend=None)
+    if params['settings'].get('operation') == 'register_postprocessing_template':
+        # The real facade reopens the same owned project. Never cache its closed
+        # predecessor, including when the registration returned partial evidence.
+        if app.cst_file is None:
+            runtime.handles.pop(record['project_id'], None)
+        else:
+            runtime.handles[record['project_id']] = app.cst_file
     if Path(record['path']).is_file():
         # Handler may save partial changes; update the fingerprint, but never certify partial work.
         state = runtime.state()

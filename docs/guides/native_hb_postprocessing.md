@@ -93,7 +93,7 @@ app.save()
 源码仅做静态语法/入口检查，旧模块摘要不匹配则拒绝更新。
 在关闭工程的解包目录中替换文件可能在下次打开时被归档内容覆盖；该函数
 不能证明工程已打开，调用方须遵守打开后更新、原生保存、重开核验的顺序。
-新模板仍可用 `stage_python_result_template` 暂存；首次创建绑定不属于本次封装。
+新模板可用 `stage_python_result_template` 暂存；下节提供带保存重开读回的首次注册接口。
 
 ## 自动出图的交付与配置专用检查
 
@@ -122,7 +122,7 @@ runtime.save(app, project_id)
 同级顺序。检查函数只读，读取失败直接报错，不用请求值填充读回。
 `readback_verified` 仅指这些任务设置；`binding_verified` 和
 `reopen_verified` 始终 False。配置函数失败可能留下部分修改，不自动重试。
-它们不创建模板资源、不保存、不重建、不启动任务，尚未完成真机验收。
+它们不创建模板资源、不保存、不重建、不启动任务。CST 2026.1 独立空工程已核对任务配置和重开后的顺序。
 
 对已有绑定，可在保存前后分别审计明确指定的资源：
 
@@ -141,16 +141,70 @@ resources = inspect_embedded_python_result_template(
 三文件都在，也不能推出 CST 已加载绑定。后续源码替换继续使用要求旧摘要
 的 `replace_embedded_python_result_template`，不覆盖其他模板或设置。
 
-### 首次注册尚缺的原生入口
+### 首次注册：版本受限资源导入与原生归档读回
 
-本机 CST 2026 官方 `VBA_DES/special_vbacommands/simulationtaskobject.htm`
-文档支持 template 任务创建、SetProperty、MoveInTree 和 GetModelFolder；
-`projectobject.htm` 明确规定 DS 的 ResetTemplateIterator/GetNextTemplate
-仅在后处理任务运行期间有效。`cst.tbpp` 的 Python 模块处理模板定义和
-执行，不提供已核实的首次绑定注册接口。当前文档检索未建立配置专用的
-原生导入/注册路径，因此没有发布一个只写三文件却声称成功的 bind API。
-这里是能力缺项，不是禁止通用能力公开；一旦取得可验证入口，应提供
-首次创建、同名拒绝、摘要受控替换与原生保存重开验收，并显式注册服务/MCP。
+`app.circuit.register_python_result_template(parent_task, hb_task, post_task,
+template_source, *, result_name, template_name, group, result_type, settings,
+eval_type="single_run", create=False, conflict="error", expected_registration_sha256=None)` 已可调用。
+导入器只支持原生版本标识 `Version 2026.1 - Oct 22 2025`，使用已观察的
+Summary.rpp v11、rtjson v1.0 和内嵌 local_copy rtpy；没有猜测或调用
+AddTemplate VBA。每个专用 Post 只支持一条注册，本版仅接受已观察到的 single_run 格式。
+result_type 由调用方显式提供（0D/1D/1DC/M0D/M1D/M1DC）；源码仅静态检查，
+不导入、不运行 define/evaluate。模板标题、组及注册名使用安全 ASCII 名称。
+
+优先经所属会话使用下列显式 build 路由，template_source 必须在该会话目录内：
+
+```python
+request = {
+    "operation": "circuit",
+    "params": {
+        "project_id": project_id,
+        "kind": "build",
+        "settings": {
+            "operation": "register_postprocessing_template",
+            "parent_task": parent_task, "hb_task": hb_task, "post_task": post_task,
+            "template_source": template_source,
+            "result_name": result_name, "template_name": template_name,
+            "group": group, "result_type": result_type, "settings": caller_settings,
+            "eval_type": "single_run",
+            "create": False,
+        },
+    },
+}
+# 用会话 submit/execute 入口提交；不建立第二个 DE 或借用其他聊天的 app。
+```
+
+`create=True` 仅创建缺失 Post，拒绝同名；已有空 Post 使用 False。
+默认 conflict=error 拒绝已有注册。后续更新先用
+`cst_automation.template_registration.inspect_python_result_registration(actual_folder)`
+取得 registration_sha256，再显式传 conflict=replace 和
+expected_registration_sha256。摘要覆盖三文件完整内容，设置变化也使旧摘要失效；
+不支持多条注册的任务不会被截断。实际资源目录由原生任务及其自动生成目录发现，
+不拼固定 `_35_0` 后缀。
+
+接口启用并核对父/HB/Post，将 HB→Post 相邻放在末尾；保留其他子任务。
+随后明确保存当前工程、关闭并核对其已不在打开列表；将该 Post 资源目录
+移到工程旁 `.cst_automation_template_audits/<token>/saved_resources` 后，
+再在同一个 DE 原生重开。CST 必须从刚保存的 `.cst` 重新生成资源，并通过
+完整 RPP 描述、源码/元数据摘要、调用方设置及原生任务链比较。审计 receipt
+和备份保留，失败返回具体阶段及部分证据，不自动重试。不会关闭整个 DE。
+所属会话路由在成功或失败后均刷新已重开的工程句柄；直接 app 调用的调用方
+必须自己同步 runtime.handles，并更新保存摘要，不能继续使用关闭前的句柄。
+
+实机已验证首次导入、默认同名拒绝、过期摘要拒绝、完整摘要受控替换，以及
+保存/关闭/移出资源/原生重开恢复。原生版本限定及单模板限制属于本版合同。
+返回 registration_persistence_verified=True、reopen_verified=True 表示归档
+持久化通过。binding_verified、native_template_enumeration_verified 和
+template_execution_verified 保持 False：DS 空闲枚举对历史有效对照也为空，
+它不能认证本次绑定的运行时识别或计算；本接口不以求解或模板执行补验收。
+MCP 显式入口为 `register_circuit_postprocessing_template`，排入 build 队列。
+
+注意不能从 RPP 的 P/EP10 推导 all_runs：已知有效参考源码明确声明 single_run，
+却具有相同标志。资源检查器返回 eval_type=None、
+eval_type_status="not_independently_decoded" 并保留 raw_evaluation_flags；
+调用方声明另记为 requested_eval_type。源 define() 中明确不匹配的模式字面量
+会被静态拒绝，动态声明仍由调用方确保一致。本版拒绝 all_runs 请求，不声称
+已经独立读回模式、认证回调语义或执行时逐点行为。
 
 模板的参数、方向、探针、指标及图表分组均由调用方决定。使用实际输入 RF
 作横轴，缺方向不补零；重复运行只替换本流程拥有的结果叶及输出文件。
@@ -160,5 +214,5 @@ resources = inspect_embedded_python_result_template(
 
 优先用代码、日志、结果文件和原生读回验收；仅在接口不足、实际交互对话框
 或需要核对实际显示时使用 computer use，避免界面轮询和重复截图。
-本轮封装离线验证；底层原生操作来自一个已经完成的实际工程，不能据此
-将新封装、其他 CST 版本或其他模型记为已完成实机求解。
+本轮对独立空工程完成上述配置/归档验证；不能据此将模板执行、其他 CST
+版本、其他模型或实际求解记为通过。
