@@ -202,6 +202,16 @@ End With"""
                 f' .MeshAdaptionTet "{flag}"\n .SweepConsiderAll "True"\nEnd With')
         self.cst_file.model3d.add_to_history('General purpose FEM solver', code)
 
+    def configure_fd_parallelization(self, settings):
+        """Set sparse FDSolver CPU controls; no reset, GPU change, save or solve.
+
+        enabled is boolean; threads and cpu_devices are positive integers.
+        CPU devices mean sockets, not threads. Omitted settings are preserved.
+        The configuration receipt does not establish actual execution parallelism.
+        """
+        from .frequency import configure_fd_parallelization
+        return configure_fd_parallelization(self, settings)
+
     def configure_fd_frequency(self, settings):
         """Append typed F-solver sample/adaptation intervals and sparse sweep controls.
 

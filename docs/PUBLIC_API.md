@@ -460,6 +460,22 @@ settings/history submission with readback_verified and solver_verified False.
 No cross-case mesh/solution reuse switch is promised. Session `model_api`
 explicitly registers both configuration methods; MCP uses that existing route.
 
+### Frequency-domain CPU parallelization
+
+`setup.configure_fd_parallelization(settings)` configures CPU parallelization on
+the current `FDSolver`, independently of transient `Solver` and Design Studio HB.
+Its nonempty sparse mapping accepts `enabled` (boolean), `threads` (positive
+integer CPU thread count) and `cpu_devices` (positive integer CPU socket count).
+Omitted fields are preserved; specifying a thread limit alone does not enable
+parallelization. No thread count or hardware topology is inferred. It uses the
+documented `UseParallelization`, `MaxCPUs`, `MaximumNumberOfCPUDevices` setters;
+there is no reset, solver selection, GPU change, rebuild, save or solve.
+Session `model_api` explicitly routes/preflights the method and returns its
+configuration receipt. Settings readback is unsupported: actual_threads is None,
+cpu_parallelization_verified/readback_verified/solver_verified stay False. Check
+actual threads in the native run log. Native history failure preserves partial
+evidence via `FDomainConfigurationError`, with no automatic retry.
+
 ### Modeling audit corrections and explicit session coverage
 
 `boundary` now sends each xmin/xmax, ymin/ymax and zmin/zmax value to the

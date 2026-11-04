@@ -128,6 +128,31 @@ def normalize_fd_frequency_settings(settings):
     return result
 
 
+def normalize_fd_parallelization_settings(settings):
+    """Sparse documented FDSolver CPU controls, without hardware inference."""
+    source = _mapping(settings, ('enabled', 'threads', 'cpu_devices'), 'FD parallelization settings')
+    result = {}
+    if 'enabled' in source:
+        result['enabled'] = _boolean(source['enabled'], 'enabled')
+    for key in ('threads', 'cpu_devices'):
+        if key in source:
+            result[key] = _integer(source[key], key)
+    return result
+
+
+def configure_fd_parallelization(app, settings):
+    requested = normalize_fd_parallelization_settings(settings)
+    commands = []
+    if 'enabled' in requested:
+        commands.append(f'FDSolver.UseParallelization {requested["enabled"]}')
+    for key, native in (('threads', 'MaxCPUs'), ('cpu_devices', 'MaximumNumberOfCPUDevices')):
+        if key in requested:
+            commands.append(f'FDSolver.{native} "{requested[key]}"')
+    return _submit_configuration(app, requested, commands, 'Configure FD CPU parallelization',
+                                 cpu_parallelization_verified=False,
+                                 actual_threads=None, actual_cpu_devices=None)
+
+
 def _submit_configuration(app, requested, commands, stage, *, warnings=(), **extra):
     report = dict(requested=requested, native_commands=commands,
                   scope='current_project_model3d', history_submitted=False,

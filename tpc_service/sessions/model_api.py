@@ -20,7 +20,7 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'reset_wcs','rotate_wcs','translate_wcs','set_wcs_origin','store_wcs','restore_wcs',
     'create_component','create_material_custom','create_material_tensor','create_material_gyrotropic',
     'create_waveguide_port','create_discrete_port','create_lumped_element','create_probe',
-    'set_boundary','configure_fd_frequency','configure_tetrahedral_mesh',
+    'set_boundary','configure_fd_frequency','configure_fd_parallelization','configure_tetrahedral_mesh',
     'delete_solid','delete_curve_item','rotation_face','rotate_face','extrude_face','trace_curve',
     'blend_curve','chamfer_curve','trim_curves','boolean_imprint','blend_edge',
     'set_edge','pick_face_at','pick_edge_at','pick_point_at',
@@ -32,7 +32,10 @@ def _preflight_settings(method, bound):
     """Validate focused configuration payloads before earlier batch mutations."""
     values = dict(bound.arguments)
     values.pop('self', None)
-    if method == 'configure_fd_frequency':
+    if method == 'configure_fd_parallelization':
+        from cst_solver.simulation.frequency import normalize_fd_parallelization_settings
+        normalize_fd_parallelization_settings(values['settings'])
+    elif method == 'configure_fd_frequency':
         from cst_solver.simulation.frequency import normalize_fd_frequency_settings
         normalize_fd_frequency_settings(values['settings'])
     elif method == 'configure_tetrahedral_mesh':
@@ -85,7 +88,7 @@ def dispatch(app,calls):
     receipts = []
     for index, call in enumerate(calls):
         result = getattr(app,call['method'])(*call.get('args',[]),**call.get('kwargs',{}))
-        if call['method'] in ('configure_fd_frequency', 'configure_tetrahedral_mesh'):
+        if call['method'] in ('configure_fd_frequency', 'configure_fd_parallelization', 'configure_tetrahedral_mesh'):
             receipts.append({'call_index': index, 'method': call['method'], 'receipt': result})
     return {'python_api_calls':len(calls),'methods':sorted({c['method'] for c in calls}),
             'configuration_receipts': receipts}

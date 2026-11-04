@@ -129,6 +129,15 @@ They distinguish existing wrappers, explicit session routes and unsupported
 native effects. `scripts/audit_modeling_capabilities.py --output work/api-audit`
 generates the full current setup signature/source/route inventory without CST.
 
+`configure_fd_parallelization(settings)` uses the FDSolver CPU setters, independently
+of transient `set_parallel_threads` and DS HB settings. A sparse nonempty mapping
+accepts boolean `enabled`, positive integer `threads` and positive integer
+`cpu_devices` (CPU sockets). Omitted settings are preserved; supply `enabled=True`
+to enable parallelization. It never resets or selects a solver, changes GPU
+settings, rebuilds, saves or solves. The existing session `model_api` route
+preflights the complete batch and returns an unverified configuration receipt;
+actual CPU threads must be checked in the native run log.
+
 `configure_fd_frequency(settings)` separates broadband intervals, mesh-adaptation
 frequencies and interpolated output resolution. Interval fields are start, stop,
 spacing, samples and optional boolean adaptation (False by default). Explicit

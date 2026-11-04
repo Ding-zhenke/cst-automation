@@ -9,6 +9,7 @@ from typing import Any, List, Dict, Tuple, Optional, Union, Mapping
 from cst_solver.simulation.sweep import SweepParameters
 
 class SolverMixin:
+    def configure_fd_parallelization(self, settings: Mapping[str, Any]) -> Dict[str, Any]: ...
     def configure_fd_frequency(self, settings: Mapping[str, Any]) -> Dict[str, Any]: ...
     def add_sweep_parameter_samples(self, seq_name: str, param_name: str,
                                     lower_bound: Union[float, str], upper_bound: Union[float, str],
