@@ -95,6 +95,67 @@ app.save()
 不能证明工程已打开，调用方须遵守打开后更新、原生保存、重开核验的顺序。
 新模板仍可用 `stage_python_result_template` 暂存；首次创建绑定不属于本次封装。
 
+## 自动出图的交付与配置专用检查
+
+用户要求运行父扫描后自动出图时，模型交付必须包含实际绑定，不以脚本、
+暂存库、空 Post 任务或预先写好的静态 Results 曲线替代。绑定配置和内嵌
+代码须随工程保存，显式关闭重开后取得原生识别证据。只配置模式不运行
+EM、DC、HB、网格、扫描或模板评估来补验收；无法完成则报告具体缺项。
+
+新增两个配置专用原生函数，借用所属会话的 app，并始终明确 project_id：
+
+```python
+from cst_solver.circuit.native import (
+    configure_hb_postprocessing_chain, inspect_hb_postprocessing_chain,
+)
+app, record = runtime.project(project_id)
+report = configure_hb_postprocessing_chain(
+    app.cst_file.schematic, parent_task, hb_task, post_task, create=True,
+)
+# create=True 拒绝同名；create=False 仅接受已有 template 类型 Post。
+# 三个名称使用实际完整任务路径，两子任务必须是父任务的直接子项。
+# 启用父/HB/Post，并将 HB、Post 相邻放在末尾；保留其他子任务及其启用状态。
+runtime.save(app, project_id)
+```
+
+配置函数完成后读取原生任务类型、enabled、generic model folder 和实际树
+同级顺序。检查函数只读，读取失败直接报错，不用请求值填充读回。
+`readback_verified` 仅指这些任务设置；`binding_verified` 和
+`reopen_verified` 始终 False。配置函数失败可能留下部分修改，不自动重试。
+它们不创建模板资源、不保存、不重建、不启动任务，尚未完成真机验收。
+
+对已有绑定，可在保存前后分别审计明确指定的资源：
+
+```python
+from cst_automation.result_templates import inspect_embedded_python_result_template
+resources = inspect_embedded_python_result_template(
+    project_resources, metadata_path=actual_metadata_path,
+    expected_settings=caller_settings, expected_sha256=source_sha256,
+)
+```
+
+它检查项目内同目录的 `.rtjson`、local_copy `.rtpy/.py` 和 Summary.rpp
+精确名称条目、源码静态语法/入口、源码摘要和调用方预期设置。它不解析或
+生成未文档化的整个 RPP 格式，也不从 `GetModelFolder(True)` 猜 `_35_0`
+等内部后缀。`resource_integrity_verified=True` 只证明资源审计通过；即使
+三文件都在，也不能推出 CST 已加载绑定。后续源码替换继续使用要求旧摘要
+的 `replace_embedded_python_result_template`，不覆盖其他模板或设置。
+
+### 首次注册尚缺的原生入口
+
+本机 CST 2026 官方 `VBA_DES/special_vbacommands/simulationtaskobject.htm`
+文档支持 template 任务创建、SetProperty、MoveInTree 和 GetModelFolder；
+`projectobject.htm` 明确规定 DS 的 ResetTemplateIterator/GetNextTemplate
+仅在后处理任务运行期间有效。`cst.tbpp` 的 Python 模块处理模板定义和
+执行，不提供已核实的首次绑定注册接口。当前文档检索未建立配置专用的
+原生导入/注册路径，因此没有发布一个只写三文件却声称成功的 bind API。
+这里是能力缺项，不是禁止通用能力公开；一旦取得可验证入口，应提供
+首次创建、同名拒绝、摘要受控替换与原生保存重开验收，并显式注册服务/MCP。
+
+模板的参数、方向、探针、指标及图表分组均由调用方决定。使用实际输入 RF
+作横轴，缺方向不补零；重复运行只替换本流程拥有的结果叶及输出文件。
+有限功率同频 b/a 不等于增量小信号 S 参数。
+
 ## 证据与操作成本
 
 优先用代码、日志、结果文件和原生读回验收；仅在接口不足、实际交互对话框

@@ -487,3 +487,30 @@ rules incorrectly applied to ports.
 Executing session `model_api` batches reject `log_flag` values other than the
 integer 1 before any batch mutation. Code-generation-only log_flag=0 belongs
 outside this route and cannot produce a successful modeled-stage receipt.
+## HB post-processing configuration evidence
+
+`cst_solver.circuit.native.configure_hb_postprocessing_chain(schematic,
+parent_task, hb_task, post_task, *, create=False)` configures an existing native
+Parameter Sweep and Spectral Lines child, optionally creates a new `template`
+child, enables all three and moves HB immediately before Post at the end of
+the parent's task list. Both child names must be full paths directly under
+the parent. Creation refuses name conflicts; update refuses absent/wrong-type
+tasks. This does not bind any result template, save, rebuild or solve.
+`inspect_hb_postprocessing_chain(...)` reads native types, enabled flags,
+task folders and the actual Results-tree sibling order. Task-chain readback
+is distinct from result-template registration and saved/reopened evidence.
+
+`cst_automation.result_templates.inspect_embedded_python_result_template(
+project_resources, *, metadata_path, expected_settings, expected_sha256=None)`
+checks one explicit existing local-copy module, metadata settings and its
+Summary.rpp registration entry. It never executes code or edits files.
+`resource_integrity_verified` is **not** native binding verification. Generic
+task folders do not identify the actual template-resource folder, and this
+API does not invent a suffix or copy an unrelated project's Summary.rpp.
+
+First-time native registration remains unsupported: the CST 2026 documented
+DS template iterator requires a *running* post-processing task, and no
+configuration-only registration/import command has been established. Do not
+expose a service/MCP `bind` operation which merely writes files. Automatic
+plot delivery requires an actual binding plus native save/reopen acceptance;
+staging, task creation and static Results curves do not meet that contract.

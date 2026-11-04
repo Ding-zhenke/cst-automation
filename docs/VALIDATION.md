@@ -245,3 +245,14 @@ CST 2026 Help 的 transient shooting 模式、steady state period detection/peri
 - **发行制品**：构建 wheel 和 sdist 成功；构建后端最低版本改为支持 SPDX license 字符串的 `setuptools>=77`。制品不含 `work/`、`.venv/`、源码备份或 Git 元数据，wheel 内配置无机器路径。
 - **干净安装**：`work/maintenance-20261027/release-venv/` 由 `venv` 新建，`include-system-site-packages = false`；安装刚构建的 wheel 及声明的 NumPy/MCP 依赖。独立目录中清除 `PYTHONPATH`，四个包的加载路径均在该环境 `site-packages`，普通导入不改 `sys.path`、不加载 `cst`。曲线调用、缺失 SDK 的 doctor 退出码 1、安装版 stdio 握手/9 个工具发现/结构化错误均通过。可复用检查脚本为 `scripts/verify_wheel.py`；CI 的 build job 也执行该隔离安装检查。
 - **尚未验收**：真实 CST 几何重建、实际消息/UIA、S 参数结果树发现、远场导出、solver，以及相邻领域仓库联调。具体几何参数、端口及阶段证据方案见 [真机验收预览](REAL_CST_ACCEPTANCE.md)，等待用户审阅后才构造几何。运行中取消接口仍未开放。
+## 2026-11-04 HB 后处理任务与资源审计
+
+- 新增配置专用任务链配置/读回及模板资源三件套审计；38 项相关离线测试通过。
+  覆盖父/子类型与关系、同名拒绝、启用和相邻顺序、缺资源、陈旧任务设置、
+  资源路径和源码摘要冲突，以及既有源码替换/曲线写入回归。
+- 没有进行求解、网格、扫描、模板执行或 Computer Use。空 DS 工程的实机
+  验证尝试在 CST DE 启动阶段失败：本机限制拒绝 CST 内部总线 socket，
+  未创建工程，未达到任务配置、首次绑定、原生保存或重开验收层级。
+- 官方 DS 模板枚举需要运行中的后处理任务；尚无已核实的配置专用首次注册
+  入口。资源审计和任务顺序读回不能作为首次绑定认证。本次未新增 bind MCP
+  或声称首次注册可用，未提交/发布该未完成能力。

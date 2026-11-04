@@ -158,3 +158,61 @@ def replace_embedded_python_result_template(template_source, project_resources, 
     return {'path': str(module), 'metadata_path': str(meta), 'before_sha256': before,
             'sha256': hashlib.sha256(payload).hexdigest(), 'validation': validation,
             'native_save_required': True, 'readback_verified': False, 'solver_verified': False}
+
+
+def inspect_embedded_python_result_template(project_resources, *, metadata_path,
+                                           expected_settings, expected_sha256=None):
+    """Audit an explicit resource triple without claiming native registration.
+
+    Summary.rpp is deliberately not synthesized: its serialization is not a
+    documented registration API. A matching entry is necessary evidence only.
+    Supply actual resource paths read from the project, never a guessed suffix.
+    """
+    if not isinstance(expected_settings, dict):
+        raise ResultTemplateError('Explicit expected_settings mapping required')
+    if expected_sha256 is not None and (not isinstance(expected_sha256, str) or
+            not re.fullmatch(r'[0-9a-fA-F]{64}', expected_sha256)):
+        raise ResultTemplateError('expected_sha256 must be a SHA-256 hex digest')
+    root = Path(project_resources).resolve()
+    ds_root = (root / 'Model' / 'DS').resolve()
+    meta = Path(metadata_path).resolve()
+    if not ds_root.is_relative_to(root) or not meta.is_relative_to(ds_root) or meta.suffix.lower() != '.rtjson':
+        raise ResultTemplateError('Metadata must be an existing .rtjson within project Model/DS')
+    try:
+        data = json.loads(meta.read_text(encoding='utf-8'))
+        binding = data['template']
+        module_info = binding['python_module']
+        if not isinstance(binding, dict) or not isinstance(module_info, dict):
+            raise ResultTemplateError('Template and python_module must be mappings')
+        relative = module_info['path']
+        # Native local copies use a leaf in the same task resource folder.
+        if (module_info.get('type') != 'local_copy' or not isinstance(relative, str)
+                or not relative or '/' in relative or '\\' in relative or ':' in relative
+                or Path(relative).is_absolute()):
+            raise ResultTemplateError('Expected an embedded local_copy module in the metadata folder')
+        module = (meta.parent / relative).resolve()
+        summary = (meta.parent / 'Summary.rpp').resolve()
+        if (not module.is_relative_to(meta.parent) or not summary.is_relative_to(meta.parent)
+                or module.suffix.lower() not in ('.py', '.rtpy')):
+            raise ResultTemplateError('Embedded resource paths escape the task folder')
+        if binding['settings'] != expected_settings:
+            raise ResultTemplateError('Embedded template settings do not match expected_settings')
+        payload = module.read_bytes()
+        validation = validate_python_result_template(payload.decode('utf-8'))
+        digest = hashlib.sha256(payload).hexdigest()
+        if expected_sha256 is not None and digest != expected_sha256.lower():
+            raise ResultTemplateError('Embedded source SHA-256 mismatch')
+        summary_bytes = summary.read_bytes()
+        # This checks the observed exact-name entry, not the undocumented schema.
+        if summary_bytes.splitlines().count(meta.stem.encode('utf-8')) != 1:
+            raise ResultTemplateError('Summary.rpp must contain exactly one matching result-name entry')
+    except ResultTemplateError:
+        raise
+    except (OSError, UnicodeError, ValueError, KeyError, TypeError) as exc:
+        raise ResultTemplateError('Cannot audit embedded template: ' + str(exc)) from exc
+    return {'metadata_path': str(meta), 'path': str(module), 'summary_path': str(summary),
+            'settings': binding['settings'], 'sha256': digest,
+            'summary_sha256': hashlib.sha256(summary_bytes).hexdigest(),
+            'validation': validation, 'resource_integrity_verified': True,
+            'summary_name_entry_present': True, 'binding_verified': False,
+            'readback_verified': False, 'reopen_verified': False, 'solver_verified': False}
