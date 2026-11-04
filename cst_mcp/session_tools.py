@@ -4,6 +4,7 @@ from .errors import tool_payload
 
 def register_session_tools(root, *, backend='cst', replace=False):
     from tpc_service.sessions import SessionManager
+    from tpc_service.sessions.manager import OPERATIONS
     from .tools import register_tool, _spec
     manager = SessionManager(root, backend=backend)
     string = {'type': 'string', 'minLength': 1}
@@ -43,8 +44,7 @@ def register_session_tools(root, *, backend='cst', replace=False):
         ('get_cst_session', 'Read the explicit session and durable task state.', identity,
          list(identity), status, True),
         ('submit_cst_session_operation', 'Queue an explicit operation in the bound persistent CST environment. Geometry requires prior reviewed preview.',
-         dict(identity, request_id=string, operation={'type': 'string', 'enum': [
-             'start', 'create_project', 'import_project', 'inspect', 'history', 'set_parameters', 'solve', 'circuit']},
+         dict(identity, request_id=string, operation={'type': 'string', 'enum': sorted(OPERATIONS)},
               params={'type': 'object'}, operation_id=string),
          list(identity) + ['request_id', 'operation'], submit, False),
         ('get_cst_session_job', 'Read an existing receipt; never repeat a write because a client wait timed out.',

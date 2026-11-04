@@ -1,20 +1,38 @@
 ---
 name: cst-diagnostics
-description: Use when diagnosing CST discovery or ABI failures, unavailable APIs, stalled calls, native dialogs, failed solves, or ambiguous completion status.
+description: Diagnose CST installation, Python ABI, SDK import, solver stalls, dialogs, and structured task failures without guessing.
 ---
 
-# CST 故障诊断
+# CST diagnostics
 
-先读[环境与能力](../cst-sessions/references/runtime.md)，取得当前工程、原任务/阶段、配置来源及实际错误，不猜安装位置或 SDK 命令。
+Start with `python -m cst_solver doctor --json` and preserve the complete diagnostic report. Separate installation discovery, Python ABI match, import/DLL load, project readback, and solver execution; evidence for one stage does not prove a later stage.
 
-| 症状 | 首先核查 |
-|---|---|
-| SDK 不可用 | doctor 配置、路径、ABI、按需导入及底层 DLL 错误 |
-| API/MCP 缺失 | 安装模块位置/版本、签名及显式注册 |
-| 调用停滞 | 原 job、日志最后阶段、真实窗口与进程归属 |
-| 重连失败 | 原引用、worker、DE 的 PID/启动时间/镜像和工程摘要 |
-| 结果异常 | 指定数据文件、运行身份、参数一致性、单位和有效矩阵 |
+For a stall, inspect the actual dialog title, body, buttons, process ID, and owning CST process before any response. Do not blindly dismiss prompts or rerun a write while the original SDK call may still be blocked. A timeout or a closed dialog is not success; state the observed status and next actionable step.
 
-弹窗读取实际标题、正文、按钮和所属 PID 后再决定动作。超时、关闭窗口或 Python 返回不能独立证明成功。受限进程查询失败不证明 CST 已退出。
+## History errors: code and text first
 
-恢复按 [cst-sessions](../cst-sessions/SKILL.md)，先查原任务再续做，不重复启动或删除现场。原因未明时列已知证据及具体缺项，不用降低门槛或换旧结果掩盖。
+Minimize Computer Use. Read the original session job/exception, CST messages and PID-scoped
+`cst_solver.dialogs` snapshot first; the session worker already monitors dialogs independently
+of the blocked SDK call. No routine screenshots or UI clicks are needed when this evidence is
+complete. Read [the recovery procedure](../../docs/guides/cst_dialogs.md#历史错误优先代码诊断)
+for bounded programmatic acknowledgement and the conditions requiring visual inspection.
+
+For `Method or property not found`, trace the reported command to its source and check the
+installed official VBA help and existing Python wrapper before correcting it. For example,
+the CST 2026 DiscretePort help does not document `DiscretePort.Delete`; do not invent a
+replacement method or treat this as proof of a missing port. A new empty project avoids
+inherited history, but cannot make unsupported commands valid. Fix the source, retain the
+failure evidence, and verify the corrected stage; never suppress the error or disable history
+to report success. An unresolved call must return before any further SDK write or retry.
+
+## Result incompatibility prompts: prefer API preparation
+
+For `Results May Get Incompatible With Model`, read the [API handling guidance](../../docs/guides/cst_dialogs.md#结果失效弹窗的-api-预处理) before resorting to Computer Use.
+
+- Before a model-changing call, determine the result-retention policy from existing user instructions. Preserve and verify any required results before cleanup; ask only if the needed choice is still unspecified.
+- CST VBA `DeleteResults` is documented to delete all results of the actual project. Do not equate it with the dialog's **keep result cache** option or claim cache preservation without version-specific evidence. Confirm the target project and 3D/schematic execution context before invoking it through an available macro interface.
+- Python `de.quiet_mode_enabled()` temporarily enables quiet mode and restores the prior state. It suppresses message boxes, but the official API excludes dialogs requiring user input; it does not guarantee suppression of this multi-option prompt or select a retention policy.
+- Prefer preparing results through verified APIs before submitting the model change. If a call is already blocked, inspect the original task and dialog first; do not issue another SDK write to clear results or replay the change while it remains pending.
+- These are documented CST API options, not a newly implemented repository endpoint or proof that the prompt has been eliminated on a real project. Retain dialog monitoring and verify the original call's return, messages, and resulting state.
+
+See [environment setup](../../docs/guides/cst_environment.md), [dialog handling](../../docs/guides/cst_dialogs.md), and [troubleshooting](../../docs/guides/troubleshooting.md).

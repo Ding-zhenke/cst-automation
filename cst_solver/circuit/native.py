@@ -42,6 +42,92 @@ def _task(schematic, name, kind, *, create=False):
     return task
 
 
+def _chain_names(parent_task, hb_task, post_task):
+    for name in (parent_task, hb_task, post_task):
+        _text(name)
+        if any(not part or part in ('.', '..') for part in name.split('\\')):
+            raise ValueError('Task paths require nonempty name components')
+    if hb_task == post_task or any(
+            name.rsplit('\\', 1)[0] != parent_task or '\\' not in name
+            for name in (hb_task, post_task)):
+        raise ValueError('HB and Post must be distinct direct children of the explicit parent')
+
+
+def inspect_hb_postprocessing_chain(schematic, parent_task, hb_task, post_task):
+    """Read task configuration only; never enumerate/evaluate result templates.
+
+    ``readback_verified`` refers only to enabled task types and sibling order.
+    It cannot certify template registration or persistence after a native reopen.
+    Native query errors propagate rather than being replaced by requested values.
+    """
+    _chain_names(parent_task, hb_task, post_task)
+    records = []
+    for name, kind in ((parent_task, 'parameter sweep'), (hb_task, 'spectral lines'),
+                       (post_task, 'template')):
+        task = _task(schematic, name, kind)
+        raw = str(task.GetProperty('enabled')).strip().lower()
+        if raw not in ('true', 'false'):
+            raise ValueError('Unrecognized native enabled value: ' + raw)
+        records.append({'name': name, 'type': str(task.GetTypeForTask(name)),
+                        'enabled': raw == 'true', 'generic_model_folder': str(task.GetModelFolder(True))})
+    root = 'Tasks\\' + parent_task
+    tree = schematic.ResultTree
+    item = str(tree.GetFirstChildName(root))
+    siblings, seen = [], set()
+    for _ in range(10000):
+        if not item:
+            break
+        if item in seen or not item.startswith(root + '\\'):
+            raise ValueError('Native sibling enumeration is cyclic or outside the parent')
+        seen.add(item)
+        relative = item[len('Tasks\\'):]
+        if relative.rsplit('\\', 1)[0] != parent_task:
+            raise ValueError('Native query did not return direct siblings')
+        # Result folders can coexist with task children. Only tasks affect order.
+        task = schematic.SimulationTask
+        task.Reset(); task.Name(relative)
+        if task.DoesExist():
+            siblings.append(relative)
+        item = str(tree.GetNextItemName(item))
+    else:
+        raise ValueError('Native sibling enumeration did not terminate')
+    ordered = hb_task in siblings and post_task in siblings and (
+        siblings.index(post_task) == siblings.index(hb_task) + 1)
+    return {'tasks': records, 'task_order': siblings, 'hb_then_post': ordered,
+            'readback_verified': ordered and all(row['enabled'] for row in records),
+            'binding_verified': False, 'reopen_verified': False, 'solver_verified': False}
+
+
+def configure_hb_postprocessing_chain(schematic, parent_task, hb_task, post_task, *, create=False):
+    """Configure HB -> Post scheduling only; this is NOT first-time binding.
+
+    Uses documented SimulationTask operations. Does not save, rebuild, evaluate,
+    update, generate a mesh or run a solver. Reuse the owning session's schematic.
+    Native failures can leave partial configuration; inspect before retrying.
+    """
+    _chain_names(parent_task, hb_task, post_task)
+    if type(create) is not bool:
+        raise ValueError('create must be boolean')
+    # Finish existence/type/conflict checks before the first mutation.
+    _task(schematic, parent_task, 'parameter sweep')
+    _task(schematic, hb_task, 'spectral lines')
+    task = schematic.SimulationTask
+    task.Reset(); task.Name(post_task)
+    if create:
+        if task.DoesExist():
+            raise ValueError('Post task already exists; refusing to overwrite: ' + post_task)
+    else:
+        _task(schematic, post_task, 'template')
+    _task(schematic, post_task, 'template', create=create)
+    for name, kind in ((parent_task, 'parameter sweep'), (hb_task, 'spectral lines'),
+                       (post_task, 'template')):
+        _task(schematic, name, kind).SetProperty('enabled', 'True')
+    _task(schematic, post_task, 'template').MoveInTree(parent_task, '')
+    _task(schematic, hb_task, 'spectral lines').MoveInTree(parent_task, post_task.rsplit('\\', 1)[1])
+    report = inspect_hb_postprocessing_chain(schematic, parent_task, hb_task, post_task)
+    return dict(report, created=create, native_save_required=True)
+
+
 def configure_hb_task(schematic, task_name, tones, *, diamond=False, create=False):
     """Replace tone definitions only; preserve expressions and other settings.
 

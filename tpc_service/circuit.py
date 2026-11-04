@@ -25,7 +25,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             return setup(path)
 
     allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "inspect", "read_results", "package"},
-               "solve": {"run_task"}, "study": {"parameter_sequence"}}
+               "solve": {"run_task"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
     def handle(*, project, params, job, backend):
         app = None
@@ -34,9 +34,15 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             if operation not in allowed.get(job["kind"], set()):
                 raise CircuitError("circuit_spec_invalid", "Unknown kind/operation combination")
             path = contained(service.workdir, project["path"])
+            if operation == 'run_parameter_study':
+                from cst_automation.circuit_studies import normalize_parameter_study
+                try:
+                    normalize_parameter_study(params.get('spec'))
+                except ValueError as exc:
+                    raise CircuitError('circuit_spec_invalid', str(exc)) from exc
             if operation == "configure":
                 from cst_automation.circuit_schema import validate_circuit_spec
-                validate_circuit_spec(params.get("spec"))
+                validate_circuit_spec(params.get("spec"), defer_references=True)
             if operation == 'configure_transient_task':
                 from cst_automation.circuit_tasks import transient_settings
                 transient_settings(params.get('settings'))
@@ -166,6 +172,16 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                 report = api.bundle(str(dest))
                 return fail_result("circuit_result_unverified", "Copies staged; live link relocation/reopen is pending", saved=False,
                                    result_summary=report, artifacts=[artifact(p) for p in report["artifacts"]])
+            if operation == 'run_parameter_study':
+                report = api.run_parameter_study(params['spec'])
+                artifacts = [artifact(report['manifest_path'], kind='study_manifest'),
+                             artifact(report['batch_path'], kind='study_archive')]
+                if report['status'] == 'succeeded':
+                    return ok_result(saved=report['saved'], result_summary=report, artifacts=artifacts)
+                error = (report.get('errors') or [{}])[0]
+                return fail_result(error.get('code', 'circuit_result_unverified'),
+                    error.get('message', 'Parameter study not verified'), saved=report.get('saved', False),
+                    result_summary=report, artifacts=artifacts)
             if operation == "parameter_sequence":
                 points = params.get("points", [])
                 if not isinstance(points, list) or not 1 <= len(points) <= 100:

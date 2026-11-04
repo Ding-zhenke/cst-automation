@@ -315,3 +315,39 @@ def test_template_staging_is_sdk_free_and_stays_in_workdir(tmp_path, redirect_li
                 library.rmdir()
             else:
                 library.unlink()
+
+
+
+def test_parameter_study_route_runs_on_worker_and_keeps_unverified_artifacts(tmp_path):
+    events=[]
+    def run(spec):
+        events.append(threading.current_thread().name)
+        return {'status':'unverified','batch_path':str(tmp_path/'batch'),'manifest_path':str(tmp_path/'study.json'),
+                'saved':True,'cases':[{'case_id':'p0001','status':'unverified'}],'errors':[]}
+    app=SimpleNamespace(circuit=SimpleNamespace(run_parameter_study=run),close=lambda:None)
+    service=RunService(str(tmp_path),backend=FakeBackend())
+    register_circuit_handlers(service,app_factory=lambda path:app)
+    path=tmp_path/'p.cst';path.write_text('fixture')
+    study={'schema_version':1,'name':'scan','parameters':{'r':{'scope':'circuit','unit':'1'}},
+        'points':[{'values':{'r':1}}],
+        'task':{'name':'AC','mode':'network','results':[{'name':'v','tree_path':r'Tasks\AC\V','run_id':0}]}}
+    try:
+        job=service.submit('study',project_path=str(path),copy=False,
+            params={'workflow':'circuit','operation':'run_parameter_study','spec':study})
+        out=service.wait(job['job_id'],timeout=3)
+        assert events==['cst-automation-worker']
+        assert out['status']=='failed' and out['error']['code']=='circuit_result_unverified'
+        assert out['result_summary']['cases'][0]['status']=='unverified' and out['artifacts']
+    finally:service.shutdown()
+
+
+def test_invalid_study_never_opens_sdk(tmp_path):
+    service=RunService(str(tmp_path),backend=FakeBackend())
+    register_circuit_handlers(service,app_factory=lambda p:pytest.fail('Invalid plan must not open SDK'))
+    path=tmp_path/'p.cst';path.write_text('fixture')
+    try:
+        job=service.submit('study',project_path=str(path),copy=False,
+            params={'workflow':'circuit','operation':'run_parameter_study','spec':{}})
+        out=service.wait(job['job_id'],timeout=3)
+        assert out['status']=='failed' and out['error']['code']=='circuit_spec_invalid'
+    finally:service.shutdown()

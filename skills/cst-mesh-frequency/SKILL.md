@@ -1,0 +1,100 @@
+---
+name: cst-mesh-frequency
+description: Use when choosing or changing CST electromagnetic mesh density, local refinement, frequency sampling, or F-solver mesh adaptation points and convergence controls.
+---
+
+# Mesh and frequency decisions
+
+Use [cst-sessions](../cst-sessions/SKILL.md) for actual project operations and
+[cst-simulation](../cst-simulation/SKILL.md) for solving. For server preparation,
+configure without local solving. Read actual geometry, units, materials, band, solver and
+existing frequency-table rows before choosing settings; inherited automatic
+settings alone are not a mesh plan.
+
+## Estimate electrical size before enabling adaptation
+
+Estimate each overall dimension and relevant propagation length in wavelengths
+over the band. Start with lambda0=c/f and material wavelength lambda0/n using
+the applicable dispersive material or mode index. Record which index is known
+or approximated; high-permittivity regions can be electrically much larger than
+the free-space estimate. For strongly lossy/dispersive media consider complex
+propagation constant and penetration depth instead of a lossless-index shortcut.
+
+Combine electrical extents with thin films, contacts, gaps, ports, curvature and
+anticipated global/local mesh density. Use prior cells/DOF and memory/timing if
+available; otherwise label the cost estimate provisional. There is no universal
+size threshold that makes a mesh adequate or automatic adaptation affordable.
+
+- Electrically large or expensive geometry: usually keep the **Adapt. checkbox
+  on the Automatic row off**, and select a few Single rows for adaptation.
+  Two or three points covering band edges and a representative interior mode
+  or resonance are an initial choice. Adjust for narrow resonances, dispersion,
+  port cutoffs and field localization; do not certify a band from a fixed trio.
+- Electrically small, affordable geometry: Automatic-row adaptation can be
+  appropriate. Explain the electrical-size/cost reason and bound the pass budget.
+- Preserve a justified accepted mesh when continuing comparable work. A new
+  geometry or field-localizing material state can invalidate its suitability.
+
+Explain the estimate, chosen adaptation frequencies/mode and expected cost
+before settings are applied. A choice of a few points is conditional, not a ban
+on automatic adaptation and not permission to weaken convergence targets.
+
+## Separate the controls
+
+| Control | Purpose / API |
+|---|---|
+| Model band | `set_frequency_range`; preserve parameter references |
+| Actual broadband frequency sampling | `configure_fd_frequency` → `sampling_intervals` |
+| Mesh-adaptation frequencies | same API → `adaptation_frequencies` (Single, Adapt=True), or explicit interval `adaptation` boolean |
+| Display/interpolated result resolution | `output_samples`; a dense curve is not that many independent solves |
+| Shared sweep/result axis mode | `output_spacing`; CST applies it to adaptive sampling and output axes |
+| Global tetrahedral density, material refinement | `configure_tetrahedral_mesh` |
+| Local tetrahedral solid size | same API → `local_solids` |
+| Pass/Delta-S refinement convergence | same API → `adaptation` |
+| Linear-equation residual | `configure_fem_solver(accuracy=...)`; independent of mesh/Delta-S convergence |
+
+For a parameter-linked EM model band, define the project parameters first and
+call `app.set_frequency_range("fmin", "fmax")` with expression strings. Numeric
+Python variables passed as `set_frequency_range(fmin, fmax)` produce fixed
+bounds. The existing session `model_api` call is
+`{"method": "set_frequency_range", "args": ["fmin", "fmax"]}`; use this wrapper
+rather than caller-written `Solver.FrequencyRange` history. Derived expression
+strings are supported by the same wrapper. Check the active runtime source
+when diagnosing linkage; changing skill text does not update Python code.
+
+`configure_fd_frequency` interval endpoints and adaptation points currently
+accept numeric values only. They do not create parameter references or update
+the model band. Recheck those separately configured rows when changing band
+parameters; quoted model-band expressions alone do not establish their linkage.
+
+Use focused typed settings and inspect runtime signatures. For F tetrahedral
+mesh, do not substitute hexahedral `LinesPerWavelength`, arbitrary MeshSettings
+keys or old MeshShapes region wrappers. Refine actual high-field gaps, contacts,
+ports and thin active regions locally; do not size the entire device by its
+smallest feature. Model ideal PEC, finite-conductivity skin depth and thin-sheet
+representations according to the intended physics and solver support.
+
+For large-model few-point adaptation, submit an Automatic interval with
+`adaptation=False` plus the selected `adaptation_frequencies`. For affordable
+automatic adaptation, explicitly set the Automatic interval `adaptation=True`.
+Each interval requires start/stop/spacing/samples; spacing is
+automatic/linear/logarithmic/single. Automatic samples may be None; range
+sampling uses endpoint-inclusive counts. Frequencies use project frequency
+units; local mesh max_step uses project length units.
+
+Intervals append by default. To replace inherited user-defined rows, explicitly
+use `replace_intervals=True` and provide the complete intended interval/point
+set. This resets sample intervals only; it is not a full solver reset, nor proof
+that monitor-derived rows are removed. Inspect the resulting native frequency
+table, especially Adapt. flags. A zero band boundary does not prove a DC sample.
+
+Set a bounded adaptation pass count and Delta-S criterion, plus independent
+broadband interpolation error and sample/check budgets as needed. Material-only
+sweeps can change skin depth or field localization; geometry sweeps can require
+remeshing. Do not promise cross-case mesh/solution reuse from a generic restart
+flag. Use [cst-parameter-study](../cst-parameter-study/SKILL.md) for scan design.
+
+Configuration receipts currently have native settings readback unsupported and
+readback_verified/mesh_verified/solver_verified False. Session rebuild/save does
+not turn them into mesh or solver evidence. Report requested settings separately
+from checked native flags, actual mesh cells/DOF, convergence and solved results.

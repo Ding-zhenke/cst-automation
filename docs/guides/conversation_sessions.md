@@ -1,5 +1,13 @@
 # 多对话 CST 持久会话
 
+工程复用、临时标签关闭和最小交付遵循
+[工程生命周期](../../skills/cst-sessions/references/project-lifecycle.md)。
+`close_project` 只保存并关闭一个登记标签，正式 DE 保留；临时工程关闭后转入
+`retired_projects` 审计记录。建模完成且正式工程及配套数据核验完整后，关闭、退休并
+删除本任务的过程工程（包括未标记 temporary 的 model.cst），保留正式交付、未完成任务
+及最小审计记录；清理不是关闭整个 DE。扫描配置使用 `configure_sweep`，只读原生检查使用
+`inspect(native_readback=true)`，核验报告不进入可重播的几何历史。
+
 每个对话使用独立恢复引用、独立 worker、独立 CST DE 和独立工程目录。首次真实操作
 启动 DE，后续复用。回复结束、停止等待、MCP 断线都不关闭 DE。只有明确 close 请求
 才在已接受任务完成后保存并释放。源码讨论和预览不用启动。
@@ -21,6 +29,10 @@ ensure 原子保存恢复引用，不打开 CST。中断 ensure 后使用原文�
 记录的路径；服务不会凭窗口标题或 cwd 猜测目标。
 
 把明确参数保存为 `work\create-project.json`：
+
+新器件默认使用下面的 `create_project` 从空工程开始，复用经审查的建模代码而非旧
+`.cst` 模板。`import_project` 用于要求续改/恢复的已有工程或确需保留的工程内容。
+创建后各阶段、同拓扑扫参和中断恢复继续使用同一 project_id，不反复新建空工程。
 
 ```json
 {"project_id": "model-main", "project_type": "MWS"}
@@ -87,8 +99,8 @@ confirm_no_environment=true。它只记录人工采纳的保存基线，未知�
 ```
 
 关闭前已接受的任务按序完成；新任务被拒绝。不强杀求解。close_failed 保留环境与错误，
-需现场核对。工作工程和日志保留；已明确关闭的绑定不自动重开，后续新绑定可以导入其
-保存工程。CST 崩溃、用户手工关闭或系统重启无法保证进程永存；恢复以最后保存为界。
+需现场核对。正式工程、未完成工作和最小审计日志保留；已完成用途的过程副本按工程
+生命周期清理。已明确关闭的绑定不自动重开，后续新绑定可以导入保留的正式工程。CST 崩溃、用户手工关闭或系统重启无法保证进程永存；恢复以最后保存为界。
 
 ## MCP 接入
 
@@ -113,3 +125,16 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 `--backend fake` 仅用于离线演示；不构成原生读回或求解证据。2026-10-27 空 DE 实测
 覆盖双环境、跨客户端保留、worker 丢失重连原身份与独立关闭；未执行实际几何或求解。
 验收边界以 `docs/VALIDATION.md` 为准。
+
+
+恢复时，如果同一已核实 DE 中的已保存工程标签已关闭，只有匹配的显式基线确认（last_resolution.human_reviewed、每个工程摘要和当前文件摘要全部相同）才允许重新打开该已登记路径。无确认或摘要变化仍拒绝；不接管其他会话、不搜索活动窗口，也不重放建模。
+
+
+`set_parameters` supports `expressions` alongside `values` to pass UTF-8 parameter descriptions directly to the existing Python `app.para(..., expression=...)` API. Expressions here are descriptions; executable CST formulas remain in values.
+
+
+## Python API 建模阶段
+
+`model_api` 操作把审核过的 `calls=[{method,args,kwargs}, ...]` 直接分发给持久会话拥有的 `cst_solver.setup`。静态白名单禁止任意代码、动态导入、求解和关闭工程。每阶段携带 stage_id 和规范JSON calls的SHA256 preview_digest；先检查全部方法签名，再按序调用，完成后原生重建、保存及写检查点。底层API内部生成VBA是库实现细节，不再由调用方拼接整个模型的VBA。该路由的离线fake只记录调用，不伪装实机执行。
+
+参数使用 `set_parameters` 的 values 与 expressions；说明优先中文，公式保留原值。旧历史若写死说明，会在重建时覆盖前置说明，所以会话在重建成功后通过现有描述接口恢复本次说明再保存。新工程应从参数API开始，不在历史中写死另一份参数说明。

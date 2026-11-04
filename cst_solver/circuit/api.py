@@ -34,7 +34,7 @@ class CircuitAPI:
     def apply(self, spec, *, conflict="error"):
         if conflict != "error":
             raise CircuitError("circuit_spec_invalid", "Only conflict='error' is supported")
-        data = validate_circuit_spec(spec)
+        data = validate_circuit_spec(spec, defer_references=True)
         before = self.inspect()
         if data["parameters"]:
             existing_parameters = before.get("parameters")
@@ -46,6 +46,8 @@ class CircuitAPI:
             existing = {obj["name"] for obj in before[group]}
             if any(obj["name"] in existing for obj in data[group]):
                 raise CircuitError("circuit_topology_invalid", f"{group} name conflict")
+        data = validate_circuit_spec(data, existing=before)
+        self._spec = None
         try:
             self.adapter.apply(data)
             after = self.inspect()
@@ -156,3 +158,8 @@ class CircuitAPI:
     def run_checked(self, task_name, *, mode, expected_results, reuse="never", note=""):
         from .run import run_checked
         return run_checked(self, task_name, mode=mode, expected_results=expected_results, reuse=reuse, note=note)
+
+    def run_parameter_study(self, spec):
+        """Run a fixed-topology point sequence with append-only case archives."""
+        from .study import run_parameter_study
+        return run_parameter_study(self, spec)

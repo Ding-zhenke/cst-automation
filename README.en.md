@@ -12,7 +12,7 @@
 
 Use the standalone curve utilities on their own, or use the library as a foundation for a domain application that connects project preparation to result reporting.
 
-> Current version: `0.1.0`. The core package supports Python 3.9+; the MCP extra requires Python 3.10+. Real CST operations require a local CST Studio Suite installation, an available license, and an interpreter compatible with its Python extension. Offline analysis and the fake backend can run without CST.
+> Current development version: `0.2.0.dev0`. The core package supports Python 3.9+; the MCP extra requires Python 3.10+. Real CST operations require a local CST Studio Suite installation, an available license, and an interpreter compatible with its Python extension. Offline analysis and the fake backend can run without CST.
 
 ## Contents
 
@@ -210,7 +210,7 @@ cst-automation/
 ├── cst_solver/        # CST projects, modeling, simulation, results, diagnostics
 ├── tpc_service/       # General task service and backends
 ├── cst_mcp/           # MCP adapter and tool registration
-├── skills/            # Four repository-local Codex skills
+├── skills/            # Eleven repository-local Codex skills
 ├── docs/              # Installation, usage, contracts, migration, validation
 ├── tests/             # Repository tests; packages also contain their own tests
 ├── .github/workflows/ # Windows CI tests and builds

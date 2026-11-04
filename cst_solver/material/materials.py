@@ -450,47 +450,75 @@ End With
         ValueError before accessing the project. Color aliases follow
         create_material_custom.
         """
+        eps = _tensor_expression(epsilon, 'epsilon')
+        self.create_material_full_tensor(
+            name, [[eps, 0, 0], [0, eps, 0], [0, 0, eps]], mu_tensor,
+            mu_imag=mu_imag, color=color, colour=colour)
+
+    def create_material_full_tensor(
+            self, name, epsilon_tensor, mu_tensor, *,
+            epsilon_imag=None, mu_imag=None,
+            epsilon_axes=((1, 0, 0), (0, 1, 0)),
+            mu_axes=((1, 0, 0), (0, 1, 0)), color=None, colour=None):
+        """Create full complex epsilon/mu tensors like CST's built-in macro.
+
+        Inputs use real+j*imag; CST stores real-j*TensorFormulaImag.
+        Each property has independent orthonormal U,V global axes; W=UxV.
+        Numeric axes only. Expressions in tensor entries are preserved.
+        General purpose tetrahedral F solver only. Submits history without
+        saving, rebuilding, running, or claiming native readback.
+        """
         if not isinstance(name, str):
             raise ValueError('name must be a string')
         _tensor_expression(name, 'name')
-        eps = _tensor_expression(epsilon, 'epsilon')
-        matrix = _tensor_matrix(mu_tensor, 'mu_tensor')
-        imaginary = (_tensor_matrix(mu_imag, 'mu_imag')
-                     if mu_imag is not None else None)
         if colour is not None:
             if color is not None:
                 raise ValueError('color and colour are aliases; supply only one')
             color = colour
         rgb = _parse_colour(color) if color is not None else None
-
-        lines = [
-            'With Material', '    .Reset', f'    .Name "{name}"',
-            '    .Folder ""', '    .FrqType "all"',
-            '    .Type "Tensor formula"', '    .SetMaterialUnit "GHz", "mm"',
-            '    .TensorFormulaFor "epsilon_r"',
-        ]
-        for row in range(3):
-            lines.append(f'    .TensorFormulaReal {row}, {row}, "{eps}"')
-        lines.append('    .TensorFormulaFor "mu_r"')
-        for row in range(3):
-            for col in range(3):
-                value = matrix[row][col]
-                label = f'mu_tensor[{row}][{col}]'
-                if isinstance(value, numbers.Complex) and not isinstance(value, numbers.Real):
-                    if imaginary is not None:
-                        raise ValueError('complex mu_tensor entries cannot be combined with mu_imag')
-                    real = _tensor_expression(value.real, label)
-                    imag = value.imag
-                else:
-                    real = _tensor_expression(value, label)
-                    imag = imaginary[row][col] if imaginary is not None else 0
-                imag_expr = _tensor_expression(imag, f'mu_imag[{row}][{col}]')
-                # CST expects -Im(mu), not Im(mu). Parenthesize full formulas.
-                negative_imag = f'-({imag_expr})' if isinstance(imag, str) else str(-imag)
-                lines.extend([
-                    f'    .TensorFormulaReal {row}, {col}, "{real}"',
-                    f'    .TensorFormulaImag {row}, {col}, "{negative_imag}"',
-                ])
+        blocks = []
+        for key, values, imaginary, axes in (
+                ('epsilon_r', epsilon_tensor, epsilon_imag, epsilon_axes),
+                ('mu_r', mu_tensor, mu_imag, mu_axes)):
+            matrix = _tensor_matrix(values, key)
+            imag_matrix = (_tensor_matrix(imaginary, key + '_imag')
+                           if imaginary is not None else None)
+            if not isinstance(axes, (list, tuple)) or len(axes) != 2:
+                raise ValueError(key + ' axes require U,V unit vectors')
+            for vector in axes:
+                if (not isinstance(vector, (list, tuple)) or len(vector) != 3
+                        or any(isinstance(v, bool) or not isinstance(v, numbers.Real)
+                               or not math.isfinite(v) for v in vector)
+                        or not math.isclose(sum(v*v for v in vector), 1,
+                                            rel_tol=1e-9, abs_tol=1e-12)):
+                    raise ValueError(key + ' axes must be finite unit vectors')
+            if not math.isclose(sum(u*v for u, v in zip(*axes)), 0, abs_tol=1e-9):
+                raise ValueError(key + ' U,V must be orthogonal')
+            block = [f'    .TensorFormulaFor "{key}"']
+            for row in range(3):
+                for col in range(3):
+                    value = matrix[row][col]
+                    if isinstance(value, numbers.Complex) and not isinstance(value, numbers.Real):
+                        if imag_matrix is not None:
+                            raise ValueError('complex tensor and separate imaginary part conflict')
+                        real, imag = value.real, value.imag
+                    else:
+                        real = value
+                        imag = imag_matrix[row][col] if imag_matrix is not None else 0
+                    real_expr = _tensor_expression(real, key)
+                    imag_expr = _tensor_expression(imag, key + '_imag')
+                    negative_imag = f'-({imag_expr})' if isinstance(imag, str) else str(-imag)
+                    block.extend([
+                        f'    .TensorFormulaReal {row}, {col}, "{real_expr}"',
+                        f'    .TensorFormulaImag {row}, {col}, "{negative_imag}"'])
+            axis_text = ', '.join('"' + _tensor_expression(v, 'axis') + '"'
+                                  for vector in axes for v in vector)
+            block.append('    .TensorAlignment2 ' + axis_text)
+            blocks.extend(block)
+        lines = ['With Material', '    .Reset', f'    .Name "{name}"',
+                 '    .Folder ""', '    .FrqType "all"',
+                 '    .Type "Tensor formula"', '    .SetMaterialUnit "GHz", "mm"']
+        lines.extend(blocks)
         if rgb is not None:
             lines.append('    .Colour "{}", "{}", "{}"'.format(*rgb))
         lines.extend(['    .Create', 'End With'])

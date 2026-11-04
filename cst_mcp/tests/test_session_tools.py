@@ -21,4 +21,7 @@ def test_session_tools_explicit_registration_and_no_global_session(tmp_path, mon
     for name in ('submit_cst_session_operation', 'close_cst_session', 'resume_cst_session'):
         assert name in tools.WRITE_TOOLS
     assert 'get_cst_session_job' in tools.READ_TOOLS
+    from tpc_service.sessions.manager import OPERATIONS
+    schema = next(s for s in tools.TOOL_SPECS if s['name'] == 'submit_cst_session_operation')
+    assert schema['inputSchema']['properties']['operation']['enum'] == sorted(OPERATIONS)
     assert not list(tmp_path.rglob('worker.log'))

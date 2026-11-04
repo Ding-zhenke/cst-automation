@@ -169,9 +169,16 @@ End With
         :param copy: bool, True-复制镜像 False-直接镜像
         :param unite: bool, True-合并 False-独立
         """
+        if object not in ('Shape', 'Port'):
+            raise ValueError('mirror object must be Shape or Port')
+        if object == 'Port':
+            name = f'Port {name}' if type(name) is int else str(name)
+            target, destination = name, 'False'
+        else:
+            target, destination = f'{component}:{name}', 'True'
         f1 = f"""With Transform 
      .Reset 
-     .Name "{component}:{name}" 
+     .Name "{target}"
      .Origin "Free" 
      .Center "{center[0]}", "{center[1]}", "{center[2]}" 
      .PlaneNormal "{plane[0]}", "{plane[1]}", "{plane[2]}" 
@@ -179,7 +186,7 @@ End With
      .GroupObjects "{unite}" 
      .Repetitions "1" 
      .MultipleSelection "False" 
-     .AutoDestination "True" 
+     .AutoDestination "{destination}"
      .Transform "{object}", "Mirror" 
 End With
 """
@@ -197,17 +204,45 @@ End With
         :param center: list, 缩放中心 [X, Y, Z]，默认原点
         :param component: str, 归属组件
         """
+        import math
+        from numbers import Real
+
+        from cst_solver.expressions import validate_expression, validate_name
+
+        # CST 2026 Transform Object: ScaleFactor(u, v, w), always three values.
+        # Validate before accessing history; preserve symbolic CST expressions.
+        validate_name(name)
+        validate_name(component, kind='component')
+
+        def expression(value):
+            if isinstance(value, str):
+                return validate_expression(value)
+            if not isinstance(value, bool) and isinstance(value, Real):
+                try:
+                    if math.isfinite(value):
+                        return str(value)
+                except (OverflowError, ValueError):
+                    pass
+            raise ValueError('Scale factors and center coordinates must be finite numbers or CST expressions')
+
+        if isinstance(factor, (str, Real)):
+            factors = [factor, factor, factor]
+        elif isinstance(factor, (list, tuple)) and len(factor) == 3:
+            factors = factor
+        else:
+            raise ValueError('Scale factor must be a scalar or three-component vector')
+        factor_str = ', '.join(f'"{expression(value)}"' for value in factors)
         if center is None:
             center = ['0', '0', '0']
-        if isinstance(factor, (int, float)):
-            factor_str = f'"{factor}"'
-        else:
-            factor_str = f'"{factor[0]}", "{factor[1]}", "{factor[2]}"'
+        if not isinstance(center, (list, tuple)) or len(center) != 3:
+            raise ValueError('Scale center must contain three coordinates')
+        center = [expression(value) for value in center]
         f1 = f"""With Transform
      .Reset
      .Name "{component}:{name}"
      .Origin "Free"
      .Center "{center[0]}", "{center[1]}", "{center[2]}"
+     .ScaleFactor {factor_str}
      .MultipleObjects "False"
      .GroupObjects "False"
      .Repetitions "1"

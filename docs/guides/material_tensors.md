@@ -131,3 +131,33 @@ app.create_material_gyrotropic(
 - `mergedProjects/EXP_HF/examplesoverview/one-way_transmission_device.htm`：官方偏置铁氧体瞬态示例。
 
 本轮仅核对本地 Help 和离线生成历史。没有创建真实工程、切换求解器、验证原生材料读回、执行求解或测量性能；`readback_verified=False`，`solver_verified=False`。官方示例结果不代表当前工程的仿真结果。
+
+
+## 与内置 Create Full Tensor Material 宏对应（2026-10-28）
+
+本机参考：`Library/Macros/Materials/Create Full Tensor Material^+MWS.mcr`。
+内置宏同样调用 Material.Type "Tensor formula"；不是另一种材料引擎。
+完整接口 `create_material_full_tensor` 显式写入电、磁各9个实部和9个负虚部，
+并在每组 TensorFormulaFor 后写入独立 TensorAlignment2。
+默认 U=(1,0,0)、V=(0,1,0)，W=U×V=(0,0,1)。
+旧 create_material_tensor 将标量 epsilon 展开为完整对角矩阵后委托该接口。
+
+```python
+app.create_material_full_tensor(
+    'YIG',
+    epsilon_tensor=[['er',0,0],[0,'er',0],[0,0,'er']],
+    mu_tensor=[[1,0,0],[0,1,0],[0,0,1]],
+    mu_imag=[[0,'ka',0],['-ka',0,0],[0,0,0]],
+)
+```
+
+两组 *_axes 分别接受两条数值正交单位向量；不会归一化或猜测坐标系。
+复数矩阵和独立虚部矩阵不可重复指定。输入为数学虚部，宏界面显示“实部 -j 虚部栏”，
+故上述 mu12i=-ka、mu21i=ka。此反对称虚部可以是无损旋磁耦合，不等同于标量磁损耗。
+
+Tensor formula 的官方材料对话框说明指出仅通过 VBA 创建和定制。
+官方宏的 Load Settings 读取项目 Model3D 内 `_材料名.ini`（空材料文件夹），
+不从现有 Material 对象反向提取18项公式。由API创建的材料不能用宏默认显示值作读回证据。
+当前项目提供 `_YIG.ini` 以便用内置宏加载检查；生成配置文件本身不证明GUI加载成功。
+
+2026-10-28：完整电磁接口和旧接口材料回归90项通过；离线测试不代表求解成功。

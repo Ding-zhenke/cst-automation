@@ -7,6 +7,19 @@
 - 内容按批准源 SHA-256 比较（即使路径相同也检查）；端口按批准子电路声明的名称和顺序比对，模型和显式方言独立核验。内容/模型/方言/端口/缓存归属的明确不一致进入 `circuit_build_partial`，失败 readback 保留各维度证据；缓存文件不可读或声明无法解析保持 unknown，`verification_complete=False`。原生 metadata/pins 查询异常仍按已有部分失败处理，不伪造完整核验表。未知不等于通过，整体 readback_verified、saved_reopen_verified 和 solver_verified 仍为 False。
 - 顶层内容核验不证明依赖闭包、接线/极性或器件仿真语义；不调用 `SetCacheFiles`，不自动重导入、保存重开或求解。核验仅在调用方授权的稳定副本上读取源和原生返回的缓存文件。无新增 service/MCP 操作或隐式 SDK 加载。
 
+## 2026-10-30：通用电路参数研究（新增，离线验证）
+
+`CircuitAPI.run_parameter_study(spec)` 执行显式逐点序列；不是原生 Parameter Sweep 的别名。`spec` 包含 schema_version=1、name、安全名称的 parameters（scope=em/circuit、unit；可选 block/property）、points（values 完整有限数值映射）、task（name、mode=network、results=[{name,tree_path,run_id}]），可选 em（results=[{tree_path,run_id}]）。全计划预检后在当前保存工程中运行；EM 参数必须具有显式 EM 依赖，EM＋电路每点重算。仅支持同工程 self EM；无自动缓存复用或瞬态双向联合扩展。EM 放行要求指定原生数据文件指纹更新、原生 SUCCESS 和对应 EM 参数一致；通用目录/日志变化不作为替代证据。全局参数必须与原始结果元数据一致，缺失/冲突返回 unverified；block/property 别名使用属性 SI 读回，不要求出现在全局参数表。静态属性限制由 NativeAdapter 与 study 预检共享。执行入口要求显式当前 run_id=0，读取后立即固定到不可覆盖的历史快照；不接受历史编号作为新求解结果。全局参数的 unit 为调用者核对的原生单位声明，元件绑定的 unit 通过已有 API 转换并读回 SI 数值。
+
+批次写入 `<project>/Result/DS/Studies/<name>/<batch_id>/study.json`，每点原始复数/单位/证据不可覆盖；汇总曲线写入 `Results\Studies\<name>\<batch_id>\<result>\<component>\<case_id>`。`StudyResult(batch_path)` 提供 list_cases(parameters=None)、read_curve(case_id,result_name)、compare(result_name,parameters=None,component='magnitude')、verify_project()。保存后原生读回独立于真正的关闭重开，reopen_verified 始终保持 False，待拥有会话的调用方完成重开。离线测试不证明实机运行；保存读回与真正的关闭重开分开报告。搬运时保留 .cst 及其同名结果目录，不承诺单个二进制封装全部 JSON/CSV/.sig。
+
+服务增加 `study/run_parameter_study`（spec）；MCP 显式增加 `run_circuit_parameter_study`，复用唯一 worker。原参数序列与任务入口保持兼容。
+
+## 2026-10-28：完整电磁张量材料
+
+`setup.create_material_full_tensor(name, epsilon_tensor, mu_tensor, *, epsilon_imag=None, mu_imag=None, epsilon_axes=((1,0,0),(0,1,0)), mu_axes=((1,0,0),(0,1,0)), color=None, colour=None)` 对齐 CST 内置 Create Full Tensor Material 宏：电磁两组完整复数3×3矩阵、每组独立 TensorAlignment2。axes 为全局坐标下两条数值正交单位向量，第三轴 U×V；输入数学虚部，统一转换为 CST 负虚部。全输入先验证，提交单个历史块，不自动保存或求解。旧 create_material_tensor 保留签名并委托新接口，将标量 epsilon 展开为对角矩阵。原生适用范围仍为四面体通用频域。
+
+
 ## 2026-10-26：原生 HB 扫描与后处理代码接口
 
 - `cst_solver.circuit.native` 接受已打开工程的原生 `schematic`（也可使用 CST 模板的 `calling_app`），不加载 SDK、不启动求解、不自动保存。`configure_hb_task(schematic, task_name, tones, *, diamond=False, create=False)` 配置 Spectral Lines 的基频/阶数表达式；`replace_parameter_sweep_sequences(schematic, task_name, sequences)` 显式替换已有原生 Parameter Sweep 的全部序列，保留任务及其子任务。HB 频率数值沿用目标任务当前生效的频率单位（可能为局部单位），不切换单位；扫参点沿用原生参数单位，字符串表达式原样保留。调用方必须先核对单位。
@@ -54,6 +67,16 @@
 用户已批准 2026-10-19 场路联合设计及真实几何/端口预览；本轮已分阶段实测。具体通过范围和未通过项以 `docs/VALIDATION.md`、`docs/CIRCUIT_LIVE_REPORT.md` 为准。
 
 - `cst_automation.circuit_schema.validate_circuit_spec(spec)` 返回独立、规范化的 JSON 规格；数值元件属性须附显式单位，表达式仅允许安全算术与已声明参数。
+- `validate_circuit_spec(spec, *, existing=None, defer_references=False)` 默认保持完整规格校验。
+  `existing` 可传入当前 `CircuitAPI.inspect()` 快照，为分阶段新增连接、探针和任务解析
+  已有元件/端口及连接占用；已有对象不会被加入返回的待创建规格。已有端点须有可读且
+  可连接的实际引脚，不接受猜测索引或将已占用引脚重新分配到新网。`defer_references=True`
+  仅作访问 CST 前的格式检查，不认证引用存在；`CircuitAPI.apply` 和服务 configure 必须
+  随后使用当前工程快照完整校验，才允许写入。已有名称冲突仍报错，不重建或删除对象。
+- 电路 `inspect/list_pins` 的 `pin_name` 使用实际连接端口名，`display_pin_name`
+  单独保留带标签的界面名称；通过当前原生端口名称/标签匹配 `pin_index` 与
+  `port_index`，不假定两种索引一致，不猜测拆分标签。没有可靠匹配时保留不可连接。
+  既有网络中的原生 `Externalport` 类型按 `ExternalPort` 识别，端点占用仍完整检查。
 - `cst_automation.circuit_preview.preview_circuit(spec, output_dir)` 离线输出 SVG、连接表、参数与输入摘要，不加载 CST。
 - `setup.circuit` 为惰性 `CircuitAPI`；`setup.new_circuit_project()` 创建 DS 工程。现有三维接口默认行为不变。
 - `cst_solver.circuit.circuit_capabilities(probe='static', app=None)` 静态发现不加载 SDK；live 仅使用显式传入的会话。发现、离线验证、实机读回、solver 验收分别报告。
@@ -398,7 +421,51 @@ FakeBackend 的 `solve` 结果保留请求的 `run_id`（默认 0），用于验
 
 ## Session native inspection without history
 
-The existing session `inspect` operation accepts opt-in `native_readback: true`, with bounded `sample_points` (id, solid, xyz `point`) and optional standard-view `captures` (name, view, hide_components). Native parameter expressions/descriptions, solid volumes and point tests are read on the owning worker, outside history/rebuild. Capture paths are confined to session artifacts. Errors remain explicit and set `readback_verified=false`; this does not verify a solve. Default inspect behaviour is unchanged.
+Session `inspect` accepts opt-in `native_readback: true`, with optional bounded
+`parameter_names`, `solid_names`, and `sample_points` (id, solid, xyz `point`).
+Omitted name lists enumerate the current model (at most 10000 entries per list).
+Parameters (value and expression), solid material assignments, volumes and point
+tests use native queries on the owning worker, without history, rebuild or save.
+Volumes and coordinates use the project's geometry units. Query failures remain
+explicit in `native_readback.errors` and set `readback_verified=false`; successful
+queries certify only these reads, never geometry acceptance or solver success.
+Fake sessions return `native_executed=false`, never native verification. Unsupported
+inspection options, including the previously documented but unimplemented
+`captures`, are rejected before queueing; image export remains a separate API.
+
+### Project reuse and tab lifetime
+
+`create_project` / `import_project` accept `lifetime="working"` (default) or
+`"temporary"`. Reusing an existing project ID fails before queueing; importing
+the same source again requires a nonempty `copy_reason` (independent topology,
+reference or an explicitly needed relocation check). Queued intents participate
+in this check. A source matching a registered working path is also a duplicate.
+Ordinary parameter/solver/material changes and scan corners reuse the original
+project ID. A different filename alone does not establish a different topology.
+
+New session operation `close_project(project_id)` saves and closes only the
+registered tab, retaining its file, digest, record, worker and DE. Its receipt
+reports `tab_closed`, `saved` and `environment_closed=false`. Repeating it on a
+closed tab does not reopen it. Later explicit operations can reopen that same
+saved path; worker recovery skips intentionally closed tabs. Errors do not
+discard handles or mark a failed close successful. Temporary checks must submit
+this operation on completion; it is separate from closing the whole session.
+The MCP session-operation enum explicitly includes this operation.
+Native close is confirmed by listing open paths. Closed temporary projects move
+from `projects` to `retired_projects`, retaining their path and saved digest as
+audit records; reconciliation no longer requires those temporary files. Their
+project IDs cannot be reused, and repeated close is idempotent. No file is deleted
+by this operation. Working projects remain registered and can be reopened.
+
+`setup.add_sweep_parameter_arbitrary_points(seq_name, param_name, points)` accepts
+a nonempty bounded list of finite numbers and emits official
+`AddParameter_ArbitraryPoints`; it only configures and never starts a solve.
+`setup.configure_discrete_sweep(sequence_name, parameters, replace_all=False)`
+validates all axes before one history submission. `parameters` maps names to
+point lists. Explicit `replace_all=True` deletes old sequences before defining
+the requested sweep. Session `configure_sweep` carries these three fields plus
+`project_id` and stable `stage_id`; retries deduplicate by stage. No solve is
+started. The operation is explicitly registered in the MCP operation enum.
 
 
 ## 2026-10-28：周期稳态射击法配置（仅离线验证）
@@ -419,3 +486,179 @@ The existing session `inspect` operation accepts opt-in `native_readback: true`,
 - 服务显式注册 `build / configure_steady_state_task`，MCP 增加
   `configure_circuit_steady_state_task`，参数 `task_name/settings/create`。沿用串行 worker、
   保存、部分失败审计；非法输入必须在打开 SDK 前拒绝。未新增运行模式或改变运行证据。
+
+
+## 2026-10-28: Session parameter descriptions
+
+`set_parameters` accepts optional `expressions: {name: description}`. Keys must be a subset of `values`; values are UTF-8 strings. The worker calls existing `app.para(name, value, expression=description)`, preserving formulas in `values`. Fake backend stores descriptions separately; neither path certifies native readback.
+
+
+## 2026-10-28: Typed session modeling API
+
+`model_api` takes explicit project_id, stage_id, calls (method/args/kwargs) and a SHA256 preview_digest of canonical JSON calls (sort_keys=True, ensure_ascii=False). Only the static whitelist in sessions/model_api.py is callable; all signatures are bound before the first mutation. No scripts, eval, dynamic imports, solver run, file open/close or arbitrary attributes. Methods execute on the original session-owned app. Native stages rebuild and save through the usual checkpoint. Fake stages only record calls. This routing does not itself certify geometry or results.
+
+Added setup.new_curve(name), set_wcs_basis(origin, normal, u_vector), activate_global_wcs(), configure_fem_solver(accuracy='1e-6', mesh_adaption=True). They submit focused history through the owning API; no solve. ExtrudeCurve now preserves the exact requested name; parameter sweep helpers omit unsupported Reset.
+
+
+## Explicit schematic macro domain in persistent sessions
+
+The existing `history` operation accepts `domain="schematic"` to execute a reviewed, bounded VBA statement body through the owned project schematic `execute_vba_code`. The default domain remains `model3d` and uses 3D add-to-history. Schematic execution is journaled and saved, but is not added to the 3D replay history and does not rebuild unrelated 3D geometry. Stage identifiers, SHA256 preview binding, project ownership and failure/recovery rules remain mandatory. It does not certify solver or source equivalence. No active-window routing or fallback between domains is permitted.
+
+
+`reload_project` is a persistent-session operation for explicitly approved baseline recovery. It requires project_id and expected_digest matching the human-reviewed last_resolution and current saved file. It discards only that owned project tab without saving its unsaved state, reopens the same file in the same DE, and resets that project handle. It does not copy, rebuild or run a solver.
+
+## Native linear, logarithmic and discrete parameter sweeps
+
+`setup.add_sweep_parameter_samples(seq_name, param_name, lower_bound, upper_bound,
+num_steps, logarithmic=False)` now exposes CST's native logarithmic flag. The
+existing five-argument call remains linear. `num_steps` is the number of samples,
+including endpoints, not the number of intervals. Bounds are finite numbers with
+`lower_bound < upper_bound`; logarithmic bounds must both be positive. Sample
+counts are integers in [2, 10000]. Configuration never invokes Start.
+
+`setup.configure_sweep(sequence_name, parameters, replace_all=False)` accepts a
+mapping of parameter names to either numeric point lists or range descriptors
+`{"mode": "linear" | "logarithmic", "start": number, "stop": number, "samples": int}`.
+All axes are checked before submitting one native history entry. It emits
+`AddParameter_Samples` for ranges, retaining their native GUI sampling mode;
+point lists emit `AddParameter_ArbitraryPoints`. Axes in the same sequence form
+the Cartesian product. `configure_discrete_sweep` retains its point-list-only
+contract. Session `configure_sweep` accepts the same mixed mapping without
+changing its operation name, stage deduplication, or configuration-only scope.
+
+The session `model_api` route also accepts the already implemented basic-shape
+methods `create_brick`, `cylinder`, `create_cylinder`, `create_sphere`,
+`create_cone`, and `create_torus`, plus the configuration-only sweep methods.
+This extends explicit routing; it does not enable arbitrary Python or solving.
+
+### Sweep configuration bounds and combination semantics
+
+Mixed and discrete configurations accept at most 100 axes and 10000 samples per
+axis, and at most 1000000 Cartesian cases per sequence. Sequence names cannot
+contain control characters or double quotes. A native sequence evaluates all
+combinations; simultaneous/zipped axes are not supported by this contract.
+Independent sequences are separate experiments, not another Cartesian axis.
+Validation completes before any DeleteAllSequences or AddSequence command.
+The legacy low-level `add_sweep_parameter_samples` additionally accepts finite
+decimal/scientific numeric strings for bounds; arbitrary expressions remain
+unsupported. Mixed `configure_sweep` bounds stay numeric and reject strings.
+
+## Typed frequency-domain sampling and tetrahedral mesh configuration
+
+`setup.configure_fd_frequency(settings)` accepts a sparse mapping:
+`sampling_intervals` is a list of `{start, stop, spacing, samples}` with optional
+boolean `adaptation` (default False) and spacing
+`automatic|linear|logarithmic|single` and `samples=None` only for automatic;
+`adaptation_frequencies` is a list of positive single-frequency adaptation
+points. Optional `output_samples` (integer >=2), `output_spacing`
+(`automatic|linear|logarithmic|log_linear`), `sweep_error` (0,1],
+`sweep_minimum_samples`, `sweep_error_checks` (positive integers), and
+`stop_sweep_if_converged` (boolean) control broadband sampling independently.
+Sample intervals append to existing ones; this sparse operation does not clear
+inherited intervals. Explicit `replace_intervals=True` resets sample intervals
+before adding the supplied rows; it requires at least one interval/adaptation
+point. Inspect existing settings before choosing append or replacement.
+Frequencies use the current project frequency unit. `output_spacing` controls
+the shared adaptive-sweep/result-data frequency-axis mode in CST; it is not an
+independent output-only setting. An automatic interval starting at zero does
+not establish an actual DC solve; native omission/remapping is reported.
+Automatic-interval adaptation is supported when explicitly requested; selection
+depends on electrical size and expected mesh cost, not a universal ban. Large
+problems normally keep automatic adaptation off and use a few explicit points.
+
+`setup.configure_tetrahedral_mesh(settings)` accepts sparse positive
+`steps_per_wavelength`, `minimum_steps`, boolean `material_refinement`,
+`local_solids=[{solid: "component:name", max_step: positive number}]`, and
+`adaptation={enabled, min_passes, max_passes, max_delta_s, delta_s_checks,
+refinement_percentage}`. Adaptation values are optional; passes/checks are
+positive integers, max_delta_s is in (0,1], refinement_percentage in (0,100].
+Sizes use current project geometry units. Keys outside these schemas fail
+before history submission. These calls use documented tetrahedral commands,
+not hexahedral LinesPerWavelength or speculative MeshShapes region commands.
+
+Both APIs validate the entire request before submitting history. They do not
+reset, choose a solver, rebuild, save or solve. Return values record requested
+settings/history submission with readback_verified and solver_verified False.
+No cross-case mesh/solution reuse switch is promised. Session `model_api`
+explicitly registers both configuration methods; MCP uses that existing route.
+
+### Frequency-domain CPU parallelization
+
+`setup.configure_fd_parallelization(settings)` configures CPU parallelization on
+the current `FDSolver`, independently of transient `Solver` and Design Studio HB.
+Its nonempty sparse mapping accepts `enabled` (boolean), `threads` (positive
+integer CPU thread count) and `cpu_devices` (positive integer CPU socket count).
+Omitted fields are preserved; specifying a thread limit alone does not enable
+parallelization. No thread count or hardware topology is inferred. It uses the
+documented `UseParallelization`, `MaxCPUs`, `MaximumNumberOfCPUDevices` setters;
+there is no reset, solver selection, GPU change, rebuild, save or solve.
+Session `model_api` explicitly routes/preflights the method and returns its
+configuration receipt. Settings readback is unsupported: actual_threads is None,
+cpu_parallelization_verified/readback_verified/solver_verified stay False. Check
+actual threads in the native run log. Native history failure preserves partial
+evidence via `FDomainConfigurationError`, with no automatic retry.
+
+### Modeling audit corrections and explicit session coverage
+
+`boundary` now sends each xmin/xmax, ymin/ymax and zmin/zmax value to the
+matching native face (previously reversed). `create_hexagonal_prism` preserves
+the requested curve group. `create_torus` keeps the documented centerline/tube
+major/minor radii and converts them to native OuterRadius=major+minor and
+InnerRadius=major-minor, including parameter expressions. Existing scripts
+that compensated for the former incorrect mapping must remove that workaround.
+
+Session `model_api` additionally registers basic prisms/wires, curve creation
+and extrusion, boolean intersection/insertion, transforms, picks, WCS changes,
+custom/tensor materials, explicit waveguide/discrete/lumped ports and monitors.
+The maintained whitelist remains in `tpc_service/sessions/model_api.py`; SDK
+lifecycle, arbitrary property setters, filesystem import/export and solving
+remain separate operations. Signatures are checked for the full batch; new
+frequency, tetrahedral-mesh and sweep settings also get pure payload preflight
+before any call executes. `stage_id` is the default operation identity for
+`model_api`, so a new request ID cannot accidentally replay the same stage.
+
+`setup.delete_solid(name, component="component1")` and
+`setup.delete_curve_item(name, curve="curve1")` delete only the named object,
+using documented Solid.Delete and Curve.DeleteCurveItem commands. Names are
+nonempty local names without colon, control characters or quotes; group names
+are separate. Neither API clears the model or starts solving. Both are explicit
+reviewed-geometry session methods. `model_api.configuration_receipts` retains
+the typed frequency/mesh return receipts; their unverified flags remain False.
+`scale(name,factor,center=None,component="component1")` emits the requested
+native ScaleFactor for a numeric/symbolic scalar or three-component vector;
+the prior implementation omitted the factor entirely. Input is validated before
+history submission. Offline command tests do not certify native geometry.
+`mirror(...,object="Port")` uses native port names without component prefixes
+and AutoDestination=False. Integer port IDs normalize to "Port N"; shape
+mirroring retains its component-qualified names. This corrects the old shape
+rules incorrectly applied to ports.
+Executing session `model_api` batches reject `log_flag` values other than the
+integer 1 before any batch mutation. Code-generation-only log_flag=0 belongs
+outside this route and cannot produce a successful modeled-stage receipt.
+## HB post-processing configuration evidence
+
+`cst_solver.circuit.native.configure_hb_postprocessing_chain(schematic,
+parent_task, hb_task, post_task, *, create=False)` configures an existing native
+Parameter Sweep and Spectral Lines child, optionally creates a new `template`
+child, enables all three and moves HB immediately before Post at the end of
+the parent's task list. Both child names must be full paths directly under
+the parent. Creation refuses name conflicts; update refuses absent/wrong-type
+tasks. This does not bind any result template, save, rebuild or solve.
+`inspect_hb_postprocessing_chain(...)` reads native types, enabled flags,
+task folders and the actual Results-tree sibling order. Task-chain readback
+is distinct from result-template registration and saved/reopened evidence.
+
+`cst_automation.result_templates.inspect_embedded_python_result_template(
+project_resources, *, metadata_path, expected_settings, expected_sha256=None)`
+checks one explicit existing local-copy module, metadata settings and its
+Summary.rpp registration entry. It never executes code or edits files.
+`resource_integrity_verified` is **not** native binding verification. Generic
+task folders do not identify the actual template-resource folder, and this
+API does not invent a suffix or copy an unrelated project's Summary.rpp.
+
+First-time native registration remains unsupported: the CST 2026 documented
+DS template iterator requires a *running* post-processing task, and no
+configuration-only registration/import command has been established. Do not
+expose a service/MCP `bind` operation which merely writes files. Automatic
+plot delivery requires an actual binding plus native save/reopen acceptance;
+staging, task creation and static Results curves do not meet that contract.

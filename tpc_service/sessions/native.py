@@ -15,6 +15,28 @@ def file_digest(path):
     return value.hexdigest()
 
 
+
+def restore_reviewed_projects(app, state, open_paths):
+    """Reopen absent saved tabs only from an explicit, still-matching review."""
+    reviewed=state.get('last_resolution', {})
+    digests=reviewed.get('project_digests', {})
+    missing=[]
+    for project_id, record in state['projects'].items():
+        if record.get('tab_closed'):
+            continue
+        path=Path(record['path'])
+        key=os.path.normcase(str(path.resolve()))
+        if key in open_paths or not path.is_file():
+            continue
+        digest=file_digest(path)
+        if not reviewed.get('human_reviewed') or digests.get(project_id)!=digest or record.get('saved_digest')!=digest:
+            raise ServiceError('session_project_mismatch', 'Absent saved project has no matching explicit review', project_id=project_id)
+        missing.append(str(path))
+    for path in missing:
+        app.open(path)
+    return {os.path.normcase(str(Path(p).resolve())) for p in app.project.list_open_projects()}
+
+
 class Runtime:
     def __init__(self, folder, backend):
         self.folder = Path(folder)
@@ -59,9 +81,12 @@ class Runtime:
             if environment_pid(app.project) != identity['pid'] or not alive(identity):
                 raise ServiceError('session_environment_mismatch', 'Exact CST identity mismatch')
             paths = {os.path.normcase(str(Path(p).resolve())) for p in app.project.list_open_projects()}
-            expected = {os.path.normcase(p['path']) for p in state['projects'].values() if Path(p['path']).is_file()}
+            expected = {os.path.normcase(p['path']) for p in state['projects'].values()
+                        if Path(p['path']).is_file() and not p.get('tab_closed')}
             if not expected.issubset(paths):
-                raise ServiceError('session_project_mismatch', 'Recorded projects are no longer open in the owned DE')
+                paths = restore_reviewed_projects(app, state, paths)
+                if not expected.issubset(paths):
+                    raise ServiceError('session_project_mismatch', 'Reviewed projects could not be reopened in the owned DE', expected_paths=sorted(expected), open_paths=sorted(paths))
             self.app = app
             return app
         # Only a confirmed absent DE authorizes a new generation; creation intent is durable first.
@@ -84,9 +109,23 @@ class Runtime:
         self.check_saved(record)
         app = self.environment()
         if project_id not in self.handles:
-            app.open(record['path'])
+            if self.backend == 'cst':
+                from .project_lifecycle import path_key
+                opened = {path_key(p): p for p in app.project.list_open_projects()}
+                existing = opened.get(path_key(record['path']))
+                if existing:
+                    app.cst_file = app.project.get_open_project(existing)
+                    app.cst_file.activate()
+                else:
+                    app.open(record['path'])
+            else:
+                app.open(record['path'])
             self.handles[project_id] = app.cst_file
         app.cst_file = self.handles[project_id]
+        if record.get('tab_closed'):
+            state = self.state()
+            state['projects'][project_id]['tab_closed'] = False
+            self.update(projects=state['projects'])
         return app, record
 
     def check_saved(self, record):

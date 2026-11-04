@@ -286,11 +286,13 @@ def test_custom_sdk_does_not_inherit_another_install_abi_failure(config, tmp_pat
     assert report['status'] == 'not_probed'
     assert report['errors'] == {}
 
-def test_doctor_accepts_documented_json_flag_without_starting_cst(monkeypatch,capsys):
+
+def test_doctor_accepts_documented_json_flag_without_starting_cst(monkeypatch, capsys):
     import json
     import sys
     import cst_solver.__main__ as cli
-    monkeypatch.setattr(sys,'argv',['cst_solver','doctor','--json'])
-    monkeypatch.setattr(cli,'diagnose_environment',lambda **kw:{'status':'not_probed','probe':kw['probe']})
-    assert cli.main()==0
-    assert json.loads(capsys.readouterr().out)=={'status':'not_probed','probe':False}
+    monkeypatch.setattr(sys, 'argv', ['cst_solver', 'doctor', '--json'])
+    monkeypatch.setattr(cli, 'diagnose_environment', lambda **kw: {
+        'status': 'not_probed', 'probe': kw['probe']})
+    assert cli.main() == 0
+    assert json.loads(capsys.readouterr().out) == {'status': 'not_probed', 'probe': False}
