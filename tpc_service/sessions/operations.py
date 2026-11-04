@@ -59,6 +59,11 @@ def execute(runtime, job):
                 result['native_readback'] = {'native_executed': False, 'errors': ['Native queries require CST']}
         return result
     if operation == 'close_project':
+        from .validation import validate
+        validate(operation, params)
+        if params.get('retire') is True:
+            from .retirement import retire_closed_project
+            return retire_closed_project(runtime, job)
         project_id = params['project_id']
         state = runtime.state()
         record = state['projects'].get(project_id) or state.get('retired_projects', {}).get(project_id)

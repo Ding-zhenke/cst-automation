@@ -67,6 +67,10 @@
 2. 通过所属会话提交 `close_project(project_id)`，确认 `saved=true`、`tab_closed=true`、
    `retired=true`、`environment_closed=false`，核对实际打开列表及退休记录。
    不要直接删除仍登记为活动工程的文件，也不为完成清理重建已完成模型。
+   已经关闭但原 lifetime=working 的过程副本，按[显式退休接口](../../../docs/guides/retire_closed_process_projects.md)
+   提交 close_project(retire=True, expected_digest=..., confirm_idle=True, review_note=...)。
+   它只退休本会话过程目录里的关闭登记，不重开工程、不删文件；默认 close_project 行为不变。
+
 3. 核对待删绝对路径属于本任务过程目录，并排除正式工程及其配套目录，再删除已关闭
    的过程 `.cst` 和同名配套目录；确认文件已消失。不能仅按 `model.cst` 文件名批量删除。
 4. 保留最小关闭/退休/清理回执与恢复引用；后续恢复不再依赖已删除的过程工程。

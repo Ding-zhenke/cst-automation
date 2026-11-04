@@ -25,7 +25,19 @@ def validate(operation, params):
         from .inspection import validate_options
         validate_options(params)
     if operation == 'close_project':
-        require(not set(params) - {'project_id', 'depends_on'}, 'close_project takes only project_id and depends_on')
+        require(not set(params) - {'project_id', 'depends_on', 'retire', 'expected_digest', 'confirm_idle', 'review_note'},
+                'Unsupported close_project option')
+        require(type(params.get('retire', False)) is bool, 'retire must be boolean')
+        if params.get('retire'):
+            value = params.get('expected_digest')
+            require(isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value),
+                    'Explicit saved expected_digest required for retirement')
+            require(params.get('confirm_idle') is True, 'Retirement requires caller-confirmed idle')
+            require(isinstance(params.get('review_note'), str) and 0 < len(params['review_note'].strip()) <= 1000,
+                    'Explicit bounded retirement review_note required')
+        else:
+            require(not set(params) & {'expected_digest', 'confirm_idle', 'review_note'},
+                    'Retirement review fields require retire=true')
     if operation in ('create_project', 'import_project', 'adopt_project'):
         require(params.get('project_type', 'MWS') in ('MWS', 'DS'), 'project_type must be MWS or DS')
         require(params.get('lifetime', 'working') in ('working', 'temporary'), 'Invalid project lifetime')

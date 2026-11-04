@@ -157,3 +157,7 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 `model_api` 操作把审核过的 `calls=[{method,args,kwargs}, ...]` 直接分发给持久会话拥有的 `cst_solver.setup`。静态白名单禁止任意代码、动态导入、求解和关闭工程。每阶段携带 stage_id 和规范JSON calls的SHA256 preview_digest；先检查全部方法签名，再按序调用，完成后原生重建、保存及写检查点。底层API内部生成VBA是库实现细节，不再由调用方拼接整个模型的VBA。该路由的离线fake只记录调用，不伪装实机执行。
 
 参数使用 `set_parameters` 的 values 与 expressions；说明优先中文，公式保留原值。旧历史若写死说明，会在重建时覆盖前置说明，所以会话在重建成功后通过现有描述接口恢复本次说明再保存。新工程应从参数API开始，不在历史中写死另一份参数说明。
+
+## 已关闭 working 过程副本退休
+
+使用[显式退休](retire_closed_process_projects.md)处理已关闭、已完成用途但仍在活动登记的本会话过程工程。close_project 的 retire=True 需保存摘要、现场空闲确认与审阅说明；不触碰 DE 或文件，默认关闭行为不变。

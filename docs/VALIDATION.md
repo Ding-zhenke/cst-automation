@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05：已关闭 working 过程工程显式退休（离线）
+
+- close_project 新增 retire=True、expected_digest、confirm_idle=True 与 review_note，仅在已登记关闭/保存、位于所属会话 projects/<project_id> 过程目录且请求/登记/磁盘摘要相同时移动到 retired_projects。保留 lifetime、原摘要和退休审阅记录；默认 working 关闭不退休、temporary 原规则不变。
+- 退役前拒绝外部正式路径、他归属/别名共用、目标缓存句柄、未关闭/未保存、其他排队/运行/未知任务、启动意图、已知弹窗和非 ready。registry.lock 覆盖队列检查及元数据变更；不调用 DE/environment/project/save/close，不删除文件、重开标签或改旧 job。
+- confirm_idle 是调用方现场断言，idle_verified=False；tab_closed 根据原关闭登记，不称新原生关闭证明。正式交付及无依赖仍由所属会话独立核对；幂等退休记录不因之后的显式文件清理丢失。原始关闭/失败回执保留。
+- 新增 22 项离线回归；相关 35 项通过，完整离线检查 1452 passed、3 skipped、2 deselected，独立审查无阻塞发现。未连接或修改真实 session/worker/DE/工程，未执行真实退休/删除；后续所属会话加载并验证一个过程副本，不把本测试提升为实机生命周期验收。
+- 请求与清理边界见[显式退休说明](guides/retire_closed_process_projects.md)，并补齐原生命周期技能与实际 API 的衔接。
+
 ## 2026-11-05：会话普通异常阶段与受限堆栈（离线）
 
 - 根据所属会话的 PermissionError 回执缺证据反馈，worker 对非 ServiceError 新增受限 diagnostics，记录异常类型/模块、OS errno/winerror/filename/filename2、最后执行边界、每层最多 12 个文件/函数/行号及最多 3 个原因异常。无 OS 路径则保留未知，不序列化 locals、请求参数或源码，不追溯改写旧 job。

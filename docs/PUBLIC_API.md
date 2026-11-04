@@ -1,5 +1,11 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-05：已关闭过程工程的显式退休
+
+`close_project` 增加可选 `retire=True, expected_digest=<64位小写SHA256>, confirm_idle=True, review_note=<非空审阅说明>`。默认行为不变。显式退休只接受本会话 projects/<project_id> 内、已登记关闭/保存的 .cst 过程文件；登记摘要、请求摘要和磁盘一致，且 session ready、无未知任务/启动意图/已知弹窗、无其他 queued/running/needs_reconcile job、无目标缓存句柄。调用方确认正式交付和依赖不再使用该过程副本；API 不认证这条外部事实。
+
+该分支在原 already_closed 返回之前处理，不调用 environment/project/save/close，不重开标签、不删文件，将同一记录从 projects 移至 retired_projects，保留原 lifetime、摘要及显式 retirement_review。回执 retired=True、already_closed=True、environment_closed=False、files_deleted=False，idle_asserted_by_caller=True/idle_verified=False。已退休的同摘要记录可幂等返回（文件后续删除不影响已有退休回执），不回写旧 job。外部正式路径、其他归属、未关闭/未保存、摘要变化和忙碌/未知状态拒绝；正常 working 关闭仍不自动退休，temporary 原规则保留。
+
 ## 2026-11-05：会话普通异常的受限诊断
 
 worker 对非 ServiceError 仍返回 session_operation_failed，新增 details.diagnostics：exception_type/module、受限 message、OSError errno/winerror/filename/filename2、明确执行 stage、operation/job_id，以及每层最多 12 帧的文件/函数/行号和最多 3 层原因异常。不记录 locals、请求参数或源码正文；文本限制 4096 字符，明确截断/省略。阶段仅表示最后进入的代码边界，不证明其副作用完成或失败文件的 OS 根因。
