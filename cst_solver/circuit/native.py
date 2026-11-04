@@ -208,6 +208,32 @@ def replace_parameter_sweep_sequences(schematic, task_name, sequences):
             'readback_verified': False, 'solver_verified': False}
 
 
+def resolve_schematic_result_id(schematic, tree_paths, *, read_parameters, expected_parameters,
+                                requested_id=None, rtol=1e-10, atol=1e-12):
+    """Read target IDs and stored combinations through a caller-verified reader.
+
+    ``read_parameters(native_id)`` must return the actual stored combination,
+    not RestoreParameter/current UI values. Its CST ByRef binding is supplied
+    explicitly because wrappers differ. No last/max ID fallback is performed.
+    """
+    from cst_automation.result_identity import select_schematic_result_id
+    if not callable(read_parameters) or not isinstance(tree_paths, (list, tuple)) or not tree_paths:
+        raise ValueError('Target paths and a verified stored-parameter reader are required')
+    for path in tree_paths:
+        _text(path)
+    available = {path: list(schematic.ResultTree.GetResultIDsFromTreeItem(path)) for path in tree_paths}
+    common = set.intersection(*(set(ids) for ids in available.values()))
+    # The selector validates domain/positive syntax. No parameter getter is
+    # invoked for zero/current aliases or a foreign result domain.
+    import re
+    candidates = [rid for rid in common if isinstance(rid, str) and re.fullmatch(r'Schematic:RunID:[1-9][0-9]*', rid)]
+    if requested_id not in (None, '', 'Schematic:RunID:0'):
+        candidates = [rid for rid in candidates if rid == requested_id]
+    parameters = {rid: read_parameters(rid) for rid in candidates}
+    return select_schematic_result_id(available, parameters, expected_parameters=expected_parameters,
+                                       requested_id=requested_id, rtol=rtol, atol=atol)
+
+
 def read_spectral_component(schematic, tree_path, frequency, *, result_id, rtol=1e-10, atol=1e-8):
     """Read one complex spectral component using an explicit native result ID."""
     _text(tree_path)

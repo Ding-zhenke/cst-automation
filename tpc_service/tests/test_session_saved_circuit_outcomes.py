@@ -116,3 +116,31 @@ def test_saved_circuit_receipt_cannot_override_unknown_or_foreign_work(tmp_path,
     assert state['status'] == 'needs_reconcile'
     assert job['status'] == 'failed'
     assert not job.get('result')
+
+
+
+def test_update_exception_preserves_failure_stage_and_does_not_blind_save(tmp_path):
+    case = setup_case(tmp_path, failure='update')
+    log = tmp_path/'synthetic'/'Result'/'DS'/'Model.log'
+    log.parent.mkdir(parents=True); log.write_text('prior log\n', encoding='utf-8')
+    calls = []
+    def raised(task):
+        calls.append('update')
+        log.write_text('prior log\npost callback failed\n', encoding='utf-8')
+        raise RuntimeError('native Update failed')
+    case[1].circuit.adapter.update_task = raised
+    case[1].save = lambda: calls.append('save')
+    error = route_failure(case)
+    outcome = error['details']['outcome']['result_summary']['circuit_outcome']
+    assert outcome['update_call_state'] == 'raised'
+    assert outcome['failure_stage'] == 'update_task'
+    assert outcome['execution_returned'] is outcome['saved'] is False
+    assert outcome['save_policy'] == 'deferred_until_idle'
+    assert outcome['errors'][0]['code'] == 'circuit_task_update_failed'
+    assert outcome['errors'][0]['details']['exception_type'] == 'RuntimeError'
+    assert outcome['update_failure_evidence']['log_changed'] is True
+    assert 'post callback failed' in outcome['update_failure_evidence']['new_log_text']
+    assert calls == ['update']
+    _finish_failed_job(case[4], error, case[3])
+    assert case[3]['status'] == 'needs_reconcile'
+    assert not case[4].get('result')

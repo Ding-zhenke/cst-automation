@@ -1,5 +1,13 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-05：Update 异常审计与后处理运行身份
+
+`CircuitAPI.run_checked` 区分 update_call_state（not_called/calling/returned/raised）与 execution_returned（仅正常返回为 True），并保留 failure_stage、原始异常及磁盘/日志变化证据。Update 包装调用抛错返回 Python 不证明原生执行停止或 DE 空闲；保存策略为 deferred_until_idle，saved=False，未知写入围栏保留。异常路径不再误记为结果读取失败，不盲目保存、重跑或提高验证等级；所属会话确认空闲后独立保存，不改历史失败回执。
+
+新增 SDK-free `cst_automation.result_identity.select_schematic_result_id(available_by_path, parameters_by_id, *, expected_parameters, requested_id=None, rtol=1e-10, atol=1e-12)`：目标曲线共同枚举的正 Schematic ID 必须和实际存储参数组合匹配。正 requested_id 只允许严格绑定本 ID，空/零别名只允许唯一匹配；拒绝缺参、非有限值、歧义和跨域，不按最大 ID、全局 last ID 或存在曲线推断当前轮。输入枚举与参数组合必须由调用方实际读取，此纯选择器不连接 CST、不验证数值或新鲜度。
+
+`cst_solver.circuit.native.resolve_schematic_result_id(schematic, tree_paths, *, read_parameters, expected_parameters, requested_id=None, rtol=1e-10, atol=1e-12)` enumerates native target IDs and calls the explicitly verified stored-parameter reader. It does not guess the CST ByRef binding.
+
 ## 2026-11-04：电路叶任务已返回保存与未知写入分离
 
 `CircuitAPI.run_checked` 新增 project、submitted、execution_returned、saved_digest 回执，分别记录提交意图、原生调用返回及保存后文件摘要；缺少新日志仍保持 unverified，不替代原生完成或数值验收。session 仅对 circuit/kind=solve/operation=run_task 的这一明确回执，核对同一 project_id/路径、登记摘要与当前磁盘；无弹窗失败、未知前序、启动意图且原状态 ready 时，失败 job 保留完整 outcome、execution_state=returned_saved 和 review_required，session 保持 ready。保存异常、缺回执/摘要或不一致、其他操作及已有 needs_reconcile 不自动放行；不回写历史 job，不自动 reconcile，不以 ready 自动继续依赖任务。

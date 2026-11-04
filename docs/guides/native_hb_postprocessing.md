@@ -224,3 +224,7 @@ eval_type_status="not_independently_decoded" 并保留 raw_evaluation_flags；
 或需要核对实际显示时使用 computer use，避免界面轮询和重复截图。
 本轮对独立空工程完成上述配置/归档验证；不能据此将模板执行、其他 CST
 版本、其他模型或实际求解记为通过。
+
+## Update 异常及回调的运行身份
+
+后处理回调不得按 last/max 选当前工况，父任务也可复用旧 gate ID。使用[异常审计与参数绑定的选择器](circuit_update_and_result_identity.md)核对所有输入曲线的共同正 ID 与实际参数组合；缺失、未知或歧义直接拒绝。Update 抛错后的内存结果保存须由所属会话先确认空闲，不以包装异常或磁盘旧结果推断完成。

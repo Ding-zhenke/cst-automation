@@ -28,6 +28,11 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 以及首次注册、已绑定模板更新，使用 [原生 HB 与后处理接口](../../docs/guides/native_hb_postprocessing.md)。
 普通 native 小接口不保存/求解；`register_python_result_template` 是明确会保存关闭重开当前工程的注册接口，仍不求解。
 
+Update 抛异常及 post 回调的运行身份，先读[异常审计与参数绑定](../../docs/guides/circuit_update_and_result_identity.md)。
+包装调用 raised 不证明 idle，不盲目保存/重跑或解除围栏；原始错误及日志保留。single_run
+回调按所有必要曲线共同正 Schematic ID 和真实存储参数组合定位，不取 last/max；旧 gate
+可被合法复用，但参数匹配不认证完整缓存或本轮新执行。
+
 ### 自动后处理是模型交付核对项
 
 - 用户要求求解后自动出图时，交付必须包含实际原生模板绑定、正确的父任务和 HB→Post 顺序、启用状态、内嵌源码与调用方设置，以及原生保存关闭重开后的绑定证据。仅有 `.rtpy`、库目录暂存、Post 空任务或静态 Results 曲线均不算完成。首次绑定、同名冲突及后续替换要分别说明；不能把“替换已绑定源码”描述成“首次注册”。

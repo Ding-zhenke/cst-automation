@@ -9,10 +9,29 @@ from .results import task_result_path
 from .evidence import information_only
 
 
+def _disk_observation(path):
+    try:
+        digest = hashlib.sha256()
+        with path.open('rb') as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(block)
+        return {'sha256': digest.hexdigest(), 'error': None}
+    except OSError as exc:
+        return {'sha256': None, 'error': f'{type(exc).__name__}: {exc}'}
+
+
+def _log_observation(path):
+    try:
+        return path.read_bytes(), None
+    except OSError as exc:
+        return None, f'{type(exc).__name__}: {exc}'
+
+
 def run_checked(api, task_name, *, mode, expected_results, reuse="never", note=""):
     token = uuid4().hex
     out = {"run_token": token, "task_name": task_name, "mode": mode, "status": "unverified", "errors": [],
            "saved": False, "submitted": False, "execution_returned": False, "saved_digest": None,
+           "update_call_state": "not_called", "failure_stage": None,
            "messages": [], "expected_results": [], "execution_evidence": {}, "note": note, "cache": {"reused": False}}
     try:
         path = Path(api.app.cst_file.filename()).resolve()
@@ -49,9 +68,35 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
             out["errors"].append({"code": "circuit_result_unverified", "message": "Verified cache provenance is not available; no task was executed"})
         else:
             out["stage"] = "submitting_target_task"
+            logfile = path.with_suffix('') / 'Result' / 'DS' / 'Model.log'
+            before_log, before_log_error = _log_observation(logfile)
+            out['disk_before_update'] = _disk_observation(path)
             out['submitted'] = True
+            out['update_call_state'] = 'calling'
             persist()
-            api.adapter.update_task(task_name)
+            try:
+                api.adapter.update_task(task_name)
+            except Exception as exc:
+                out['update_call_state'] = 'raised'
+                out['failure_stage'] = 'update_task'
+                out['save_policy'] = 'deferred_until_idle'
+                after_log, after_log_error = _log_observation(logfile)
+                comparable = before_log is not None and after_log is not None
+                appended = comparable and after_log.startswith(before_log)
+                out['update_failure_evidence'] = {
+                    'log_path': str(logfile), 'before_read_error': before_log_error,
+                    'after_read_error': after_log_error,
+                    'log_changed': before_log != after_log if comparable else None,
+                    'before_sha256': hashlib.sha256(before_log).hexdigest() if before_log is not None else None,
+                    'after_sha256': hashlib.sha256(after_log).hexdigest() if after_log is not None else None,
+                    'new_log_text': after_log[len(before_log):].decode('utf-8-sig', errors='replace') if appended else None,
+                    'log_replaced': not appended if comparable else None,
+                    'disk_after_error': _disk_observation(path), 'idle_verified': False}
+                raise CircuitError('circuit_task_update_failed', 'Task update raised; partial state requires idle review',
+                                   exception_type=type(exc).__name__, original_message=str(exc),
+                                   original_code=exc.code if isinstance(exc, CircuitError) else None,
+                                   original_details=exc.details if isinstance(exc, CircuitError) else None) from exc
+            out['update_call_state'] = 'returned'
             out['execution_returned'] = True
             api.app.save()
             out["saved"] = True
