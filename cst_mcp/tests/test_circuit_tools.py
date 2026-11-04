@@ -75,6 +75,10 @@ def test_transient_configuration_tool_queues_build_without_running_solver(circui
         'block_name': 'D1', 'settings': {'kind': 'berkeley_diode'}, 'create': True}),
     ('stage_circuit_postprocessing_template', 'stage_postprocessing_template', {
         'template_source': 'example.py', 'group': 'Example', 'name': 'Metric'}),
+    ('register_circuit_postprocessing_template', 'register_postprocessing_template', {
+        'parent_task': 'Sweep', 'hb_task': 'Sweep\\HB', 'post_task': 'Sweep\\Post',
+        'template_source': 'example.py', 'result_name': 'Metric', 'template_name': 'Calculation',
+        'group': 'Example', 'result_type': 'M0D', 'settings': {}, 'create': True}),
 ])
 def test_common_configuration_tools_queue_build_and_are_write_tools(circuit_tools, tool, operation, payload):
     service = runtime.get_service(); service.autostart = False

@@ -98,6 +98,9 @@
 - 实机兼容修正：`set_units()` 使用 CST 2026 的 `Units.SetUnit`，不下发 `Reset/Length`；温度别名 Celsius/Kelvin/Fahrenheit 对应 degC/K/degF，电路量单位由关联 schematic 设置。`create_discrete_port` 使用明确坐标（非拾取点）及官方 `Voltage/Current` 命令；CST 无 `DiscretePort.Folder`，非空 `folder` 在提交前报错，空默认值不下发该命令。
 - 运行记录保留消息原始对象；明确的 `type=INFO` 是信息，警告、错误或无法识别的非空消息仍要求审阅。电路原生完成证据须同时包含本次指定任务的新日志段、必要输入完整读回且一致、该任务保存后的当前曲线（run 0）；旧历史 run ID 不由当前执行证明。仅有旧完成日志加无关追加、读取失败的相同未知值、同秒未变化日志均不能证明新执行；真实瞬态联合模式继续要求两侧独立执行证据。
 - CST 2026 的同工程离散端口瞬态联合，还须匹配三维日志中的实际任务名、新的三维求解开始/完成记录、原生 `SUCCESS` 状态，以及每个三维端口带 `[cosim <task>]` 标识的电压/电流时域曲线。曲线必须覆盖任务时长；未能校准的外部工程或端口形式继续返回未验证。run 0 始终是保存工程的当前别名，审计摘要和导出的 CSV 用于保留本次数据，不能当作不可变历史编号。
+- 正数原生 run_id 也可能是同参数重算时复用/覆盖的参数状态编号。显式 ID 仅用于
+  选择当前数据，固定某次执行须另存完整复数结果、原生日志、参数及工程/结果摘要；
+  `result_conventions().run_id_semantics` 明确保留这一边界，不以正 ID 替代内容存证。
 
 详细签名、规格和验收门槛见 `docs/superpowers/specs/2026-10-19-design-studio-cosimulation-design.md`。本段是扩展协议；能力实测状态以 `docs/VALIDATION.md` 为准。
 
@@ -534,9 +537,41 @@ Summary.rpp registration entry. It never executes code or edits files.
 task folders do not identify the actual template-resource folder, and this
 API does not invent a suffix or copy an unrelated project's Summary.rpp.
 
-First-time native registration remains unsupported: the CST 2026 documented
-DS template iterator requires a *running* post-processing task, and no
-configuration-only registration/import command has been established. Do not
-expose a service/MCP `bind` operation which merely writes files. Automatic
-plot delivery requires an actual binding plus native save/reopen acceptance;
-staging, task creation and static Results curves do not meet that contract.
+`app.circuit.register_python_result_template(parent_task, hb_task, post_task,
+template_source, *, result_name, template_name, group, result_type, settings,
+eval_type="single_run", create=False, conflict="error", expected_registration_sha256=None)` imports
+one embedded Python registration into a dedicated Post task using the
+versioned CST 2026.1 resource format. Only the explicitly tested native build
+is supported; this is a resource-format adapter, not an undocumented VBA
+AddTemplate command. Only the observed `single_run` format is accepted. Device
+parameters, task/probe names, metrics and outputs belong to caller settings.
+`inspect_python_result_registration(folder)` returns the descriptor and a
+digest covering Summary.rpp, metadata and source; replacing a registration
+requires conflict="replace" and that digest. Multiple registrations in the
+same Post task are refused rather than truncated. Source is statically
+checked and never imported, defined or evaluated by registration.
+RPP `P/EP10` flags do not independently establish eval_type: the known-valid
+reference using these flags declares single_run. Inspection returns eval_type
+None with status not_independently_decoded and preserves raw flags. The
+request declaration is reported separately as requested_eval_type; explicit
+incompatible literals in source define() are refused without executing it.
+No all_runs encoding or callback behavior is certified.
+
+Registration configures/enables HB->Post, explicitly saves, closes and
+reopens the owned project in the same DE. To establish archive persistence,
+the task resource folder is moved to an audit backup outside the companion
+directory after closing. Native reopening must reconstruct all three files
+from the saved .cst; their contents, settings, registration descriptor and
+task chain are compared. Backups and an audit receipt remain beside the
+project in `.cst_automation_template_audits`. This is an explicit native
+archive round-trip, not a file-existence test. On failure preserve partial
+evidence; do not retry automatically or claim success. Returned
+registration_persistence_verified certifies that round-trip only.
+
+The DS iterator returns empty outside its active processing context, including
+for the known-valid control. Thus native_template_enumeration_verified and
+template_execution_verified remain False; registration does not certify
+runtime calculation. It never calls Update, Start, EvaluateResultTemplates,
+an EM/DC/HB solver, a mesh generator or a scan. Session build operation
+`register_postprocessing_template` explicitly routes this facade on the
+owning app and refreshes its project handle after reopening.

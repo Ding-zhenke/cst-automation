@@ -25,15 +25,17 @@ API 可完成的检查不走 computer use。只有缺少接口、需要处理实
 实际显示时才集中使用界面操作，避免反复截图和轮询。
 
 HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Results 曲线写入，
-以及已绑定模板源码替换，使用 [原生 HB 与后处理接口](../../docs/guides/native_hb_postprocessing.md)。
-这些接口不自动求解/保存；模板资源更新后仍需原生保存重开核验，不代表支持首次自动绑定。
+以及首次注册、已绑定模板更新，使用 [原生 HB 与后处理接口](../../docs/guides/native_hb_postprocessing.md)。
+普通 native 小接口不保存/求解；`register_python_result_template` 是明确会保存关闭重开当前工程的注册接口，仍不求解。
 
 ### 自动后处理是模型交付核对项
 
 - 用户要求求解后自动出图时，交付必须包含实际原生模板绑定、正确的父任务和 HB→Post 顺序、启用状态、内嵌源码与调用方设置，以及原生保存关闭重开后的绑定证据。仅有 `.rtpy`、库目录暂存、Post 空任务或静态 Results 曲线均不算完成。首次绑定、同名冲突及后续替换要分别说明；不能把“替换已绑定源码”描述成“首次注册”。
 - 只配置模式不得为验收启动 EM、DC、HB、网格生成或扫描，也不得擅自执行模板。无法在当前授权范围读回绑定时，保留明确缺项，不提升验证等级或改用 Computer Use。
 - 通用库只提供模板资源与调度接口；参数、频率、方向、探针、指标公式和输出分组由调用方传入。频扫横轴采用实际输入 RF；缺少方向不补零，重复执行只刷新流程拥有的曲线。有限 RF 功率同频 b/a 保留其口径，不宣称增量小信号 S。
-- `configure_hb_postprocessing_chain` 仅配置任务调度；`inspect_hb_postprocessing_chain` 仅读回任务；`inspect_embedded_python_result_template` 仅审计资源三件套。三者均不能单独证明首次绑定成功。目前尚无已核实的配置专用原生首次注册入口，不以写入内部资源文件替代注册验收。
+- 首次注册优先使用所属会话 `circuit/build/register_postprocessing_template`，或所属 app 的 `circuit.register_python_result_template`。这是版本受限的 CST 2026.1 资源格式导入，每个专用 Post 只支持一个 Python 模板；首次拒绝同名，替换要求完整注册摘要。接口原生保存关闭后将该任务资源移到审计备份，重开必须从 `.cst` 重建三件套，并比对完整描述、源码、设置及任务链。不能只检查文件存在。
+- `registration_persistence_verified/reopen_verified` 证明配置归档重建通过，不证明模板执行。空闲上下文原生枚举对已知有效对照也返回空，不能以空枚举判断注册失败；`binding_verified/native_template_enumeration_verified/template_execution_verified` 保持 False，不将归档持久化提升为原生模板运行认证。通用 API 不伪造 AddTemplate 命令、不运行 define/evaluate。直接调用 app facade 重开后须刷新所属会话的句柄；已注册的会话路由自动处理。
+- 本版 eval_type 仅接受 single_run；不能从 RPP 的 P/EP10 推导 all_runs。资源检查返回模式 unknown（None/not_independently_decoded）及原始标志，请求声明单独记录；不得把该声明当成原生 getter。源码中明确不匹配的模式字面量会静态拒绝，不执行 define 来猜设置。
 
 | 需求 | 当前入口 |
 |---|---|
@@ -44,7 +46,7 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 | 常用瞬态任务配置，不求解 | `app.circuit.configure_transient_task`；`create=True` 仅创建新名称 |
 | 端口激励、内阻、终端阻抗 | `app.circuit.configure_task_ports`，Sine/Import；实际 ExternalPort 名称 |
 | 内置二极管/SPICE 模型 | `app.circuit.configure_nonlinear_model`，默认只更新；不自动连线 |
-| CST Python 后处理模板 | `cst_automation.result_templates.stage_python_result_template`；MCP `stage_circuit_postprocessing_template` |
+| CST Python 后处理模板 | `app.circuit.register_python_result_template`；MCP `register_circuit_postprocessing_template`。仅暂存时使用 `stage_python_result_template` |
 | 当前三维工程的稳定因子/时间信号采样 | `app.configure_em_time_settings`，独立于 DS task |
 | 三维连接 | `app.circuit.link_em` |
 | 依赖检查与副本收集 | `inspect_dependencies/bundle` |
@@ -129,11 +131,11 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 
 | kind | operation |
 |---|---|
-| `build` | `configure`、`configure_transient_task`、`configure_steady_state_task`、`configure_task_ports`、`configure_nonlinear_model`、`stage_postprocessing_template`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
+| `build` | `configure`、`configure_transient_task`、`configure_steady_state_task`、`configure_task_ports`、`configure_nonlinear_model`、`stage_postprocessing_template`、`register_postprocessing_template`、`configure_em_time_settings`、`inspect`、`read_results`、`package` |
 | `solve` | `run_task` |
 | `study` | `parameter_sequence`、`run_parameter_study` |
 
-MCP 工具（含新增通用参数研究入口）为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_steady_state_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/stage_circuit_postprocessing_template/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project/run_circuit_parameter_study`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。后处理模板工具只静态检查并暂存 `.rtpy` 文件，不打开或修改 CST 工程；用户需将返回的 library_root 加入 CST 库路径，并在 Post-Processing 任务的模板对话框中添加模板一次。此后 CST 可在对应求解后自动执行。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
+MCP 工具（含新增通用参数研究入口）为 `preview_circuit/inspect_circuit/configure_circuit/configure_circuit_transient_task/configure_circuit_steady_state_task/configure_circuit_task_ports/configure_circuit_nonlinear_model/stage_circuit_postprocessing_template/register_circuit_postprocessing_template/configure_em_time_settings/run_circuit_task/read_circuit_results/package_circuit_project/run_circuit_parameter_study`。端口工具使用 task_name/ports，模型工具使用 block_name/settings/create；均只配置保存。`stage` 后处理工具只静态检查并暂存库文件，不修改工程；要求实际内嵌注册时用 `register`，遵守上面的版本、单模板与归档读回合同。EM 时间工具使用 settings 与工程标识，不需 task_name。参数序列尚不是独立 MCP 工具，不自行假定已暴露。所有工程和导出路径位于服务 workdir 内。
 
 新增功能优先沉淀到通用 Python 接口，再接 service/MCP；跨包协议先更新 `PUBLIC_API.md`。共享数据放 `cst_automation`，SDK 在执行时惰性加载，不引入 TPC 或 em-enclosure 依赖。
 

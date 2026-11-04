@@ -1,13 +1,26 @@
 # 验证记录
 
-## 2026-11-04：F 求解器 CPU 并行配置（离线）
+## 2026-11-04：F 求解器 CPU 并行配置
 
 - 新增 `configure_fd_parallelization`、显式会话路由/整批预检、配置回执及类型存根；
   命令依据本机 CST 2026 官方 `special_vbasolver_fdsolver_object.htm`。
 - 定向 104 项通过，覆盖三种 FDSolver 设置、稀疏更新、非法输入不接触工程、
   后置错误阻止先前几何写入、部分失败不重试及不提高验证标志。
-- 本聊天未连接 CST、修改器件文件或启动求解。启用请求、CPU 线程数和 socket 数
-  只表示配置；实际并行度待器件侧原生日志核验，不代表 GPU 或 HB 并行已配置。
+- 接口开发阶段本聊天未连接 CST、修改器件文件或启动求解。后续器件会话实际
+  调用新 wrapper，保存历史包含三种 FDSolver CPU setter，随后的本轮原生日志
+  明确记录 CPU block excitation 线程数；确认新入口实际触达并用于运行。
+- 设置 getter 仍不受支持，配置回执的验证标志保持 False；日志证据单独记录，
+  不外推为 GPU/HB 并行或网格收敛通过。器件参数及原始工程证据留在私有项目。
+
+## 2026-11-04：原生运行身份与 Qt 结果失效弹窗
+
+- 实际同参数网格重跑复用/覆盖了已有正数 3D Run ID；正 ID 不能独立充当不可变
+  执行身份。更正 `result_conventions` 说明与结果技能，要求保全原始复数结果、
+  原生日志、参数及工程/结果摘要。既有指纹比较及求解验收谓词保持原义。
+- 真实 Qt `Results May Get Incompatible With Model` 通过目标窗口的 UIA 选项选择、
+  独立重读选中状态与 Invoke 确定完成处理，原 SDK 挂起期间未追加 SDK 写入，
+  guard 继续保留 `blocked_by_dialog`。原调用返回后核对已保存历史、几何和摘要，
+  未盲目重放；未使用 Computer Use 工具，未将缓存目录存在提升为缓存内容验收。
 
 ## 2026-11-03：工程复用与临时标签（离线）
 
@@ -265,6 +278,29 @@ CST 2026 Help 的 transient shooting 模式、steady state period detection/peri
 - 官方 DS 模板枚举需要运行中的后处理任务；尚无已核实的配置专用首次注册
   入口。资源审计和任务顺序读回不能作为首次绑定认证。本次未新增 bind MCP
   或声称首次注册可用，未提交/发布该未完成能力。
+
+### 同日续作：首次资源注册与归档重开
+
+- 经授权提升本机执行权限后，在本聊天独立空 DS 工程中恢复成功；未操作其他
+  会话工程，未使用 Computer Use，未执行 EM/DC/HB、网格、扫描或模板评估。
+- 新增版本受限 `register_python_result_template` facade、资源格式编译/审计、
+  显式 service/MCP build 路由。原生版本为 `Version 2026.1 - Oct 22 2025`。
+- 首次导入后，原生保存关闭，将任务资源目录移出 companion 目录，再重开；
+  CST 从 `.cst` 恢复三文件。完整注册描述、源码与元数据摘要、调用方设置和
+  HB→Post 启用/顺序均匹配。默认同名与过期摘要拒绝，受完整摘要保护的替换
+  同样完成归档重开；所属会话缓存句柄已刷新，并能继续取得登记工程。
+- 已知历史有效绑定的配置专用对照也返回空枚举，确认空闲枚举不是有效的
+  绑定存在性判据。`registration_persistence_verified/reopen_verified=True`
+  仅认证原生归档内容重建；`binding_verified/native_template_enumeration_verified/
+  template_execution_verified=False`，不声称模板运行时识别或计算已认证。
+- 首次将 P 标志推作 all_runs 的实现已纠正：已知有效参考源码声明 single_run
+  但使用相同 P/EP10。检查器模式标为 unknown，保存原始标志，请求声明另记；
+  本版仅接受 single_run，并对该模式重新完成首次注册与替换的实机归档重开。
+- 相关离线回归 120 项通过，包含资源格式、三文件摘要冲突、非法输入预检、
+  既有模板/曲线接口，以及服务/MCP配置路由；fake 不作为实机证据。
+- 独立测试工程保留诊断任务与审计资料。可选诊断任务清理的原生 Delete 返回
+  Unknown internal error，未重试；随后只读确认目标 single_run 注册摘要及
+  HB→Post 链未改变，HB/Post 结果子树为空。该清理不属于注册接口。
 
 ## 2026-11-04 EM 频率范围参数引用修复
 

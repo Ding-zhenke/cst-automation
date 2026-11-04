@@ -24,7 +24,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "inspect", "read_results", "package"},
+    allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "package"},
                "solve": {"run_task"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
     def handle(*, project, params, job, backend):
@@ -93,6 +93,12 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                 group, name = params.get('group'), params.get('name')
                 if not isinstance(group, str) or not group.strip() or not isinstance(name, str) or not name.strip():
                     raise CircuitError('circuit_spec_invalid', 'Explicit template group and name are required')
+            if operation == 'register_postprocessing_template':
+                from cst_automation.template_registration import prepare_python_result_registration
+                configuration_source = contained(service.workdir, params['template_source'])
+                prepare_python_result_registration(configuration_source,
+                    eval_type=params.get('eval_type', 'single_run'),
+                    **{key: params[key] for key in ('result_name', 'template_name', 'group', 'result_type', 'settings')})
             if operation in ("read_results", "package"):
                 contained(service.workdir, params["destination"])
             if operation in ("run_task", "parameter_sequence"):
@@ -123,6 +129,15 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
             api = app.circuit if operation != 'configure_em_time_settings' else None
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})
+            if operation == 'register_postprocessing_template':
+                report = api.register_python_result_template(
+                    params['parent_task'], params['hb_task'], params['post_task'], str(configuration_source),
+                    **{key: params[key] for key in ('result_name', 'template_name', 'group', 'result_type', 'settings')},
+                    create=params.get('create', False), conflict=params.get('conflict', 'error'),
+                    eval_type=params.get('eval_type', 'single_run'),
+                    expected_registration_sha256=params.get('expected_registration_sha256'))
+                return ok_result(saved=report['saved'], result_summary=report,
+                    artifacts=[artifact(str(path), kind='project'), artifact(report['audit_path'], kind='registration_audit')])
             if operation in ("configure", 'configure_transient_task', 'configure_steady_state_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
                 try:
                     if operation == 'configure_em_time_settings':
