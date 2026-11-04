@@ -15,6 +15,15 @@ def build_plugin(root: Path) -> Path:
     manifest = json.loads(template.read_text(encoding="utf-8"))
     if manifest["name"] != "cst-automation" or manifest["skills"] != "./skills/":
         raise ValueError("Unexpected plugin identity or skills directory")
+    # Root identity wins over the compatibility overlay in current clients.
+    # Derive both from one source so an upgrade replaces stale root metadata.
+    portable = {
+        "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+        **{key: manifest[key] for key in ("name", "version", "description", "author",
+                                          "repository", "license", "keywords") if key in manifest},
+        "extensions": {"com.openai": {"interface": manifest["interface"]}},
+    }
+    portable_json = json.dumps(portable, ensure_ascii=False, indent=2) + "\n"
     skill_dirs = sorted(p.parent for p in (root / "skills").glob("*/SKILL.md"))
     if not skill_dirs:
         raise ValueError("No repository skills found")
@@ -45,10 +54,12 @@ def build_plugin(root: Path) -> Path:
         archive = Path(staging) / destination.name
         marketplace_archive = Path(staging) / marketplace_destination.name
         with ZipFile(archive, "w", compression=ZIP_DEFLATED) as bundle:
+            bundle.writestr("plugin.json", portable_json)
             for source, target in entries:
                 bundle.write(source, target)
         with ZipFile(marketplace_archive, "w", compression=ZIP_DEFLATED) as bundle:
             bundle.writestr(".agents/plugins/marketplace.json", json.dumps(marketplace, indent=2))
+            bundle.writestr("plugins/cst-automation/plugin.json", portable_json)
             for source, target in entries:
                 bundle.write(source, "plugins/cst-automation/" + target)
         os.replace(archive, destination)

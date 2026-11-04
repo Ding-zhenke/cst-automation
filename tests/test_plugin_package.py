@@ -25,6 +25,11 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
     with ZipFile(archive) as bundle:
         names = set(bundle.namelist())
         manifest = json.loads(bundle.read(".codex-plugin/plugin.json"))
+        portable = json.loads(bundle.read("plugin.json"))
+        assert portable["$schema"] == "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+        for key in ("name", "version", "description", "author", "repository", "license"):
+            assert portable[key] == manifest[key]
+        assert portable["extensions"]["com.openai"]["interface"] == manifest["interface"]
         assert manifest["skills"] == "./skills/"
         assert "mcpServers" not in manifest
         entries = sorted(n for n in names if n.startswith("skills/") and n.endswith("/SKILL.md"))
@@ -37,7 +42,11 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
                 continue
             assert bundle.read(name) == content
         extracted = tmp_path / "unpacked"
+        extracted.mkdir()
+        # Simulate upgrading an existing source whose portable identity is stale.
+        (extracted / "plugin.json").write_text(json.dumps({"name": "cst-automation", "version": "0.0.0"}), encoding="utf-8")
         bundle.extractall(extracted)
+        assert json.loads((extracted / "plugin.json").read_text(encoding="utf-8"))["version"] == manifest["version"]
         for entry in entries:
             text = (extracted / entry).read_text(encoding="utf-8")
             for target in re.findall(r"\]\(([^)]+)\)", text):
@@ -45,7 +54,7 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
                 resolved = ((extracted / entry).parent / target.split("#", 1)[0]).resolve()
                 assert extracted.resolve() in resolved.parents
                 assert resolved.is_file(), (entry, target)
-        assert all(n == "LICENSE" or n == ".codex-plugin/plugin.json"
+        assert all(n in ("LICENSE", "plugin.json", ".codex-plugin/plugin.json")
                    or n.startswith(("skills/", "docs/")) for n in names)
     assert before == {p.relative_to(tmp_path).as_posix(): p.read_bytes()
                       for p in (tmp_path / "skills").rglob("*") if p.is_file()}

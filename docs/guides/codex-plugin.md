@@ -28,9 +28,14 @@
 
 产物是 `dist/cst-automation-plugin.zip` 和用于本地安装的 `dist/cst-automation-marketplace.zip`。清单源文件位于 `plugins/cst-automation/.codex-plugin/plugin.json`；它是打包模板，该源目录尚未包含 skills，不能直接当成完整插件安装。
 
-插件压缩包根目录含 `.codex-plugin/plugin.json`、`skills/`、`docs/` 和 `LICENSE`；marketplace 压缩包则包含本地目录清单和同一份完整插件。每个 skill 逐字节复制，文档保留原有层级，使 `../../docs/...` 相对引用在插件内继续有效。新增 `skills/<name>/SKILL.md` 后重新构建会自动纳入。`dist/` 已由 Git 忽略，不维护生成文件的第二份源码。
+插件压缩包根目录含原生 `plugin.json`、兼容 `.codex-plugin/plugin.json`、`skills/`、`docs/` 和 `LICENSE`；marketplace 压缩包则包含本地目录清单和同一份完整插件。两份清单由同一模板生成，身份和版本一致；原生清单的 OpenAI 展示设置放在 `extensions.com.openai.interface`。每个 skill 逐字节复制，文档保留原有层级，使 `../../docs/...` 相对引用在插件内继续有效。新增 `skills/<name>/SKILL.md` 后重新构建会自动纳入。`dist/` 已由 Git 忽略，不维护生成文件的第二份源码。
 
 ## 使用与边界
+
+0.3.4 修复覆盖升级时根清单残留旧版本的问题。解压发布包须同时更新根
+`plugin.json` 与兼容清单，再运行插件安装命令并核对其返回版本，不能仅凭源文件
+已更新或建议重启就认定新版已安装。根清单是优先身份来源，布局依据
+[官方插件打包文档](https://developers.openai.com/plugins/build/plugins)。
 
 0.3.3 明确 EM 模型频段通过 `set_frequency_range("fmin", "fmax")` 引用工程参数，
 会话使用已有 `model_api` 路由；F 求解器采样区间仍是独立的数值设置。
