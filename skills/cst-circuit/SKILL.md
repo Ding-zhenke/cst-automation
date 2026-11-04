@@ -36,6 +36,10 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 - 首次注册优先使用所属会话 `circuit/build/register_postprocessing_template`，或所属 app 的 `circuit.register_python_result_template`。这是版本受限的 CST 2026.1 资源格式导入，每个专用 Post 只支持一个 Python 模板；首次拒绝同名，替换要求完整注册摘要。接口原生保存关闭后将该任务资源移到审计备份，重开必须从 `.cst` 重建三件套，并比对完整描述、源码、设置及任务链。不能只检查文件存在。
 - `registration_persistence_verified/reopen_verified` 证明配置归档重建通过，不证明模板执行。空闲上下文原生枚举对已知有效对照也返回空，不能以空枚举判断注册失败；`binding_verified/native_template_enumeration_verified/template_execution_verified` 保持 False，不将归档持久化提升为原生模板运行认证。通用 API 不伪造 AddTemplate 命令、不运行 define/evaluate。直接调用 app facade 重开后须刷新所属会话的句柄；已注册的会话路由自动处理。
 - 本版 eval_type 仅接受 single_run；不能从 RPP 的 P/EP10 推导 all_runs。资源检查返回模式 unknown（None/not_independently_decoded）及原始标志，请求声明单独记录；不得把该声明当成原生 getter。源码中明确不匹配的模式字面量会静态拒绝，不执行 define 来猜设置。
+- M0D 执行后的多条 yield 输出不等于多个 Python 注册模块；检查器支持已核实的
+  v11 单模块输出清单。执行改变 Summary 后，替换前重新 inspect 完整注册 SHA，
+  不复用初次注册摘要。输出名清单和保存重开均不认证回调计算成功；实际重评估
+  继续由调用方在授权范围内执行并核对日志、数据和表示约定。
 
 | 需求 | 当前入口 |
 |---|---|

@@ -88,13 +88,26 @@ def inspect_python_result_registration(folder):
     try:
         summary = (folder / 'Summary.rpp').read_bytes()
         lines = summary.decode('utf-8-sig').splitlines()
-        if len(lines) != 15 or lines[:4] != ['11', '0', '0', '1']:
+        if len(lines) < 15 or lines[:4] != ['11', '0', '0', '1']:
             raise ResultTemplateError('Expected exactly one CST 2026.1 registration; other formats/counts refused')
-        name, title, enabled, kind, group, evaluation, layout, library_file, language, a, b = lines[4:]
+        name, title, enabled, kind, group, evaluation, layout, library_file, language = lines[4:13]
         for text in (name, title, group): safe_name(text)
         if (enabled != '1' or kind not in RESULT_TYPES or evaluation != 'P' or layout != 'EP10'
-                or language != 'Python' or library_file != title + '.rtpy' or (a, b) != ('0', '0')):
+                or language != 'Python' or library_file != title + '.rtpy' or lines[-1] != '0'):
             raise ResultTemplateError('Unsupported registration flags or inconsistent descriptor')
+        count_text = lines[13]
+        if not count_text.isascii() or not count_text.isdecimal():
+            raise ResultTemplateError('Invalid native output count')
+        output_count = int(count_text)
+        if len(lines) != 15 + output_count or (output_count and kind != 'M0D'):
+            raise ResultTemplateError('Unsupported or inconsistent native output descriptor')
+        output_names = lines[14:-1]
+        prefix = name + '_'
+        if (len(set(output_names)) != output_count or any(
+                not value.startswith(prefix) or len(value) == len(prefix)
+                or any(ord(char) < 32 or char in '/\\' for char in value)
+                for value in output_names)):
+            raise ResultTemplateError('Native output names are ambiguous or belong to another registration')
         meta = folder / (name + '.rtjson')
         module = folder / (name + '.rtpy')
         for path in (folder / 'Summary.rpp', meta, module):
@@ -115,6 +128,7 @@ def inspect_python_result_registration(folder):
     except (OSError, UnicodeError, ValueError, TypeError, KeyError) as exc:
         raise ResultTemplateError('Cannot read registration: ' + str(exc)) from exc
     return {'result_name': name, 'template_name': title, 'group': group, 'result_type': kind,
+            'native_output_count': output_count, 'native_output_names': output_names,
             'eval_type': None, 'eval_type_status': 'not_independently_decoded',
             'raw_evaluation_flags': {'flag': evaluation, 'layout': layout},
             'settings': settings, 'registration_sha256': digest,

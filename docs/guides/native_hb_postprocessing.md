@@ -182,6 +182,14 @@ expected_registration_sha256。摘要覆盖三文件完整内容，设置变化�
 不支持多条注册的任务不会被截断。实际资源目录由原生任务及其自动生成目录发现，
 不拼固定 `_35_0` 后缀。
 
+原生 M0D 实际执行后，同一个 Python 注册模块会在 Summary 中追加输出计数和
+输出名列表；输出条数不是注册模块数。检查器支持已观察到的 v11 单模块 M0D
+展开格式，返回 `native_output_count/native_output_names`，不把输出索引当成执行
+成功或计算正确的证明。未知展开格式和多个模块继续拒绝。
+实际执行改变了 Summary，故初次注册的 SHA 会过期；更新源码前重新 inspect 当前
+完整注册摘要。受控替换保留原始资源字节的 audit 备份，再写入新的未执行描述，
+保存重开验证仍只认证持久化；接口不自行执行 Post 或重算 HB。
+
 接口启用并核对父/HB/Post，将 HB→Post 相邻放在末尾；保留其他子任务。
 随后明确保存当前工程、关闭并核对其已不在打开列表；将该 Post 资源目录
 移到工程旁 `.cst_automation_template_audits/<token>/saved_resources` 后，

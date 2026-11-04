@@ -26,6 +26,50 @@ def write_registration(payload, folder):
     for name, content in payload.items(): (folder / name).write_bytes(content)
 
 
+def multi_output_payload(payload, count=17):
+    """Observed v11 single M0D module layout after multiple native yields."""
+    lines = payload['Summary.rpp'].decode('utf-8').splitlines()
+    names = [f'Metric_sample_{i}' for i in range(count)]
+    return dict(payload, **{'Summary.rpp': ('\r\n'.join(
+        lines[:13] + [str(count)] + names + ['0']) + '\r\n').encode('utf-8')})
+
+
+def test_one_module_with_native_multi_outputs_remains_inspectable_and_replaceable(registration):
+    source, kwargs, payload, folder = registration
+    evaluated = multi_output_payload(payload)
+    write_registration(evaluated, folder)
+    before = {p.name: p.read_bytes() for p in folder.iterdir()}
+    report = inspect_python_result_registration(folder)
+    assert report['result_name'] == 'Metric'
+    assert report['native_output_count'] == 17
+    assert report['native_output_names'] == [f'Metric_sample_{i}' for i in range(17)]
+    assert report['template_execution_verified'] is False
+    assert report['registration_sha256'] == payload_digest(evaluated)[0]
+    assert check_registration_conflict(folder, payload, conflict='replace',
+        expected_registration_sha256=report['registration_sha256']) == report
+    with pytest.raises(ResultTemplateError, match='SHA-256 mismatch'):
+        check_registration_conflict(folder, payload, conflict='replace',
+            expected_registration_sha256=payload_digest(payload)[0])
+    assert {p.name: p.read_bytes() for p in folder.iterdir()} == before
+
+
+@pytest.mark.parametrize('mutation', ['count', 'duplicate', 'foreign', 'tail', 'type', 'second_module'])
+def test_multi_output_layout_does_not_allow_malformed_or_unrelated_modules(registration, mutation):
+    source, kwargs, payload, folder = registration
+    evaluated = multi_output_payload(payload, 2)
+    lines = evaluated['Summary.rpp'].decode('utf-8').splitlines()
+    if mutation == 'count': lines[13] = '3'
+    if mutation == 'duplicate': lines[15] = lines[14]
+    if mutation == 'foreign': lines[15] = 'Other_module_output'
+    if mutation == 'tail': lines[-1] = '1'
+    if mutation == 'type': lines[7] = 'M1D'
+    if mutation == 'second_module': lines[3] = '2'
+    evaluated['Summary.rpp'] = ('\n'.join(lines) + '\n').encode('utf-8')
+    write_registration(evaluated, folder)
+    with pytest.raises(ResultTemplateError):
+        inspect_python_result_registration(folder)
+
+
 def test_complete_registration_roundtrip_retains_exact_settings_and_bytes(registration):
     source, kwargs, payload, folder = registration
     write_registration(payload, folder)
@@ -99,7 +143,8 @@ def test_invalid_source_is_rejected_before_app_access(registration):
 
 
 @pytest.mark.parametrize('restore', ['exact', 'missing', 'changed'])
-def test_verification_requires_native_archive_reconstruction_not_existing_files(registration, monkeypatch, restore):
+@pytest.mark.parametrize('evaluated_before', [False, True])
+def test_verification_requires_native_archive_reconstruction_not_existing_files(registration, monkeypatch, restore, evaluated_before):
     from cst_solver.circuit import template_registration as native
     from cst_solver.circuit.adapter import CircuitError
     from cst_automation.template_registration import SUPPORTED_NATIVE_VERSION
@@ -107,6 +152,12 @@ def test_verification_requires_native_archive_reconstruction_not_existing_files(
     path = source.parent / 'project.cst'; path.write_bytes(b'fake native archive')
     resources = path.with_suffix(''); folder = resources / 'Model/DS/NativePost'
     folder.mkdir(parents=True)
+    replacement = {}
+    if evaluated_before:
+        write_registration(multi_output_payload(payload, 2), folder)
+        replacement = dict(conflict='replace',
+            expected_registration_sha256=payload_digest(multi_output_payload(payload, 2))[0])
+        source.write_bytes(source.read_bytes() + b'\n# updated source\n')
     events = []
     task = SimpleNamespace(Reset=lambda: None, Name=lambda name: None, DoesExist=lambda: True)
     schematic = SimpleNamespace(GetApplicationVersion=lambda: SUPPORTED_NATIVE_VERSION,
@@ -136,12 +187,12 @@ def test_verification_requires_native_archive_reconstruction_not_existing_files(
     monkeypatch.setattr(native, 'configure_hb_postprocessing_chain', lambda *a, **kw: events.append('configure'))
     monkeypatch.setattr(native, 'inspect_hb_postprocessing_chain', lambda *a: {'readback_verified': True})
     if restore == 'exact':
-        report = native.register_python_result_template(app, 'Sweep', 'Sweep\\HB', 'Sweep\\Post', source, **kwargs)
+        report = native.register_python_result_template(app, 'Sweep', 'Sweep\\HB', 'Sweep\\Post', source, **kwargs, **replacement)
         assert report['registration_persistence_verified'] and report['reopen_verified']
         assert report['binding_verified'] is report['template_execution_verified'] is False
     else:
         with pytest.raises(CircuitError) as exc:
-            native.register_python_result_template(app, 'Sweep', 'Sweep\\HB', 'Sweep\\Post', source, **kwargs)
+            native.register_python_result_template(app, 'Sweep', 'Sweep\\HB', 'Sweep\\Post', source, **kwargs, **replacement)
         report = exc.value.details['registration_receipt']
         assert report['stage'] == 'native_reopen_and_extract'
         assert report['registration_persistence_verified'] is False

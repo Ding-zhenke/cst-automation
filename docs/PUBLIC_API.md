@@ -704,6 +704,18 @@ digest covering Summary.rpp, metadata and source; replacing a registration
 requires conflict="replace" and that digest. Multiple registrations in the
 same Post task are refused rather than truncated. Source is statically
 checked and never imported, defined or evaluated by registration.
+
+For the observed v11 single-module M0D layout, inspection also accepts the
+native output-name list written after evaluation: a nonnegative count,
+exactly that many unique names belonging to the registration, and the known
+terminal flag. `native_output_count/native_output_names` report this index only;
+they do not certify successful evaluation or result correctness. Unknown
+expanded formats and multiple registration modules remain refused. The full
+current Summary bytes participate in registration_sha256, so evaluation makes
+an older digest stale. Inspect again and provide the new complete digest before
+replacement. Replacement retains old resource bytes in its audit backup and
+writes a fresh registration descriptor; it does not execute the template or
+recompute HB, nor does it certify a subsequent native callback.
 RPP `P/EP10` flags do not independently establish eval_type: the known-valid
 reference using these flags declares single_run. Inspection returns eval_type
 None with status not_independently_decoded and preserves raw flags. The
