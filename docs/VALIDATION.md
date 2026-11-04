@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-04：Qt glow 正文预算误报修复
+
+- 对精确装饰窗增加正文读取前的结构识别，匹配同进程 Qt owner、已知相同创建身份与无原生子控件；保留原始快照和结构证据，不把未读正文标为读取成功。其他模态/未知窗口继续走原检查。
+- 新增 11 项离线回归先复现再通过，相关 40 项通过；完整离线回归为 1274 passed、3 skipped（缺 MCP extra）、2 deselected（实机/UI 未执行），独立代码审查无阻塞发现。
+- 来源会话有限跟进：只刷新已核实空闲 worker，保留原 CST DE/保存副本；原生 inspect 与 circuit inspect 均 succeeded，报告时 EM 仍在运行且 runtime_diagnostics.state=clear，未再出现此次 Qt 装饰窗误报。不是 EM/HB 完成、收敛或器件验收；本会话未操作 CST。
+- 本次实际版本依据来源 Model.log/output.txt 为 2026.2 Release from 2025-11-28 change 1505684；doctor 的 CST2026 目录名不作版本替代。迁入包的 2026.1 记录属于早先独立阶段。
+- 实现及证据边界见[守卫修复说明](guides/qt-glow-budget-repair.md)；具体工程参数、数据、进程与 job 标识未复制入通用库。
+
 ## 2026-11-03 仓库、插件与本项目环境更新
 
 - 拉取 origin 后，将 `origin/codex/nine-skill-plugin` 的 `39e34bb` 合并到当前 API 修复分支，保留 `92b7308` 及之前的消息三态、Pass 轴结果、采样计划等改进；没有切换或重写 main。

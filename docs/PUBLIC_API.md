@@ -1,5 +1,14 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-04：Qt glow 的结构识别先于正文预算
+
+`list_dialogs` 对精确 `QtitanTitleBarGlowWindow` 增加读取前结构校验：空标题、可见/响应中、
+同 PID 的 Qt QWindowIcon owner、相同且已知的进程创建时间、无原生子控件且无已知正文/按钮/进度。
+匹配后保留快照，标为 decoration、blocking=False；不调用 UIA，不受共享正文预算耗尽影响。
+`text_source=win32_glow_structure`、`content_read_status=not_applicable_decoration` 表明是结构证据，
+`text_readable/text_complete` 保持 False，不伪造已读取正文。结构不完整或含矛盾证据仍按原路径读取，
+失败保持 unknown/blocking；真正模态窗口仍独立报告。不自动关闭窗口或改变原 job/session 状态。
+
 ## 2026-11-03：SPICE 缓存身份核验（离线回归）
 
 - `configure_nonlinear_model` 不再要求 SPICE `GetFile()` 与 `SetFile` 路径相等。输入保持兼容；请求源快照增加字节数及可解析的 `.SUBCKT` 端口顺序。只支持唯一、简单的子电路声明；复杂语法、编码及 include/lib 依赖闭包保持 unknown。

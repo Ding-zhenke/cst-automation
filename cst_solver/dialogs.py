@@ -39,6 +39,7 @@ _QT_DIALOG_TITLE_KEYWORDS = ('save as', 'open', '另存为', '保存为', '打�
 
 # Win32 常量
 _GW_OWNER = 4
+_GW_CHILD = 5
 _WM_COMMAND = 0x0111
 _BM_CLICK = 0x00F5
 _IDOK, _IDCANCEL, _IDABORT, _IDRETRY, _IDIGNORE, _IDYES, _IDNO = 1, 2, 3, 4, 5, 6, 7
@@ -211,6 +212,28 @@ def _is_startup_controller(window):
             not window.get('read_errors'))
 
 
+def _is_structural_glow(window):
+    """Recognize an inert Qt glow before spending the shared text-read budget.
+
+    Exact class alone is insufficient. Require a same-process Qt owner with a
+    matching known creation identity, an empty title and no native children.
+    This classifies window structure, not successful UIA text extraction.
+    """
+    creation = window.get('process_creation_time')
+    return bool(
+        window.get('class') == 'QtitanTitleBarGlowWindow' and
+        not window.get('title', '').strip() and window.get('visible') and
+        window.get('responding') and window.get('owner') and
+        window.get('owner_pid') == window.get('pid') and
+        window.get('owner_class', '').startswith('Qt') and
+        window.get('owner_class', '').endswith('QWindowIcon') and
+        isinstance(creation, str) and creation.isdecimal() and int(creation) > 0 and
+        window.get('owner_creation_time') == creation and
+        not window.get('body', '').strip() and not window.get('buttons') and
+        not window.get('has_progress') and
+        not _user32.GetWindow(window['hwnd'], _GW_CHILD))
+
+
 def _child_buttons(hwnd):
     """
     枚举对话框上的按钮（类名 ``Button``）。
@@ -367,7 +390,13 @@ def list_dialogs(only_cst=True, *, pid=None):
         if not window['is_dialog'] or not window['visible']:
             continue
         dialog = dict(window)
-        if time.monotonic() < deadline:
+        structural_glow = _is_structural_glow(window)
+        if structural_glow:
+            content = dict(body='', text_source='win32_glow_structure', text_readable=False,
+                           text_complete=False, read_errors=[], has_progress=False,
+                           content_read_status='not_applicable_decoration')
+            dialog['classification_evidence'] = 'exact_glow_class_owner_identity_no_native_children'
+        elif time.monotonic() < deadline:
             content = _dialog_content(dialog['hwnd'], dialog['class'])
         else:
             content = dict(body='', text_source='unreadable', text_readable=False,
@@ -376,7 +405,7 @@ def list_dialogs(only_cst=True, *, pid=None):
                            has_progress=False)
         dialog.update(content)
         try:
-            buttons = _child_buttons(dialog['hwnd'])
+            buttons = [] if structural_glow else _child_buttons(dialog['hwnd'])
         except OSError as exc:
             buttons = []
             dialog['read_errors'].append(str(exc))
@@ -394,7 +423,7 @@ def list_dialogs(only_cst=True, *, pid=None):
             dialog.get('modal', True) or not dialog.get('owner'))
         # A glow decoration inherits a disabled owner's modal relation, but has
         # no user interaction. Keep its raw snapshot; a failed read is unknown.
-        decoration = (dialog['class'] == 'QtitanTitleBarGlowWindow' and
+        decoration = structural_glow or (dialog['class'] == 'QtitanTitleBarGlowWindow' and
                       not dialog['title'].strip() and not dialog.get('body', '').strip() and
                       not dialog['buttons'] and not dialog['read_errors'] and
                       dialog.get('owner') and dialog.get('owner_pid') == dialog['pid'] and
@@ -407,7 +436,7 @@ def list_dialogs(only_cst=True, *, pid=None):
         if _is_scripting_control(dialog) or _is_startup_controller(dialog):
             dialog['window_role'] = 'scripting_control' if _is_scripting_control(dialog) else 'startup_controller'
             dialog['blocking'] = False
-        dialog['needs_visual_inspection'] = not dialog['text_complete']
+        dialog['needs_visual_inspection'] = not dialog['text_complete'] and not decoration
         dialogs.append(dialog)
     return dialogs
 
