@@ -42,6 +42,13 @@ finally:
 
 schema v1 包含 units、parameters、blocks、external_ports、nets、probes、em_links、tasks；元件属性通过 `property_units` 指定单位，net 端点必须包含 `component_kind/component_name/pin_name`。参数只允许已声明变量和加减乘除，不执行 Python 表达式。已存在三维模块通过 `em_links` 引用，不复制创建自身模块。
 
+允许分阶段 `apply`：先创建元件/端口，之后仅提交 `nets`，再添加探针或任务。
+每次从当前工程重新读回引用对象及连接，不依赖上一次调用的缓存，不把已有元件
+重复列入待创建规格。`list_pins` 的 `pin_name` 是连接名，`display_pin_name` 是界面
+显示名，两者可能不同；使用实际 `pin_name`，不把显示标签或 pin_index 当作连接索引。
+拼错元件/引脚、名称冲突、不可读连接和把已连接引脚分配给另一新网均在写入前拒绝。
+部分写入仍需保留现场核对，不能通过重放已完成阶段恢复；不自动求解。
+
 物理属性在当前适配器中安全求值后写成 SI 数值，并为该属性选用对应局部单位；不会为了改一个元件而改变已有工程的全局单位。原始参数表达式保存在规格/审计中。**修改 CST 全局参数不会自动改变已固化的元件值**：必须通过 `set_properties` 重新求值写入。参数序列也按每点明确的属性和 expected_results 执行，不冒充原生 DS 参数扫描。
 
 ## 当前刻意保留为未验证的能力

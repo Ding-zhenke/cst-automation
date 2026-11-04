@@ -34,7 +34,7 @@ class CircuitAPI:
     def apply(self, spec, *, conflict="error"):
         if conflict != "error":
             raise CircuitError("circuit_spec_invalid", "Only conflict='error' is supported")
-        data = validate_circuit_spec(spec)
+        data = validate_circuit_spec(spec, defer_references=True)
         before = self.inspect()
         if data["parameters"]:
             existing_parameters = before.get("parameters")
@@ -46,6 +46,8 @@ class CircuitAPI:
             existing = {obj["name"] for obj in before[group]}
             if any(obj["name"] in existing for obj in data[group]):
                 raise CircuitError("circuit_topology_invalid", f"{group} name conflict")
+        data = validate_circuit_spec(data, existing=before)
+        self._spec = None
         try:
             self.adapter.apply(data)
             after = self.inspect()

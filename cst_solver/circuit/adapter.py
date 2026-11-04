@@ -94,10 +94,24 @@ class NativeAdapter:
 
     def pins(self, name):
         obj = self.select("Block", name)
-        ports = {str(obj.GetPortName(i)): i for i in range(int(obj.GetNumberOfPorts()))}
-        return [{"pin_name": str(obj.GetPinName(i)), "pin_index": i,
-                 "port_index": ports.get(str(obj.GetPinName(i))), "reference": "unknown", "mode": "unknown"}
-                for i in range(int(obj.GetNumberOfPins()))]
+        displays = [str(obj.GetPinName(i)) for i in range(int(obj.GetNumberOfPins()))]
+        matches = {}
+        for index in range(int(obj.GetNumberOfPorts())):
+            canonical = str(obj.GetPortName(index))
+            candidates = {canonical}
+            if canonical not in displays:
+                label = str(obj.GetPortLabel(index))
+                if label:
+                    candidates.update((f"{canonical}({label})", f"{canonical} ({label})"))
+            pins = [i for i, display in enumerate(displays) if display in candidates]
+            if len(pins) > 1 or (pins and pins[0] in matches):
+                raise CircuitError("circuit_result_read_failed", "Ambiguous native pin/port mapping", block_name=name)
+            if pins:
+                matches[pins[0]] = (canonical, index)
+        return [{"pin_name": matches.get(i, (display, None))[0], "display_pin_name": display,
+                 "pin_index": i, "port_index": matches.get(i, (display, None))[1],
+                 "reference": "unknown", "mode": "unknown"}
+                for i, display in enumerate(displays)]
 
     def property_readback(self, name):
         """Complete native property enumeration with actual strings and units."""

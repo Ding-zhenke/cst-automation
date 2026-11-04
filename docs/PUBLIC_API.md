@@ -60,6 +60,16 @@
 用户已批准 2026-10-19 场路联合设计及真实几何/端口预览；本轮已分阶段实测。具体通过范围和未通过项以 `docs/VALIDATION.md`、`docs/CIRCUIT_LIVE_REPORT.md` 为准。
 
 - `cst_automation.circuit_schema.validate_circuit_spec(spec)` 返回独立、规范化的 JSON 规格；数值元件属性须附显式单位，表达式仅允许安全算术与已声明参数。
+- `validate_circuit_spec(spec, *, existing=None, defer_references=False)` 默认保持完整规格校验。
+  `existing` 可传入当前 `CircuitAPI.inspect()` 快照，为分阶段新增连接、探针和任务解析
+  已有元件/端口及连接占用；已有对象不会被加入返回的待创建规格。已有端点须有可读且
+  可连接的实际引脚，不接受猜测索引或将已占用引脚重新分配到新网。`defer_references=True`
+  仅作访问 CST 前的格式检查，不认证引用存在；`CircuitAPI.apply` 和服务 configure 必须
+  随后使用当前工程快照完整校验，才允许写入。已有名称冲突仍报错，不重建或删除对象。
+- 电路 `inspect/list_pins` 的 `pin_name` 使用实际连接端口名，`display_pin_name`
+  单独保留带标签的界面名称；通过当前原生端口名称/标签匹配 `pin_index` 与
+  `port_index`，不假定两种索引一致，不猜测拆分标签。没有可靠匹配时保留不可连接。
+  既有网络中的原生 `Externalport` 类型按 `ExternalPort` 识别，端点占用仍完整检查。
 - `cst_automation.circuit_preview.preview_circuit(spec, output_dir)` 离线输出 SVG、连接表、参数与输入摘要，不加载 CST。
 - `setup.circuit` 为惰性 `CircuitAPI`；`setup.new_circuit_project()` 创建 DS 工程。现有三维接口默认行为不变。
 - `cst_solver.circuit.circuit_capabilities(probe='static', app=None)` 静态发现不加载 SDK；live 仅使用显式传入的会话。发现、离线验证、实机读回、solver 验收分别报告。

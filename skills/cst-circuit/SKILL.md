@@ -71,6 +71,9 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 2. 使用 schema v1：`units/parameters/blocks/external_ports/nets/probes/em_links/tasks`。元件使用实际官方类型及 `property_units`；net 端点包含 `component_kind/component_name/pin_name`。不得猜测 pin 索引。
 3. 使用 `preview_circuit(spec, destination)` 输出离线原理图。涉及三维几何或端口改变时，以真实坐标提供预览，经审阅后再建模；已批准的范围不重复询问。
 4. `apply` 仅支持 `conflict="error"`，遇到重名不删除旧对象。部分写入失败要保留副本、消息及读回，不盲目重试整个配置。
+   可以先创建元件/端口，再仅提交 nets、探针或任务；引用按当前工程读回校验，
+   不重复声明已有元件。连接使用 `list_pins` 的实际 `pin_name`，界面带标签名称
+   保留在 `display_pin_name`；不猜测或混用 pin_index、port_index。
 5. 同工程已有 EM 块用 `source="self"` 引用，不重复创建。`port_map` 每项必须显式包含 `pin_name/port_id/mode/reference/polarity`；`parameter_map` 显式传入。`verified=False` 保留原义。
 6. 参数表达式目前求值后固化为元件值。修改工程全局参数不会自动刷新该值；通过 `set_properties(..., units=...)` 明确更新，再保存。不要声称当前参数序列是原生 DS 扫描。
 

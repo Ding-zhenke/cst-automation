@@ -98,8 +98,48 @@ def evaluate_quantity(value, unit, parameters, stack=()):
     return number, dimensions
 
 
-def validate_circuit_spec(spec):
-    """Return a detached canonical spec; reject ambiguous electrical topology."""
+def _existing_pin(components, endpoint):
+    key = (endpoint.get("component_kind"), endpoint.get("component_name"))
+    pins = components[key].get("pins")
+    _require(isinstance(pins, list), f"Existing pin readback unavailable: {key}")
+    matches = [p for p in pins if p.get("pin_name") == endpoint.get("pin_name")]
+    _require(len(matches) == 1, f"Unknown or ambiguous existing pin: {endpoint}")
+    index = matches[0].get("port_index")
+    _require(type(index) is int and index >= 0, f"Existing pin is not connectable: {endpoint}")
+    return key + (index,)
+
+
+def _existing_nets(existing, components):
+    _require(not any(item.get("field") == "nets" for item in existing.get("unknown", [])),
+             "Existing nets readback unavailable")
+    nets = existing.get("nets")
+    _require(isinstance(nets, list), "Existing nets readback unavailable")
+    occupied = set()
+    for net in nets:
+        if "endpoints" in net:
+            occupied.update(_existing_pin(components, ep) for ep in net["endpoints"])
+        else:
+            _require(isinstance(net.get("subnets"), list), "Existing net subnets unreadable")
+            for subnet in net["subnets"]:
+                _require(isinstance(subnet, (list, tuple)), "Existing net endpoints unreadable")
+                for ep in subnet:
+                    _require(isinstance(ep, (list, tuple)) and len(ep) == 3
+                             and ep[0] in ("Block", "ExternalPort", "Externalport", "Probe") and isinstance(ep[1], str)
+                             and type(ep[2]) is int and ep[2] >= 0, "Existing net endpoint unreadable")
+                    kind = "ExternalPort" if ep[0] == "Externalport" else ep[0]
+                    occupied.add((kind, ep[1], ep[2]))
+    return occupied
+
+
+def validate_circuit_spec(spec, *, existing=None, defer_references=False):
+    """Canonical additions, optionally resolved against an inspect snapshot.
+
+    Deferred validation checks request syntax only; callers must resolve references
+    against current readback before writing. Existing objects are never replayed.
+    """
+    _require(type(defer_references) is bool, "defer_references must be boolean")
+    _require(existing is None or isinstance(existing, dict), "existing must be an inspect snapshot")
+    _require(not (existing is not None and defer_references), "Existing references cannot be deferred")
     _require(isinstance(spec, dict), "Circuit spec must be a dictionary")
     allowed = {"schema_version", "units", "parameters", "blocks", "external_ports", "nets", "probes", "em_links", "tasks", "resolved_si"}
     _require(not set(spec) - allowed, f"Unknown spec keys: {set(spec) - allowed}")
@@ -123,11 +163,19 @@ def validate_circuit_spec(spec):
         resolved["parameters"][name] = evaluate_quantity(parameter["value"], parameter["unit"], data["parameters"], (name,))[0]
     names = set()
     components = {}
+    for group, kind in (("blocks", "Block"), ("external_ports", "ExternalPort")):
+        if existing is not None:
+            objects = existing.get(group)
+            _require(isinstance(objects, list), f"Existing {group} readback unavailable")
+            for obj in objects:
+                components[(kind, obj["name"])] = obj
+    existing_components = dict(components)
     for group, kind in (("blocks", "Block"), ("external_ports", "ExternalPort"), ("probes", "Probe"), ("tasks", "Task")):
         for obj in data[group]:
             name = obj.get("name")
             _require(isinstance(name, str) and name.strip() and not any(c in name for c in '\r\n\x00'), f"Invalid {group} name")
             _require(name not in names, f"Duplicate name: {name}")
+            _require(not any(key[1] == name for key in existing_components), f"Existing name conflict: {name}")
             names.add(name)
             components[(kind, name)] = obj
             if "position" in obj:
@@ -153,6 +201,8 @@ def validate_circuit_spec(spec):
     for link in data["em_links"]:
         _require(isinstance(link.get("block_name"), str) and link["block_name"], "EM link needs block_name")
         _require(link["block_name"] not in names and link["block_name"] not in linked_names, "Duplicate EM link/block name")
+        _require(link.get("source") == "self" or ("Block", link["block_name"]) not in existing_components,
+                 "Existing EM block name conflict")
         _require(isinstance(link.get("source"), str) and link["source"], "EM link needs source")
         _require(isinstance(link.get("parameter_map"), dict), "EM link needs explicit parameter_map")
         mappings = link.get("port_map")
@@ -165,35 +215,48 @@ def validate_circuit_spec(spec):
         linked_names.add(link["block_name"])
         components[("Block", link["block_name"])] = link
     occupied = set()
+    native_occupied = (_existing_nets(existing, existing_components)
+                       if existing is not None and (data["nets"] or data["probes"]) else set())
     net_names = set()
     for net in data["nets"]:
         _require(isinstance(net.get("name"), str) and net["name"] and net["name"] not in net_names, "Net names must be unique")
         net_names.add(net["name"])
         endpoints = net.get("endpoints", [])
-        _require(len(endpoints) >= 2, "A net requires at least two endpoints")
+        _require(isinstance(endpoints, list) and len(endpoints) >= 2, "A net requires at least two endpoints")
         for endpoint in endpoints:
             _require(isinstance(endpoint, dict), "Endpoint must be an object")
             key = (endpoint.get("component_kind"), endpoint.get("component_name"))
-            _require(key in components and key[0] in ("Block", "ExternalPort"), f"Unknown endpoint: {endpoint}")
+            _require(key[0] in ("Block", "ExternalPort") and isinstance(key[1], str) and key[1],
+                     f"Unknown endpoint: {endpoint}")
+            _require(defer_references or key in components, f"Unknown endpoint: {endpoint}")
             _require(isinstance(endpoint.get("pin_name"), str) and endpoint["pin_name"], "Pin name must be explicit")
             full = key + (endpoint["pin_name"],)
             _require(full not in occupied, f"Endpoint belongs to multiple nets: {full}")
+            if key in existing_components:
+                _require(_existing_pin(existing_components, endpoint) not in native_occupied,
+                         f"Existing endpoint already connected: {full}")
             occupied.add(full)
     for probe in data["probes"]:
         endpoint = probe.get("endpoint", {})
+        _require(isinstance(endpoint, dict), "Probe endpoint must be an object")
         key = (endpoint.get("component_kind"), endpoint.get("component_name"), endpoint.get("pin_name"))
-        _require(key in occupied, "Probe must reference a connected component pin")
+        _require(key[0] in ("Block", "ExternalPort") and all(isinstance(v, str) and v for v in key[1:]),
+                 "Probe endpoint needs explicit component and pin names")
+        connected = key in occupied
+        if key[:2] in existing_components:
+            connected = connected or _existing_pin(existing_components, endpoint) in native_occupied
+        _require(defer_references or connected, "Probe must reference a connected component pin")
         _require(type(probe.get("direction_inwards")) is bool, "Probe direction must be explicit")
     for task in data["tasks"]:
         _require(task.get("type") in TASK_TYPES, "Unsupported task type")
         _require(isinstance(task.setdefault("properties", {}), dict), "Task properties must be a mapping")
+        external_names = {key[1] for key in components if key[0] == "ExternalPort"}
         if task["type"] == "s-parameters":
-            _require(bool(data["external_ports"]), "S-parameter task needs external ports")
-        external_names = {p["name"] for p in data["external_ports"]}
+            _require(defer_references or bool(external_names), "S-parameter task needs external ports")
         excitations = task.get("excitations", {})
         _require(isinstance(excitations, dict), "excitations must be a mapping")
         for name, excitation in excitations.items():
-            _require(name in external_names and isinstance(excitation, dict), "Excitation needs existing external port")
+            _require((defer_references or name in external_names) and isinstance(excitation, dict), "Excitation needs existing external port")
             _require(isinstance(excitation.get("type"), str) and isinstance(excitation.get("values"), list), "Excitation requires documented type/values")
     data["resolved_si"] = resolved
     return copy.deepcopy(data)

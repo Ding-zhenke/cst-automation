@@ -42,7 +42,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None):
                     raise CircuitError('circuit_spec_invalid', str(exc)) from exc
             if operation == "configure":
                 from cst_automation.circuit_schema import validate_circuit_spec
-                validate_circuit_spec(params.get("spec"))
+                validate_circuit_spec(params.get("spec"), defer_references=True)
             if operation == 'configure_transient_task':
                 from cst_automation.circuit_tasks import transient_settings
                 transient_settings(params.get('settings'))
