@@ -1,5 +1,11 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-05：会话普通异常的受限诊断
+
+worker 对非 ServiceError 仍返回 session_operation_failed，新增 details.diagnostics：exception_type/module、受限 message、OSError errno/winerror/filename/filename2、明确执行 stage、operation/job_id，以及每层最多 12 帧的文件/函数/行号和最多 3 层原因异常。不记录 locals、请求参数或源码正文；文本限制 4096 字符，明确截断/省略。阶段仅表示最后进入的代码边界，不证明其副作用完成或失败文件的 OS 根因。
+
+ServiceError 原有结构与 returned_saved 放行规则保持；普通异常仍 needs_reconcile，不凭 PermissionError/磁盘未变/增加诊断自动重试、重放或提高验证等级。不回写旧 job。阶段覆盖工程恢复、History 提交、原生保存、摘要核对、登记落盘和 checkpoint 写入，供后续新回执定位。
+
 ## 2026-11-05：工程绑定的存储参数 ByRef 桥接
 
 新增纯构建/解析契约 `cst_automation.run_parameter_bridge.prepare_run_parameter_query(project_path, result_id, *, receipt_root)` 与 `parse_run_parameter_receipt(payload, *, request)`；只接受固定正 Schematic ID，为每次请求生成独立 token/输出路径。VBA 在显式 schematic 上校验 GetProjectPathName("Project") 后调用文档所载 GetParameterCombination(resultID, names, values) 的 Variant ByRef；不猜 Python tuple/输出参数形式，不查 Current Run 0。

@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05：会话普通异常阶段与受限堆栈（离线）
+
+- 根据所属会话的 PermissionError 回执缺证据反馈，worker 对非 ServiceError 新增受限 diagnostics，记录异常类型/模块、OS errno/winerror/filename/filename2、最后执行边界、每层最多 12 个文件/函数/行号及最多 3 个原因异常。无 OS 路径则保留未知，不序列化 locals、请求参数或源码，不追溯改写旧 job。
+- 标记工程恢复/打开/激活/登记、History 执行、原生保存、保存后摘要、保存登记和 checkpoint 写入边界。stage 只说明最后进入的边界，不能证明是否发生副作用；不据 PermissionError、摘要未变或重试成功猜测 OS 根因。
+- 新增 11 项离线回归：保留原 ServiceError 与 returned_saved 规则，普通错误仍 failed/needs_reconcile；History/保存已执行但 checkpoint 拒绝时不重试。独立审查发现异常格式化可能再次抛错，已补安全 str/repr 及整体诊断降级、主异常/原因格式化失败红绿回归，确保诊断不绕过原失败围栏。
+- 完整离线检查 1430 passed、3 skipped、2 deselected。未连接 CST、检查或修改运行中的 worker/DE/器件工程，没有重放 History/HB、改旧任务或执行 reconcile；实机诊断字段由所属会话以后在空闲加载后观察，不打断当前任务。
+- 使用与落盘能力边界见[普通异常诊断](guides/session_exception_diagnostics.md)。本次不声称已定位原 PermissionError 的文件、调用阶段或具体 OS 原因；持久审计文件自身不可写时，也不能保证异常能写入同一受拒绝文件。
+
 ## 2026-11-05：工程绑定的存储参数 ByRef 桥接（文档/离线契约）
 
 - 根据本机官方 Project/GetParameterCombination 的 Variant ByRef 名称/double 数组及 Boolean 返回契约，生成显式 schematic 查询宏，拒绝 Run 0/非 Schematic ID，不猜 Python 代理的输出参数形式。宏先核对实际工程资源主目录，再查询固定正 ID；使用唯一请求 token、UTF-16 code-unit hex、完整计数/结束标记和有限数值回执。

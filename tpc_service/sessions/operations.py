@@ -5,9 +5,11 @@ from pathlib import Path
 from tpc_service.errors import ServiceError
 from .native import file_digest
 from .store import contained, identifier, write
+from .diagnostics import mark_stage
 
 
 def execute(runtime, job):
+    mark_stage(runtime, 'operation.dispatch')
     operation, params = job['operation'], job['params']
     for predecessor in params.get('depends_on', []):
         from .store import read
@@ -159,7 +161,9 @@ def execute(runtime, job):
         runtime.check_saved(record)
         app.cst_file = handle
         return circuit(runtime, app, record, params)
+    mark_stage(runtime, 'project.acquire')
     app, record = runtime.project(params['project_id'])
+    mark_stage(runtime, 'operation.' + operation)
     if operation == 'reload_project':
         reviewed = runtime.state().get('last_resolution', {})
         expected = params.get('expected_digest')
@@ -194,6 +198,7 @@ def execute(runtime, job):
         else:
             api_result = dispatch(app, params['calls'])
     elif operation == 'history':
+        mark_stage(runtime, 'history.validate_request')
         domain = params.get('domain', 'model3d')
         if domain not in ('model3d', 'schematic'):
             raise ServiceError('invalid_session_argument', 'history domain must be model3d or schematic')
@@ -207,8 +212,10 @@ def execute(runtime, job):
             key = 'schematic_macros' if domain == 'schematic' else 'history'
             app.cst_file.setdefault(key, []).append({'name': params['name'], 'vba': code})
         elif domain == 'schematic':
+            mark_stage(runtime, 'history.submit_schematic')
             app.cst_file.schematic.execute_vba_code('Sub Main\n' + code + '\nEnd Sub', timeout=None)
         else:
+            mark_stage(runtime, 'history.submit_model3d')
             app.cst_file.model3d.add_to_history(params['name'], code)
         api_result['domain'] = domain
     elif operation == 'set_parameters':
@@ -246,6 +253,7 @@ def execute(runtime, job):
         raise ServiceError('unknown_session_operation', 'Unsupported session operation')
     validation = None
     if runtime.backend == 'cst' and not (operation == 'history' and params.get('domain') == 'schematic'):
+        mark_stage(runtime, 'model.validate')
         validation = app.validate_model()
         if validation.get('status') != 'success' or not validation.get('rebuild_ok'):
             # Save partial evidence without permitting subsequent dependent stages.
@@ -255,11 +263,13 @@ def execute(runtime, job):
         # Legacy history can contain descriptions; restore metadata after rebuild.
         for name, text in params.get('expressions', {}).items():
             app._set_parameter_description(name, text)
+    mark_stage(runtime, 'operation.save')
     record = runtime.save(app, params['project_id'])
     checkpoint = {'job_id': job['job_id'], 'operation_id': job['operation_id'],
                   'fingerprint': job['fingerprint'], 'project_id': params['project_id'],
                   'saved_digest': record['saved_digest'], 'saved': True, 'readback_verified': False,
                   'geometry_validation': validation}
+    mark_stage(runtime, 'checkpoint.write')
     write(runtime.folder / 'checkpoints' / (job['job_id'] + '.json'), checkpoint)
     return dict(checkpoint, backend=runtime.backend, solver_verified=False, **api_result)
 

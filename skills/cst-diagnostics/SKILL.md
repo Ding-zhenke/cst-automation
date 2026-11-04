@@ -36,3 +36,10 @@ For `Results May Get Incompatible With Model`, read the [API handling guidance](
 - These are documented CST API options, not a newly implemented repository endpoint or proof that the prompt has been eliminated on a real project. Retain dialog monitoring and verify the original call's return, messages, and resulting state.
 
 See [environment setup](../../docs/guides/cst_environment.md), [dialog handling](../../docs/guides/cst_dialogs.md), and [troubleshooting](../../docs/guides/troubleshooting.md).
+
+## 会话普通异常
+
+对 session_operation_failed 先读 [受限异常诊断](../../docs/guides/session_exception_diagnostics.md)：
+检查 error.details.diagnostics 的异常类型、OS filename/errno、最后执行 stage 及文件/函数/行号。
+stage 不是成功检查点；PermissionError 或磁盘未变不授权重放未知写入，不猜 OS 原因。
+旧 job 缺字段不回填；不为加载新诊断中断当前 CST 或 worker。

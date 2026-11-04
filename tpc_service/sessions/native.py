@@ -5,6 +5,7 @@ from pathlib import Path
 
 from tpc_service.errors import ServiceError
 from .store import alive, assert_environment_unclaimed, contained, identifier, lock, process_identity, read, write
+from .diagnostics import mark_stage
 
 
 def file_digest(path):
@@ -58,6 +59,7 @@ class Runtime:
             write(self.folder / 'session.json', state)
 
     def environment(self):
+        mark_stage(self, 'environment.check_identity')
         if self.app is not None:
             if self.backend == 'cst' and not alive(self.state()['environment']):
                 self.app = None
@@ -77,13 +79,16 @@ class Runtime:
         from cst_solver.environment import environment_pid
         identity = state['environment']
         if identity and alive(identity):
+            mark_stage(self, 'environment.attach_owned')
             app = setup.attach(pid=identity['pid'])
             if environment_pid(app.project) != identity['pid'] or not alive(identity):
                 raise ServiceError('session_environment_mismatch', 'Exact CST identity mismatch')
+            mark_stage(self, 'environment.verify_projects')
             paths = {os.path.normcase(str(Path(p).resolve())) for p in app.project.list_open_projects()}
             expected = {os.path.normcase(p['path']) for p in state['projects'].values()
                         if Path(p['path']).is_file() and not p.get('tab_closed')}
             if not expected.issubset(paths):
+                mark_stage(self, 'environment.restore_reviewed_projects')
                 paths = restore_reviewed_projects(app, state, paths)
                 if not expected.issubset(paths):
                     raise ServiceError('session_project_mismatch', 'Reviewed projects could not be reopened in the owned DE', expected_paths=sorted(expected), open_paths=sorted(paths))
@@ -91,6 +96,7 @@ class Runtime:
             return app
         # Only a confirmed absent DE authorizes a new generation; creation intent is durable first.
         self.update(launch_intent=True)
+        mark_stage(self, 'environment.create_native')
         app = setup()
         pid = environment_pid(app.project)
         identity = process_identity(pid) if pid else None
@@ -102,6 +108,7 @@ class Runtime:
         return app
 
     def project(self, project_id):
+        mark_stage(self, 'project.resolve_record')
         project_id = identifier(project_id)
         record = self.state()['projects'].get(project_id)
         if not record or not Path(record['path']).is_file():
@@ -111,33 +118,44 @@ class Runtime:
         if project_id not in self.handles:
             if self.backend == 'cst':
                 from .project_lifecycle import path_key
+                mark_stage(self, 'project.list_open')
                 opened = {path_key(p): p for p in app.project.list_open_projects()}
                 existing = opened.get(path_key(record['path']))
                 if existing:
+                    mark_stage(self, 'project.borrow_open')
                     app.cst_file = app.project.get_open_project(existing)
+                    mark_stage(self, 'project.activate')
                     app.cst_file.activate()
                 else:
+                    mark_stage(self, 'project.open')
                     app.open(record['path'])
             else:
+                mark_stage(self, 'project.open')
                 app.open(record['path'])
             self.handles[project_id] = app.cst_file
         app.cst_file = self.handles[project_id]
         if record.get('tab_closed'):
+            mark_stage(self, 'project.update_tab_state')
             state = self.state()
             state['projects'][project_id]['tab_closed'] = False
             self.update(projects=state['projects'])
         return app, record
 
     def check_saved(self, record):
+        mark_stage(self, 'project.digest_check')
         expected = record.get('saved_digest')
         if expected and file_digest(record['path']) != expected:
             raise ServiceError('session_project_changed', 'Saved project changed outside this session; inspect before overwriting')
 
     def save(self, app, project_id):
+        mark_stage(self, 'project.prepare_save')
         state = self.state()
         record = state['projects'][project_id]
+        mark_stage(self, 'project.save_native')
         app.save(record['path'], allow_overwrite=True)
+        mark_stage(self, 'project.digest_after_save')
         record.update(saved_digest=file_digest(record['path']), saved=True)
+        mark_stage(self, 'project.persist_saved_record')
         self.update(projects=state['projects'])
         return record
 

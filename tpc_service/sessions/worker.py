@@ -5,6 +5,21 @@ from pathlib import Path
 
 from tpc_service.errors import ServiceError
 from .store import lock, process_identity, read, write
+from .diagnostics import mark_stage, exception_diagnostics, exception_repr
+
+
+def _error_for_exception(exc, runtime, job):
+    if isinstance(exc, ServiceError):
+        return exc.to_dict()
+    try:
+        details = exception_diagnostics(exc, runtime, job)
+    except Exception as diagnostic_error:
+        # Diagnostics must never bypass failure fencing for the original error.
+        details = {'exception_type': type(exc).__name__, 'stage': 'worker.execute',
+                   'diagnostic_error_type': type(diagnostic_error).__name__,
+                   'diagnostics_incomplete': True}
+    return {'code': 'session_operation_failed', 'message': exception_repr(exc),
+            'details': {'diagnostics': details}}
 
 
 def _known_saved_solve(job, error, state, monitor_failure):
@@ -118,6 +133,7 @@ def run(folder):
                 continue
             monitor = None
             try:
+                mark_stage(runtime, 'worker.monitor_setup')
                 from contextlib import nullcontext
                 if runtime.backend == 'cst':
                     from cst_solver.dialogs import DialogMonitor
@@ -130,14 +146,15 @@ def run(folder):
                                             pid=lambda: (runtime.state()['environment'] or {}).get('pid'),
                                             on_event=diagnostic)
                 with monitor if monitor is not None else nullcontext():
+                    mark_stage(runtime, 'worker.execute')
                     result = runtime.execute(job)
+                    mark_stage(runtime, 'worker.monitor_finalize')
                 if monitor is not None and monitor.failure:
                     raise ServiceError('cst_dialog_blocked', 'Operation returned after a detected CST dialog; inspect evidence',
                                        diagnostics=monitor.failure)
                 job.update(status='succeeded', result=result, finished_at=time.time())
             except Exception as exc:
-                error = exc.to_dict() if isinstance(exc, ServiceError) else {
-                    'code': 'session_operation_failed', 'message': repr(exc)}
+                error = _error_for_exception(exc, runtime, job)
                 with lock(folder / 'state.lock'):
                     state = read(folder / 'session.json')
                     _finish_failed_job(job, error, state, monitor_failure=monitor.failure if monitor else None)
