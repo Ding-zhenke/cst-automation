@@ -1,5 +1,6 @@
 """Task-level contract. Native submission alone cannot prove solver completion."""
 import json
+import hashlib
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,7 +12,8 @@ from .evidence import information_only
 def run_checked(api, task_name, *, mode, expected_results, reuse="never", note=""):
     token = uuid4().hex
     out = {"run_token": token, "task_name": task_name, "mode": mode, "status": "unverified", "errors": [],
-           "saved": False, "messages": [], "expected_results": [], "execution_evidence": {}, "note": note, "cache": {"reused": False}}
+           "saved": False, "submitted": False, "execution_returned": False, "saved_digest": None,
+           "messages": [], "expected_results": [], "execution_evidence": {}, "note": note, "cache": {"reused": False}}
     try:
         path = Path(api.app.cst_file.filename()).resolve()
         if not path.is_file():
@@ -22,6 +24,7 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
         out["errors"].append({"code": "circuit_unavailable", "message": f"A saved project is required: {exc}"})
         return out
     audit = path.parent / path.stem / "circuit_runs" / (token + ".json")
+    out['project'] = str(path)
     def persist():
         audit.parent.mkdir(parents=True, exist_ok=True)
         audit.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -46,10 +49,17 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
             out["errors"].append({"code": "circuit_result_unverified", "message": "Verified cache provenance is not available; no task was executed"})
         else:
             out["stage"] = "submitting_target_task"
+            out['submitted'] = True
             persist()
             api.adapter.update_task(task_name)
+            out['execution_returned'] = True
             api.app.save()
             out["saved"] = True
+            digest = hashlib.sha256()
+            with path.open('rb') as stream:
+                for block in iter(lambda: stream.read(1024 * 1024), b''):
+                    digest.update(block)
+            out['saved_digest'] = digest.hexdigest()
             out["messages"] = list(api.app.get_messages())
             out["stage"] = "saved_messages_captured"
             persist()

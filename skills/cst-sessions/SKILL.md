@@ -25,6 +25,12 @@ checks, relocation checks, temporary tabs, backups and final artifacts.
   submission. Stable stage_id and request_id identify retries. A preview hash does not prove review.
 - Query original job receipts after a timeout/disconnect. Resume the original worker when lost;
   never resubmit uncertain work under a fresh ID or copy/rebuild the original model automatically.
+- A failed circuit run_task with explicit returned/saved receipts may leave the session ready
+  after project/run identity, saved and disk digests, and absence of prior uncertainty/dialogs
+  are verified. The job remains failed and the solver outcome unverified/review_required.
+  Review missing numerical evidence before dependent tasks; ready alone does not approve them.
+  Missing leaf logs do not by themselves mean an SDK write is still running. Existing historical
+  needs_reconcile is not cleared automatically; distinguish that fence from numerical review.
 - needs_reconcile requires scene evidence. Do not automatically call reconcile_cst_session: only
   use it after explicit user review of the saved baseline and idle state; preserve evidence levels.
 - Keep the working project and its DE while the approved task is active, including replies and

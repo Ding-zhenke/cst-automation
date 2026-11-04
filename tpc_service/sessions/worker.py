@@ -9,20 +9,34 @@ from .store import lock, process_identity, read, write
 
 def _known_saved_solve(job, error, state, monitor_failure):
     """Only a returned operation + its verified saved receipt avoids uncertainty."""
-    if (job.get('operation') != 'solve' or error.get('code') != 'session_solve_unverified'
+    params = job.get('params', {})
+    circuit = (job.get('operation') == 'circuit' and params.get('kind', 'build') == 'solve'
+               and params.get('settings', {}).get('operation') == 'run_task'
+               and error.get('code') == 'session_circuit_failed')
+    solve = job.get('operation') == 'solve' and error.get('code') == 'session_solve_unverified'
+    if (not (solve or circuit)
             or monitor_failure or state.get('uncertain_jobs') or state.get('launch_intent')
             or state.get('status') != 'ready'):
         return False
     details = error.get('details', {})
     project_id = job.get('params', {}).get('project_id')
     project = state.get('projects', {}).get(project_id, {})
-    outcome = details.get('outcome', {})
+    outcome = details.get('execution_receipt', {}) if circuit else details.get('outcome', {})
     digest = details.get('saved_digest')
     if (details.get('project_id') != project_id or details.get('saved') is not True
             or details.get('execution_returned') is not True or outcome.get('execution_returned') is not True
             or outcome.get('submitted') is not True or not outcome.get('run_token')
             or project.get('saved') is not True or not digest or project.get('saved_digest') != digest):
         return False
+    if circuit and (outcome.get('saved') is not True or outcome.get('saved_digest') != digest):
+        return False
+    if circuit:
+        settings = params['settings']
+        identity = details.get('outcome', {}).get('run_identity', {})
+        if (outcome.get('task_name') != settings.get('task_name')
+                or outcome.get('mode') != settings.get('mode')
+                or any(identity.get(key) != outcome.get(key) for key in ('run_token', 'task_name', 'mode'))):
+            return False
     try:
         from .native import file_digest
         return (Path(outcome['project']).resolve() == Path(project['path']).resolve()
@@ -36,9 +50,12 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None):
     job.update(status='failed', error=error, finished_at=time.time())
     if known:
         details = error['details']
+        outcome = details.get('execution_receipt', details['outcome'])
         job['result'] = dict(saved=True, saved_digest=details['saved_digest'],
-                             solver_outcome=details['outcome'], execution_state='returned_saved',
+                             solver_outcome=outcome, execution_state='returned_saved',
                              review_required=True)
+        if job['operation'] == 'circuit':
+            job['result']['circuit_outcome'] = details['outcome']
         state['status'] = 'ready'
     else:
         state['status'] = 'close_failed' if job['operation'] == 'close' else 'needs_reconcile'

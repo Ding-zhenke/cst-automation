@@ -92,6 +92,25 @@ confirm_no_environment=true。它只记录人工采纳的保存基线，未知�
 不能删除已保存工程，也不能接管其他会话已占用的环境。
 不认证几何/求解、不重放任务。blocked 阶段如需继续，必须在核对后使用新的阶段 ID。
 
+## 已返回保存的电路任务与证据不足
+
+`circuit` 的 `kind=solve / operation=run_task` 分别记录 project、run_token、submitted、
+execution_returned 和保存时 saved_digest。叶任务没有写新日志时，求解结论仍可为 unverified；
+这和调用是否返回、是否保存是两条独立证据线。同一登记工程/任务/运行身份及保存/磁盘摘要
+一致，且原会话 ready、没有未知任务/启动意图/弹窗失败时，失败 job 保留完整原 outcome、
+execution_state=returned_saved、review_required=true，session 维持 ready。
+
+这不将 job 提升为 succeeded，也不认证数值、工作点、收敛或新曲线归属。调用方先审阅本轮
+证据再决定后续依赖阶段；不能按 session ready 自动跑整个任务树。未返回、未保存、摘要
+不一致、其他操作或原有 needs_reconcile 保持围栏；不自动改历史任务、不自动 reconcile。
+
+更新源码不刷新已存活 worker。所属会话确证 SDK 调用已返回、DE 空闲、无 running/queued
+任务与未处理弹窗后，才可让原 worker 退出并用本仓库同一 `.venv`、同一 root/reference
+执行 resume。保留原 DE/PID/创建身份、工程及恢复引用，不关闭 CST、不复制/重算任务，
+不要启动第二个 worker 抢占仍被持有的锁。resume 校验原环境身份并重新连接；它不会因本次
+补丁自动解除既有 needs_reconcile。旧任务缺少新增返回回执时，不能用曲线存在或新版单元
+测试补写证明；历史围栏的处置属于所属会话独立的有审计恢复，不是逐轮数值审批。
+
 ## 明确关闭
 
 ```powershell

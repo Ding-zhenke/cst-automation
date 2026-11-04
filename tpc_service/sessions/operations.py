@@ -296,5 +296,14 @@ def circuit(runtime, app, record, params):
         state['projects'][record['project_id']]['saved_digest'] = file_digest(record['path'])
         runtime.update(projects=state['projects'])
     if not result.get('ok'):
-        raise ServiceError('session_circuit_failed', 'Circuit operation failed; inspect partial evidence', outcome=result)
+        details = {}
+        if kind == 'solve' and params['settings'].get('operation') == 'run_task':
+            receipt = result.get('result_summary', {}).get('circuit_outcome', {})
+            details = dict(project_id=project_id,
+                           saved=result.get('saved') is True and receipt.get('saved') is True,
+                           saved_digest=receipt.get('saved_digest'),
+                           execution_returned=receipt.get('execution_returned') is True,
+                           execution_receipt=dict(receipt))
+        raise ServiceError('session_circuit_failed', 'Circuit operation failed; inspect partial evidence',
+                           outcome=result, **details)
     return result

@@ -1,5 +1,9 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-04：电路叶任务已返回保存与未知写入分离
+
+`CircuitAPI.run_checked` 新增 project、submitted、execution_returned、saved_digest 回执，分别记录提交意图、原生调用返回及保存后文件摘要；缺少新日志仍保持 unverified，不替代原生完成或数值验收。session 仅对 circuit/kind=solve/operation=run_task 的这一明确回执，核对同一 project_id/路径、登记摘要与当前磁盘；无弹窗失败、未知前序、启动意图且原状态 ready 时，失败 job 保留完整 outcome、execution_state=returned_saved 和 review_required，session 保持 ready。保存异常、缺回执/摘要或不一致、其他操作及已有 needs_reconcile 不自动放行；不回写历史 job，不自动 reconcile，不以 ready 自动继续依赖任务。
+
 ## 2026-11-04：正式工程的 circuit 路由
 
 session circuit 使用同一登记 project_id/规范路径；外部正式工程还须具有匹配的 path_authorization（create/import/adopt）。只把这一文件的可信授权交给 `register_circuit_handlers(..., authorized_project_path=None)`，不接受请求参数伪造该授权。默认通用服务仍要求工程位于 workdir；所有 destination、模板源和输入文件仍按原 workdir 检查，不扩大到正式目录。

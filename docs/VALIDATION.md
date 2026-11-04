@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-11-04：已返回保存的 circuit 叶任务状态分离
+
+- 电路运行在原生 update_task 返回后记录 execution_returned，保存后记录 project/SHA-256；先记录返回保存，再读取日志/结果，不以旧父日志或曲线存在冒充本轮验收。
+- 只有明确 circuit/solve/run_task，且工程、任务、运行身份、保存摘要/登记摘要/磁盘相同，无弹窗失败/未知前序/启动意图、原状态 ready，才保留 failed job 的完整原 outcome 和 returned_saved/review_required 并保持 ready。结果仍可 unverified/failed，不提升数值、原生完成或验证等级。其他操作、缺回执/保存失败/摘要变化及已有 needs_reconcile 继续围栏。
+- 新增 21 项离线回归，核心问题先复现再修复；整合远端 main 后完整离线回归 1378 passed、3 skipped、2 deselected。独立代码审查无阻塞发现。未连接 CST、改写当前 job/session、reconcile 或刷新任何运行 worker。
+- 更新技能与同 DE 加载边界：只由所属会话在明确空闲后刷新 worker，保留 DE/PID/原恢复引用。加载不自动解除历史 needs_reconcile，不把数值复核变成逐轮空闲审批。
+
 ## 2026-11-04：M0D 执行后多输出注册的受控替换
 
 - 来源实际 v11 Summary 仍为一个 Python 注册模块，但多 yield 后追加了输出清单。
