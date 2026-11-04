@@ -156,7 +156,8 @@ class NativeAdapter:
         model, dialect = obj.GetSpiceModel(), obj.GetSpiceFilter()
         if not isinstance(model, str) or not model.strip() or not isinstance(dialect, str) or not dialect.strip():
             raise CircuitError('circuit_result_read_failed', 'SPICE model or dialect unreadable')
-        return {**self.property_readback(name), 'spice_model': model, 'spice_filter': dialect}
+        return {**self.property_readback(name), 'spice_model': model, 'spice_filter': dialect,
+                'native_file_reference': source_file}
 
     def inspect(self):
         unknown = []

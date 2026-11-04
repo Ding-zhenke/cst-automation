@@ -81,6 +81,12 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 
 ## 工程中运行和读取
 
+### HB 放行、代表工况与失败停止
+
+HB 或其父扫描运行前，执行 [HB 数据覆盖与停止门槛](references/hb-and-postprocessing.md#hb-运行前的放行门槛)：逐一核对实际被动块/链接文件的 DC 与全部保留混频范围；全局 `fmin=0` 不构成覆盖证据。参考 NPORT 与新链接 EM 分别验收；拓扑或 EM 数据改变后，先完成有界正反向代表工况的 DC 工作点、实际 RF 入射/匹配和谱线检查，再放行完整父扫描。
+
+首个初始化或数值失败后停止后续参数组；没有本轮有效上游输入的同级后处理应跳过，报告上游首要错误，避免缺节点报错级联。此门槛由调用方编排执行，不能从配置接口、HB→Post 顺序或通用 `run_checked` 名称推断已自动实现；原生 sequence 的 `Abort if subtask fails` 只在对应任务类型与版本设置已核对时使用。
+
 ### HB 任务的 CPU 并行度
 
 - CST Design Studio 的 Spectral Lines/HB 在 `Properties > Specials > General > Parallelization` 设置 CPU 并行度。运行前核对目标 HB 任务本身；不要从电脑显示的逻辑线程数推断任务当前并行度。

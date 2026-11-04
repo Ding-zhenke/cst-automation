@@ -1,5 +1,32 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-04：正式工程的 circuit 路由
+
+session circuit 使用同一登记 project_id/规范路径；外部正式工程还须具有匹配的 path_authorization（create/import/adopt）。只把这一文件的可信授权交给 `register_circuit_handlers(..., authorized_project_path=None)`，不接受请求参数伪造该授权。默认通用服务仍要求工程位于 workdir；所有 destination、模板源和输入文件仍按原 workdir 检查，不扩大到正式目录。
+未更新的旧父日志不作为当前叶任务错误：无新日志时 completed=False、log_changed=False，历史错误单独保留；有曲线但无本轮日志仍 unverified，不用结果数量补执行证明。
+
+## 2026-11-04：分级消息与已返回保存的求解回执
+
+- RunContract 保留 JSON 可表达的原生消息对象；只按原生 type=INFO/WARNING/ERROR 分级，不靠正文关键词或解析历史 repr 升级证据。INFO 不单独导致失败；WARNING 保持 unverified/需审阅；ERROR 和未知类型保守 failed。messages_clean 表示完整读取且没有非 INFO 消息，queue_empty 另记真实空队列；原生完成、网格/数值和 validation_passed 不因 API 状态提升。
+- `RunContract.run_and_record(..., read_prior_messages=None)` 先写审计意图以确认可用，再于提交前读取并立即持久化旧队列。`setup.run_checked(read_messages=True)` 同时使用前后读取；前读或前置记录落盘失败不提交。保留 prior_messages/state/summary/审阅标志，提交后消息不按文本相同去重；message_scope 为 post_boundary_queue 或 pending_queue_unbounded，均不宣称原生 Run ID 绑定。回溯旧 repr 记录不自动修改历史状态。
+- session solve 仍将非 succeeded outcome 记为失败；若有明确执行返回回执、保存成功、登记摘要与当前磁盘一致、同工程/运行身份，且没有未知前序或弹窗失败，保留完整 outcome/save receipt，session 可保持 ready。ready 只代表会话可继续受控操作，不是警告、结果或物理验收通过。调用者须审阅失败 job，不得据 ready 自动宣称成功。缺回执、保存失败、摘要变化、未知执行或模态错误仍 needs_reconcile；已有 needs_reconcile 不自动解除。
+
+## 2026-11-04：Qt glow 的结构识别先于正文预算
+
+`list_dialogs` 对精确 `QtitanTitleBarGlowWindow` 增加读取前结构校验：空标题、可见/响应中、
+同 PID 的 Qt QWindowIcon owner、相同且已知的进程创建时间、无原生子控件且无已知正文/按钮/进度。
+匹配后保留快照，标为 decoration、blocking=False；不调用 UIA，不受共享正文预算耗尽影响。
+`text_source=win32_glow_structure`、`content_read_status=not_applicable_decoration` 表明是结构证据，
+`text_readable/text_complete` 保持 False，不伪造已读取正文。结构不完整或含矛盾证据仍按原路径读取，
+失败保持 unknown/blocking；真正模态窗口仍独立报告。不自动关闭窗口或改变原 job/session 状态。
+
+## 2026-11-03：SPICE 缓存身份核验（离线回归）
+
+- `configure_nonlinear_model` 不再要求 SPICE `GetFile()` 与 `SetFile` 路径相等。输入保持兼容；请求源快照增加字节数及可解析的 `.SUBCKT` 端口顺序。只支持唯一、简单的子电路声明；复杂语法、编码及 include/lib 依赖闭包保持 unknown。
+- `readback.spice_verification` 保留 requested_source_path、native_file_reference、project_path、block_name、resolution_base、resolved_cache_path、source/cache 快照及原始错误。相对引用仅按已绑定工程文件的父目录解析，不用 cwd；缓存归属只在当前工程资源目录 `Model/DS/Block/<block_name>/` 下确认，符号链接按实际目标检查。工程资源内的其他未校准布局（含无法绑定的 sibling/numeric block 目录）保持 unknown，资源外引用为归属不符。源路径直引单独标为 source_reference，不冒充缓存归属已验证。
+- 内容按批准源 SHA-256 比较（即使路径相同也检查）；端口按批准子电路声明的名称和顺序比对，模型和显式方言独立核验。内容/模型/方言/端口/缓存归属的明确不一致进入 `circuit_build_partial`，失败 readback 保留各维度证据；缓存文件不可读或声明无法解析保持 unknown，`verification_complete=False`。原生 metadata/pins 查询异常仍按已有部分失败处理，不伪造完整核验表。未知不等于通过，整体 readback_verified、saved_reopen_verified 和 solver_verified 仍为 False。
+- 顶层内容核验不证明依赖闭包、接线/极性或器件仿真语义；不调用 `SetCacheFiles`，不自动重导入、保存重开或求解。核验仅在调用方授权的稳定副本上读取源和原生返回的缓存文件。无新增 service/MCP 操作或隐式 SDK 加载。
+
 ## 2026-10-30：通用电路参数研究（新增，离线验证）
 
 `CircuitAPI.run_parameter_study(spec)` 执行显式逐点序列；不是原生 Parameter Sweep 的别名。`spec` 包含 schema_version=1、name、安全名称的 parameters（scope=em/circuit、unit；可选 block/property）、points（values 完整有限数值映射）、task（name、mode=network、results=[{name,tree_path,run_id}]），可选 em（results=[{tree_path,run_id}]）。全计划预检后在当前保存工程中运行；EM 参数必须具有显式 EM 依赖，EM＋电路每点重算。仅支持同工程 self EM；无自动缓存复用或瞬态双向联合扩展。EM 放行要求指定原生数据文件指纹更新、原生 SUCCESS 和对应 EM 参数一致；通用目录/日志变化不作为替代证据。全局参数必须与原始结果元数据一致，缺失/冲突返回 unverified；block/property 别名使用属性 SI 读回，不要求出现在全局参数表。静态属性限制由 NativeAdapter 与 study 预检共享。执行入口要求显式当前 run_id=0，读取后立即固定到不可覆盖的历史快照；不接受历史编号作为新求解结果。全局参数的 unit 为调用者核对的原生单位声明，元件绑定的 unit 通过已有 API 转换并读回 SI 数值。
@@ -123,6 +150,68 @@
 
 ## Runtime guard API
 
+### 消息观察契约修复（2026-11-02）
+
+`RunContract.after_submit(record, *, messages=None, error=None,
+messages_state='not_read', message_source='caller')` 要求直接调用者显式声明消息观察状态。
+`run_and_record(submit, *, read_messages=None, note='', message_source='callback')`
+自动记录 reader 的调用/迭代状态；setup.run_checked 使用来源 sdk_pending_queue。
+
+新增 messages_state=not_read/read/read_failed、messages_read_attempted、messages_read、
+message_source、messages_read_error。messages_clean 是 bool|None：完整读取时为空/非空
+对应 True/False，未读或失败为 None。默认/显式空 messages 不构成已读证据；
+直接 after_submit 的 read 状态须同时提供 messages。reader 的部分迭代结果保留，读取失败为
+read_failed；None 等非可迭代返回按失败报告，不补成空成功。
+未读/读取失败时原 succeeded 降为 unverified（messages_not_read/messages_unreadable），
+已有 failed 保持 failed。messages_read_error 的旧 record 字段仍接受并优先判读取失败。
+
+warnings_scope=audit；native_warnings_state=unknown、native_warnings=None，
+native_solver_status=unknown（当前没有原生状态 reader）。消息队列读空不证明日志无警告。
+mesh_convergence/validation_passed 仍与运行契约状态独立，不由未读消息或原生返回推断。
+
+CstBackend 在成功及失败的 result_summary.run_contract 中保留完整运行记录，失败 error.details
+亦保留该记录；服务状态/落盘和现有 MCP 查询原样传播，不增加隐式日志读取、求解或工具注册。
+这是修复旧的误报成功行为；依赖 messages_clean 恒为 bool 的消费者需处理 None。
+
+### Offline repair additions (2026-11-02)
+
+`cst_solver.native` provides `vba_capabilities(project)`,
+`execute_vba(project, code, *, target, timeout=None)`,
+`circuit_probe_code(name, pin, reference=None, *, direction_inwards=True)` and
+`new_net_code(component_ports)`. Targets are explicitly `model3d` or `schematic`;
+no trial execution/fallback after native failure. Builders return VBA, not execution
+or readback evidence. Net code uses an empty name, retains the generated name in
+`GeneratedNetName`, applies topology and checks each pin's net name.
+
+`cst_solver.host` provides `diagnose_host_session()`, `process_identity(pid)` and
+`open_host_session(filename=None, *, pid=None, expected_creation_time=None)`.
+The checked session entry refuses inaccessible/unknown desktops; attaching requires
+PID plus creation time. It never retries or falls back to creating another DE.
+Desktop accessibility does not prove IPC availability or machine idleness.
+Legacy `setup` remains available; callers requiring preflight use this checked entry.
+
+Dialog snapshots add process/owner creation identity and classification; raw
+decoration snapshots remain in `list_dialogs` with `blocking=False`.
+`acknowledge_known_error(snapshot, *, expected_creation_time, button)` requires
+complete exact title/body and identity, rechecks them before sending a standard
+Win32 button click, and returns `readback_status='required'`; it never clears a
+monitor failure or claims recovery. Qt buttons without a supported click path
+remain actionable diagnostics.
+The initial acknowledgement policy recognizes only exact `History Error` titles
+and OK/确定 buttons. Unknown titles are reported, not acknowledged.
+Service errors `cst_dialog_monitor_failed` and `cst_dialog_scope_unknown` distinguish
+failed observation and unconfirmed ownership from `cst_step_timeout`.
+
+`cst_solver.convergence.mesh_convergence_report(samples, *, target,
+expected_frequencies, required_passes=1, max_passes=None, computation_completed=None,
+warnings=())` evaluates explicit per-frequency, per-pass Delta S observations.
+It preserves residuals and warnings without interpreting them as equivalent to
+Delta S. Missing frequency/pass data stays unknown. It does not read native
+results or configure refinement. Existing run contracts add
+`mesh_convergence='unknown'` and `validation_passed=False`: solver completion
+does not certify mesh convergence. No documented explicit CONTINUE selector has
+been found; do not substitute ForceRecalculateOldSamples or quiet mode.
+
 ```python
 from cst_solver.guards import get_guard_state, get_guard_mode, set_guard_mode
 ```
@@ -132,6 +221,59 @@ from cst_solver.guards import get_guard_state, get_guard_mode, set_guard_mode
 TPC 当前源码仍有 `cst_solver._guards` 导入；相同函数已由稳定公开模块转出。将 TPC 调用点迁至 `cst_solver.guards` 属于 TPC 仓库的后续适配，本轮不改动源 TPC。
 
 ## 曲线与 S 参数 API
+
+### 指定缺失样点的离线计划
+
+`cst_solver.sampling.plan_missing_samples(requested_frequencies, *, frequency_unit,
+available_frequencies=None, context_verified=False)` 为仅补算指定缺失正频率生成纯数据计划，
+不连接 CST、不生成/执行宏、不删除结果、不修改自适应或求解器。所有频率使用同一明确单位；
+去重按精确数值，不用宽容差合并相邻点。计划推荐 force_recalculate_old_samples=False。
+仅当 available 非 None 且调用方确认缓存身份有效、配置为单点且无额外自动/monitor/adaptation
+采样（context_verified=True）时，给出条件性的 expected_new_frequencies；否则为 None。
+available=[] 表示明确无已存点，None 表示未知。该计划不认证缓存或保证原生实际点集/顺序。
+
+`assess_sample_execution(plan, observed_frequencies, *, log_complete, aborted)` 只核对同一次运行、
+同单位的日志观测频点；不解析二进制/原生日志、不归属残差、不推断 direct accuracy。
+返回频点 mismatch/incomplete/matched/unknown 及独立的 aborted 状态；即便点集匹配，
+accuracy_status=not_assessed、validation_passed=False。无预期点集或日志不完整不能判匹配。
+native abort 保留为 aborted；不能因频点不符把另一频率的端口残差归到请求频率。
+
+### `cst_solver.Result`：联合枚举与自适应 Pass 曲线
+
+```python
+enumerate_result_paths(*, modeler=None) -> dict
+read_adaptive_s_parameter(tree_path, *, run_id, frequency_unit=None) -> dict
+read_adaptive_s_parameters(*, run_id, modeler=None, frequency_unit=None) -> dict
+```
+
+`modeler` 只能由调用方显式传入已授权、与结果工程对应的 Model3D 对象；仅调用其
+`get_tree_items()`。不创建/连接/关闭设计环境，不从 setup 或全局对象寻找会话。
+默认仅枚举离线 results。枚举返回 `items=[{path, sources}]`（来源为 results/modeler，
+精确路径去重，保留来源顺序）、`sources` 状态、`errors` 和 `complete`；读取失败不等于空树。
+本接口不验证调用方 modeler 与结果工程的身份对应关系，该核对由调用方负责。
+
+单条读取仅接受完整 `1D Results\Adaptive Meshing\f=...\S-Parameters\S...` 路径，
+要求 xlabel 为 Pass、轮次为严格递增正整数，复数 S 数据长度匹配且有限。
+返回 `path`、`sources=['caller']`、显式 `run_id`、可用时的 `native_run_id`、
+`axis='mesh_pass'`、原始 `xlabel`、独立数组 `passes`/`s_complex`、`parameter`、
+`adaptation_frequency`（raw/value/unit/source/unit_source）和 `normalization`。
+频率原始标记来自路径；不能解析时 value=None，路径未带单位且调用方未给单位时 unit=None。
+不推断工程单位、不转换频率或重归一化。`normalization` 保留
+`get_ref_imp_data()` 返回的原生参考阻抗数据及来源、错误；缺失为 unknown，
+`wave_definition='unknown'`、`renormalized=False`，不声称完整波归一化约定已被验证。
+单条路径、run 或轴/数据错误抛异常，不回退最新 run；显式 run_id=0 仍是原生当前结果别名，
+此时保留 run_id=0 和可能不同的 native_run_id；非零 run 与原生 run 不一致时拒绝读取。
+
+批量接口联合枚举后只读取自适应 S 路径，替换每条 sources 为实际枚举来源。
+返回 `curves`、`enumeration`、逐路径 `errors`、`complete` 及
+`matrix_completeness='not_evaluated'`。没有候选项时 status=not_found，
+枚举或读取失败时 status=partial/failed，全部已发现曲线可读时 status=ok；
+ok/complete 不证明端口、频率或矩阵齐全。归一化元数据缺失保留在曲线中，不丢弃复数数据。
+不做轮次插值、Delta S 排名或原生收敛验收。
+
+普通 `list_s_parameters()` 仅匹配主频率树 `1D Results\S-Parameters\S...`，
+不能把 Adaptive Meshing 的 Pass 曲线名称混入普通频率曲线发现、批量读取或导出。
+原有通用 `read_1D` 仍按原始轴返回数据；它不将 Pass 曲线认证为频率曲线。
 
 ### `cst_automation.curves`
 
@@ -587,3 +729,30 @@ runtime calculation. It never calls Update, Start, EvaluateResultTemplates,
 an EM/DC/HB solver, a mesh generator or a scan. Session build operation
 `register_postprocessing_template` explicitly routes this facade on the
 owning app and refreshes its project handle after reopening.
+
+
+## Explicit session working paths and existing formal projects
+
+`SessionManager.submit(..., operation='create_project'|'import_project', params=...)`
+accepts optional absolute `working_path` (`.cst`) together with
+`authorize_working_path=true`. Authorization covers only that exact path in
+that durable request; no global directory allowlist is changed. Omitting both
+retains the existing session-local `projects/<project_id>/model.cst` default.
+Create/import reject existing destinations and paired results directories.
+Import copies its explicit source and never saves over that source.
+
+The explicitly registered `adopt_project` operation requires `project_id`,
+`working_path`, `authorize_working_path=true`, `expected_digest` (SHA-256 of
+the saved file), and a nonempty `review_note`. It opens that existing baseline
+in place without copying or saving it during adoption. Later normal writes
+operate on that authorized formal path. The durable owner, project ID, path,
+digest and adoption review remain in the same session recovery records.
+Destination claims, including queued jobs, are exclusive among sessions in
+the same session root; different roots and external processes are not an
+OS-wide ownership registry. Resume uses the original reference/project ID,
+never a new adopt/import request. Offline tests do not certify native opening,
+saving, recovery, or solving.
+Failed project-operation journals retain their destination claim until
+explicit reconciliation resolves the receipt, including failures before
+the native-open result could be registered as a project. A state-only change
+does not release an uncertain claim.

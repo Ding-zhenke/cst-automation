@@ -15,10 +15,11 @@ import sys
 import time
 from contextlib import contextmanager
 from cst_solver.failures import structured_error
+from cst_solver.host import process_identity
 
 __all__ = ['list_windows', 'describe_windows', 'list_dialogs', 'describe_dialogs',
            'save_prompts', 'dismiss_dialogs', 'check_dialogs', 'guard',
-           'CstDialogTimeout', 'DialogMonitor', 'DIALOG_ERROR_CODES']
+           'CstDialogTimeout', 'DialogMonitor', 'DIALOG_ERROR_CODES', 'acknowledge_known_error']
 
 DIALOG_ERROR_CODES = ('cst_dialog_monitor_failed',)
 
@@ -38,6 +39,7 @@ _QT_DIALOG_TITLE_KEYWORDS = ('save as', 'open', '另存为', '保存为', '打�
 
 # Win32 常量
 _GW_OWNER = 4
+_GW_CHILD = 5
 _WM_COMMAND = 0x0111
 _BM_CLICK = 0x00F5
 _IDOK, _IDCANCEL, _IDABORT, _IDRETRY, _IDIGNORE, _IDYES, _IDNO = 1, 2, 3, 4, 5, 6, 7
@@ -210,6 +212,28 @@ def _is_startup_controller(window):
             not window.get('read_errors'))
 
 
+def _is_structural_glow(window):
+    """Recognize an inert Qt glow before spending the shared text-read budget.
+
+    Exact class alone is insufficient. Require a same-process Qt owner with a
+    matching known creation identity, an empty title and no native children.
+    This classifies window structure, not successful UIA text extraction.
+    """
+    creation = window.get('process_creation_time')
+    return bool(
+        window.get('class') == 'QtitanTitleBarGlowWindow' and
+        not window.get('title', '').strip() and window.get('visible') and
+        window.get('responding') and window.get('owner') and
+        window.get('owner_pid') == window.get('pid') and
+        window.get('owner_class', '').startswith('Qt') and
+        window.get('owner_class', '').endswith('QWindowIcon') and
+        isinstance(creation, str) and creation.isdecimal() and int(creation) > 0 and
+        window.get('owner_creation_time') == creation and
+        not window.get('body', '').strip() and not window.get('buttons') and
+        not window.get('has_progress') and
+        not _user32.GetWindow(window['hwnd'], _GW_CHILD))
+
+
 def _child_buttons(hwnd):
     """
     枚举对话框上的按钮（类名 ``Button``）。
@@ -315,15 +339,20 @@ def list_windows(only_cst=True, *, pid=None):
         klass, title = _class_name(hwnd), _window_text(hwnd)
         visible = bool(_user32.IsWindowVisible(hwnd))
         owner = _user32.GetWindow(hwnd, _GW_OWNER) or 0
+        identity = process_identity(window_pid)
+        owner_pid = _pid_of(owner) if owner else None
+        owner_identity = process_identity(owner_pid) if owner_pid else {}
         modal = bool(owner and not _user32.IsWindowEnabled(owner))
         windows.append(dict(hwnd=hwnd, pid=window_pid, process=name, title=title,
                             **{'class': klass}, visible=visible, owner=owner,
+                            owner_pid=owner_pid,
+                            process_creation_time=identity.get('creation_time'),
+                            process_identity=identity,
+                            owner_creation_time=owner_identity.get('creation_time'),
                             owner_class=_class_name(owner) if owner else '',
-                            owner_pid=_pid_of(owner) if owner else None,
                             responding=not bool(_user32.IsHungAppWindow(hwnd)), modal=modal,
-                            is_dialog=klass != 'QtitanTitleBarGlowWindow' and (
-                                klass == _DIALOG_CLASS or
-                                _is_qt_dialog(klass, title, visible) or (visible and modal))))
+                            is_dialog=klass == _DIALOG_CLASS or
+                            _is_qt_dialog(klass, title, visible) or (visible and modal)))
     return windows
 
 
@@ -361,7 +390,13 @@ def list_dialogs(only_cst=True, *, pid=None):
         if not window['is_dialog'] or not window['visible']:
             continue
         dialog = dict(window)
-        if time.monotonic() < deadline:
+        structural_glow = _is_structural_glow(window)
+        if structural_glow:
+            content = dict(body='', text_source='win32_glow_structure', text_readable=False,
+                           text_complete=False, read_errors=[], has_progress=False,
+                           content_read_status='not_applicable_decoration')
+            dialog['classification_evidence'] = 'exact_glow_class_owner_identity_no_native_children'
+        elif time.monotonic() < deadline:
             content = _dialog_content(dialog['hwnd'], dialog['class'])
         else:
             content = dict(body='', text_source='unreadable', text_readable=False,
@@ -370,7 +405,7 @@ def list_dialogs(only_cst=True, *, pid=None):
                            has_progress=False)
         dialog.update(content)
         try:
-            buttons = _child_buttons(dialog['hwnd'])
+            buttons = [] if structural_glow else _child_buttons(dialog['hwnd'])
         except OSError as exc:
             buttons = []
             dialog['read_errors'].append(str(exc))
@@ -386,10 +421,22 @@ def list_dialogs(only_cst=True, *, pid=None):
                         for b in dialog['buttons']))
         dialog['blocking'] = not progress and (
             dialog.get('modal', True) or not dialog.get('owner'))
+        # A glow decoration inherits a disabled owner's modal relation, but has
+        # no user interaction. Keep its raw snapshot; a failed read is unknown.
+        decoration = structural_glow or (dialog['class'] == 'QtitanTitleBarGlowWindow' and
+                      not dialog['title'].strip() and not dialog.get('body', '').strip() and
+                      not dialog['buttons'] and not dialog['read_errors'] and
+                      dialog.get('owner') and dialog.get('owner_pid') == dialog['pid'] and
+                      dialog.get('responding') and not content.get('has_progress'))
+        dialog['classification'] = 'decoration' if decoration else 'progress' if progress else 'dialog'
+        dialog['error_code'] = ('cst_history_error' if dialog['title'].strip().lower() == 'history error'
+                                else 'cst_dialog_unknown' if dialog['blocking'] and not decoration else None)
+        if decoration:
+            dialog['blocking'] = False
         if _is_scripting_control(dialog) or _is_startup_controller(dialog):
             dialog['window_role'] = 'scripting_control' if _is_scripting_control(dialog) else 'startup_controller'
             dialog['blocking'] = False
-        dialog['needs_visual_inspection'] = not dialog['text_complete']
+        dialog['needs_visual_inspection'] = not dialog['text_complete'] and not decoration
         dialogs.append(dialog)
     return dialogs
 
@@ -461,7 +508,7 @@ def _send_button(dialog, button):
 
 
 def dismiss_dialogs(prefer=(), only_cst=True, require_title=None, *, pid=None, hwnd=None,
-                    expected_message=None):
+                    expected_message=None, expected_creation_time=None):
     """显式处理已读弹窗。参数必须包含 pid、hwnd、完整按钮文字；默认不点。
 
     返回值：action 为 clicked/no_match/scope_required/stale_or_foreign/send_failed。
@@ -477,6 +524,12 @@ def dismiss_dialogs(prefer=(), only_cst=True, require_title=None, *, pid=None, h
             continue
         entry = dict(title=dialog['title'], action='scope_required', button=None)
         if pid is None or hwnd is None:
+            results.append(entry)
+            continue
+        if expected_creation_time is not None and (
+                dialog.get('process_creation_time') != expected_creation_time or
+                process_identity(pid).get('creation_time') != expected_creation_time):
+            entry['action'] = 'identity_changed'
             results.append(entry)
             continue
         if expected_message is not None and (
@@ -502,10 +555,35 @@ def dismiss_dialogs(prefer=(), only_cst=True, require_title=None, *, pid=None, h
                              (_window_text(hwnd), current.get('body', '')) == tuple(expected_message))
             else:
                 unchanged = True
+            if expected_creation_time is not None:
+                if process_identity(pid).get('creation_time') != expected_creation_time:
+                    entry['action'] = 'identity_changed'
+                    results.append(entry)
+                    continue
             entry.update(action=('clicked' if _send_button(dialog, choice) else 'send_failed')
                          if unchanged else 'message_changed', button=choice['text'])
         results.append(entry)
     return results
+
+
+def acknowledge_known_error(snapshot, *, expected_creation_time, button):
+    """Explicitly acknowledge one observed error; never assert SDK recovery."""
+    result = dict(action='message_incomplete', readback_status='required',
+                  error_code='cst_native_error_acknowledgement', snapshot=copy.deepcopy(snapshot))
+    if snapshot.get('title', '').strip().lower() != 'history error':
+        return dict(result, action='unknown_error')
+    if _normalize_button(button) not in ('ok', '确定'):
+        return dict(result, action='unsupported_button')
+    if (not expected_creation_time or
+            snapshot.get('process_creation_time') != expected_creation_time or
+            process_identity(snapshot['pid']).get('creation_time') != expected_creation_time):
+        return dict(result, action='identity_changed')
+    if not snapshot.get('text_complete') or snapshot.get('read_errors') or not snapshot.get('body'):
+        return result
+    actions = dismiss_dialogs(prefer=(button,), pid=snapshot['pid'], hwnd=snapshot['hwnd'],
+                              expected_message=(snapshot['title'], snapshot['body']),
+                              expected_creation_time=expected_creation_time)
+    return dict(result, action=actions[0]['action'] if actions else 'no_match', actions=actions)
 
 
 class CstDialogTimeout(TimeoutError):
@@ -561,7 +639,7 @@ class DialogMonitor:
             if state == self._state:
                 return
             self._state = copy.deepcopy(state)
-            if state['state'] in ('blocked_by_dialog', 'timeout') and self.failure is None:
+            if state['state'] in ('blocked_by_dialog', 'dialog_detected', 'timeout', 'monitor_error') and self.failure is None:
                 self.failure = copy.deepcopy(state)
         if self.on_event:
             try:

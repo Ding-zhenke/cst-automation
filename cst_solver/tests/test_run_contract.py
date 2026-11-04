@@ -186,7 +186,8 @@ def _run(contract, probe, after_value, messages=(), error=None, submit=None):
             record['submitted'] = True
         except Exception as exc:                      # noqa: BLE001
             error = f'{type(exc).__name__}: {exc}'
-    return contract.after_submit(record, messages=messages, error=error)
+    return contract.after_submit(record, messages=messages, error=error,
+                                 messages_state='read', message_source='caller')
 
 
 def test_success_requires_changed_results_and_clean_messages():
@@ -197,6 +198,8 @@ def test_success_requires_changed_results_and_clean_messages():
     outcome = _run(contract, probe, after)
 
     assert outcome['status'] == 'succeeded'
+    assert outcome['mesh_convergence'] == 'unknown'
+    assert outcome['validation_passed'] is False
     assert outcome['results_exist'] is True
     assert outcome['results_changed'] is True
     assert outcome['messages_clean'] is True

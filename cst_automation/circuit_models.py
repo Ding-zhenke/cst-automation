@@ -47,5 +47,9 @@ def nonlinear_model_settings(settings):
     dialect = settings.get('dialect')
     require(dialect is None or dialect in ('AUTOMATIC', 'SPICE3', 'PSPICE', 'HSPICE'), 'Unsupported SPICE dialect')
     source = file_snapshot(settings.get('file'))
+    from .spice_identity import source_contract
+    contract = source_contract(source['path'], model)
+    require(contract['snapshot']['sha256'] == source['sha256'], 'SPICE source changed during preparation')
     return {'kind': kind, 'type': 'SPICEImport', 'file': source['path'], 'spice_model': model,
-            'spice_filter': dialect, 'properties': {}, 'property_units': {}, 'files': [source]}
+            'spice_filter': dialect, 'properties': {}, 'property_units': {}, 'files': [source],
+            'source_contract': contract}

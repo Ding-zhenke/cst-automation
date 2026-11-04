@@ -67,6 +67,7 @@ class CstBackend(Backend):
         if not os.path.isfile(path):
             return fail_result("project_not_found", f"工程不存在：{path}", path=path)
         app = None
+        outcome = None
         log: List[str] = []
         try:
             app = setup(path)
@@ -75,16 +76,21 @@ class CstBackend(Backend):
                                       note=str(params.get("note", "")))
             log.append(f"运行契约：status={outcome.get('status')}")
             log.extend(str(message) for message in outcome.get("messages", []))
+            summary = {"solver_status": outcome.get("status"),
+                       "result_readback": "not_requested", "run_contract": outcome}
             if outcome.get("status") != "succeeded":
                 first = (outcome.get("errors") or [{}])[0]
-                return fail_result(
+                failure = fail_result(
                     first.get("code", "backend_failed"),
                     f"求解未确认成功（status={outcome.get('status')}）："
                     f"{first.get('message', '')}",
                     retryable=True,
                     log=log,
-                    run_identity={"run_token": outcome.get("run_token")},
+                    run_contract=outcome,
                 )
+                failure.update(run_identity={"run_token": outcome.get("run_token")},
+                               result_summary=summary)
+                return failure
             app.save(path)
             log.append(f"结果已保存：{path}")
             return ok_result(
@@ -92,14 +98,20 @@ class CstBackend(Backend):
                 artifacts=[artifact(path, kind="project", note="CST 求解后已保存")],
                 run_identity={"run_token": outcome.get("run_token"),
                               "run_id": params.get("run_id", 0)},
-                result_summary={"solver_status": "succeeded",
-                                "result_readback": "not_requested"},
+                result_summary=summary,
                 saved=True,
             )
         except Exception as exc:  # noqa: BLE001 - reported as structured task failure
-            return fail_result("backend_failed",
-                               f"求解过程异常：{type(exc).__name__}: {exc}",
-                               retryable=True, log=log)
+            failure = fail_result("backend_failed",
+                                  f"求解过程异常：{type(exc).__name__}: {exc}",
+                                  retryable=True, log=log,
+                                  **({"run_contract": outcome} if outcome is not None else {}))
+            if outcome is not None:
+                failure.update(run_identity={"run_token": outcome.get("run_token")},
+                               result_summary={"solver_status": outcome.get("status"),
+                                               "result_readback": "not_requested",
+                                               "run_contract": outcome})
+            return failure
         finally:
             if app is not None:
                 try:

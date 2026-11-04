@@ -5,9 +5,10 @@ import re
 
 def log_completion(before, after, task_name):
     appended = bool(before and after.startswith(before))
-    segment = after[len(before):] if appended else after
+    segment = '' if after == before else after[len(before):] if appended else after
     tasks = re.findall(r'\bTask:\s*([^\r\n]+)', segment)
-    bad = bool(re.search(r'\b(?:ERROR|FATAL|FAILED|ABORTED)\s*:|\b(?:task|solver|simulation)\s+(?:failed|aborted)\b', after, re.I))
+    error_pattern = r'\b(?:ERROR|FATAL|FAILED|ABORTED)\s*:|\b(?:task|solver|simulation)\s+(?:failed|aborted)\b'
+    bad = bool(re.search(error_pattern, segment, re.I))
     markers = ('Task:', 'Task time:', 'Total time:')
     old_lines = set(before.splitlines())
     fresh_markers = all(any(marker in line and (appended or line not in old_lines)
@@ -16,6 +17,8 @@ def log_completion(before, after, task_name):
     complete = (after != before and tasks == [task_name] and fresh_markers and not bad and not warnings)
     return {'completed': complete, 'log_changed': after != before,
             'log_tasks': tasks, 'log_errors': bad, 'log_warnings': warnings,
+            'historical_log_errors': bool(re.search(error_pattern, before, re.I)),
+            'log_evidence_state': 'no_new_log_evidence' if after == before else 'new_log_segment',
             'log_sha256_before': hashlib.sha256(before.encode()).hexdigest(),
             'log_sha256_after': hashlib.sha256(after.encode()).hexdigest()}
 

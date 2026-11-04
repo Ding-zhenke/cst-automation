@@ -18,6 +18,8 @@ restore defaults, and retain the final file with its modeling Python. Use sessio
 
 For Design Studio schematics, EM links, or field-circuit tasks, use [cst-circuit](../cst-circuit/SKILL.md). Its current development scope prioritizes functions and skills; do not start dedicated validation solves unless required by the user's engineering task.
 
+Before HB consumes new or changed EM data, apply the [HB coverage and stop gates](../cst-circuit/references/hb-and-postprocessing.md#hb-运行前的放行门槛). Read each actual passive block/file's valid data interval, including 0 Hz and the highest retained mixing frequency from actual tones/orders; a global frequency setting or a reference NPORT on another topology is insufficient. After topology/EM changes, pass bounded representative forward/reverse cases (DC operating point, actual RF incidence/matching and spectra) before the full parent sweep. The first initialization/numerical failure stops later groups and dependent templates without valid current-run inputs. These are caller orchestration requirements, not capabilities implied by the EM solver or HB configuration wrappers.
+
 Confirm the target project, solver type, frequency range, ports, boundaries, mesh, and requested outputs before starting a costly solve. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.
 
 F-solver CPU parallelization uses `configure_fd_parallelization(settings)` through

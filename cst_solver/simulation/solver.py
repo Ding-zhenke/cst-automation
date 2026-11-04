@@ -153,8 +153,8 @@ End With"""
 
         - :meth:`run` 只把 VBA 交下去、返回 ``None`` —— 「返回了」不代表「算完了」；
         - 本方法在提交**前后各取一次结果指纹**，并要求
-          「提交未抛异常 + CST 消息为空 + 结果存在 + 结果指纹发生变化」
-          **同时成立**才算 ``status='succeeded'``，否则如实给出
+          「提交未抛异常 + CST 消息完整读取且无非 INFO + 结果存在 + 结果指纹发生变化」
+          **同时成立**才算 API 观察 ``status='succeeded'``，并非原生/数值验收，否则如实给出
           ``failed`` / ``unverified``。
 
         ⚠️ ``run()`` 的行为**一字未改**（仍返回 ``None``），本方法是 opt-in 的
@@ -167,7 +167,8 @@ End With"""
             （CST 消息读取即清空，不落盘就事后无据可查）
         :param note: str, 本次运行备注，写进记录
         :param probe: 可调用 可选, 自定义结果指纹探测函数
-        :param read_messages: bool, 是否在提交后读 CST 消息（默认 True）
+        :param read_messages: bool, 是否在提交前记录旧队列、提交后记录当前队列（默认 True）；False 时
+            messages_state=not_read、messages_clean=None，不满足成功契约的消息条件
         :return: dict, 见 :meth:`cst_solver.run_contract.RunContract.after_submit`
         """
         from cst_solver.run_contract import (
@@ -179,7 +180,9 @@ End With"""
             sink = JsonlSink(run_log_path(path))
         contract = RunContract(path, probe=probe, sink=sink, tag='setup.run_checked')
         reader = self.get_messages if read_messages else None
-        return contract.run_and_record(self.run, read_messages=reader, note=note)
+        return contract.run_and_record(self.run, read_messages=reader, note=note,
+                                       read_prior_messages=reader,
+                                       message_source='sdk_pending_queue')
 
     def update(self):
         """

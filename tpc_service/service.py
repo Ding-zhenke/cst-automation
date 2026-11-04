@@ -514,6 +514,8 @@ class RunService:
             if monitor is not None and monitor.failure:
                 failure = monitor.failure
                 outcome = dict(outcome, ok=False, error=error_dict(
+                    'cst_dialog_monitor_failed' if failure['state'] == 'monitor_error' else
+                    'cst_dialog_scope_unknown' if failure['state'] == 'dialog_detected' else
                     'cst_dialog_blocked' if failure['dialogs'] else 'cst_step_timeout',
                     '执行期间检测到阻塞；调用已经返回，需核查失败步骤后再重试',
                     diagnostics=failure, backend_error=outcome.get('error')))

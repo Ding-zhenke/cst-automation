@@ -49,6 +49,8 @@ ERROR_CODES = (
     'backend_failed',
     'service_shutdown',
     'cst_dialog_blocked',
+    'cst_dialog_monitor_failed',
+    'cst_dialog_scope_unknown',
     'cst_step_timeout',
 )
 
