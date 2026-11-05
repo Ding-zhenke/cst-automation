@@ -15,6 +15,8 @@ Win32 通过有超时的 `WM_GETTEXT` 读取正文，Qt/自绘窗口尝试有 4 
 实现依据：[WM_GETTEXT](https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-gettext)、
 [SendMessageTimeoutW](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendmessagetimeoutw)。
 
+CST 2026 的 `Quiet/Scripting mode is active and pop up windows are blocked.` 提示表示人工界面处于脚本模式。正文完整且与标题、`Minimize` / `Switch to Interactive Mode` 按钮及同进程 Qt owner 一起匹配时，快照标记为 `scripting_control`，API 巡检不因此锁存阻塞。许可证释放、保存确认及未完整读到的窗口分别按实际快照判断。当前截图无法确认旧回执中未读全的窗口身份。
+
 ## 脚本接入
 
 ```python
