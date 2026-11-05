@@ -131,6 +131,10 @@ def execute(runtime, job):
             if source_folder == path.parent or source_folder in path.parents:
                 raise ServiceError('workdir_escape', 'Import destination cannot be inside source results directory')
             copy_project(source, str(path))
+        # Restore only the pre-existing projects. The just-copied import is an
+        # initial intent, not a missing saved tab requiring historical review.
+        app = runtime.environment()
+        state = runtime.state()
         state['projects'][project_id] = {'project_id': project_id, 'path': str(path),
                                           'source_path': source, 'saved': False,
                                           'lifetime': params.get('lifetime', 'working'),
@@ -139,7 +143,6 @@ def execute(runtime, job):
             state['projects'][project_id]['path_authorization'] = {
                 'working_path': str(path), 'operation': operation}
         runtime.update(projects=state['projects'])
-        app = runtime.environment()
         path.parent.mkdir(parents=True, exist_ok=True)
         if source:
             app.open(str(path))

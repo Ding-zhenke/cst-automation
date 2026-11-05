@@ -23,6 +23,11 @@ checks, relocation checks, temporary tabs, backups and final artifacts.
   scans and retries; a clean start is not permission to discard uncertain work.
 - Complete actual-parameter geometry preview and wait for review under cst-modeling before history
   submission. Stable stage_id and request_id identify retries. A preview hash does not prove review.
+- Initial create/import obtains the existing environment before registering the new project
+  intent; do not treat a first copied input as a missing old reviewed tab. For an already failed
+  copied/registered import, follow [initial-intent recovery](../../docs/guides/initial_project_intent_recovery.md):
+  no automatic replay or review bypass; genuinely review disk/idle, record resolution through
+  the existing API, then inspect/continue the same project ID. Never hand-write human_reviewed.
 - Query original job receipts after a timeout/disconnect. Resume the original worker when lost;
   never resubmit uncertain work under a fresh ID or copy/rebuild the original model automatically.
 - A failed circuit run_task with explicit returned/saved receipts may leave the session ready

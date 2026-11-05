@@ -1,6 +1,6 @@
 {
   "name": "cst-automation",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "description": "CST modeling, simulation, device characterization, circuits, figures, results, and diagnostics through eleven independently selected skills.",
   "author": {"name": "Ding-zhenke"},
   "repository": "https://github.com/Ding-zhenke/cst-automation",

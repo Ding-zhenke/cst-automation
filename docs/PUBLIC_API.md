@@ -1,5 +1,11 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-05：首次 create/import 与旧工程恢复检查分离
+
+create_project/import_project 在复制检查之后、登记新 project 意图之前取得/恢复原环境，并刷新当前登记快照；新 project 不参加这一步针对旧工程的恢复审阅检查。随后仍在原生 open/new/save 之前持久登记 saved=False 意图，保留中断/未知写入围栏和路径占用。adopt_project 及原 restore_reviewed_projects 的缺失旧工程审阅/摘要校验不放宽，不添加跳过全部 unsaved 的例外。
+
+已失败且已有目标文件/登记的 import 不自动重试、不覆盖或重新导入：由所属会话核对原任务阶段、文件/配套目录、输入与目标摘要、原 DE 空闲，按现有授权通过 reconcile API 采纳全部登记工程的真实磁盘基线（不是手改 human_reviewed）。保留原错误与 resolution 审计，再沿同一 project_id 做 inspect/受控后续操作；原 request-id 仍返回原回执。缺文件、未知 native open/save 或未审阅状态继续围栏，不能因更新代码自动清除。
+
 ## 2026-11-05：已关闭过程工程的显式退休
 
 `close_project` 增加可选 `retire=True, expected_digest=<64位小写SHA256>, confirm_idle=True, review_note=<非空审阅说明>`。默认行为不变。显式退休只接受本会话 projects/<project_id> 内、已登记关闭/保存的 .cst 过程文件；登记摘要、请求摘要和磁盘一致，且 session ready、无未知任务/启动意图/已知弹窗、无其他 queued/running/needs_reconcile job、无目标缓存句柄。调用方确认正式交付和依赖不再使用该过程副本；API 不认证这条外部事实。

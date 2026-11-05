@@ -1,5 +1,12 @@
 # 验证记录
 
+## 2026-11-05：首次 import 意图误入旧工程恢复检查（离线）
+
+- 确认旧调用顺序在 copy/register(saved=False) 后恢复原 DE，导致刚复制的首次 import 被 restore_reviewed_projects 当作缺失旧标签，错误要求历史审阅。现将 environment 恢复移至新登记之前，随后刷新当前状态；新意图仍在 native open/create/save 前登记，旧项目 guard 和 adopt 路径不放宽。
+- 新增 6 项离线回归，先复现首次 import 恢复误拒绝，再覆盖 MWS/DS 首次 create、真实缺失旧工程仍拒绝、未知 native open 保留 saved=False 意图，以及调用现有 reconcile API 审阅后沿原 project_id inspect 且不重新复制/保存源工程。相关 32 项通过，完整检查 1458 passed、3 skipped、2 deselected；独立审查无阻塞发现。
+- 已失败且目标/登记已存在的旧 import 不自动续接、不重复 import/adopt、不覆盖或删 claim。旧回执缺少独立 pre-open/无写入证据时，仍需真实基线与现场空闲审阅；不能用错误文本、复制摘要或本次测试替代。通过现有 reconcile 记录 resolution（非 succeeded），保留原错误和失败副本，再沿原身份检查继续；不手改 human_reviewed。
+- 未连接、修改或核对真实 DE/worker/session/工程，未替所属会话恢复或清除 needs_reconcile。本次仅修调用顺序并提供[有审计的恢复路线](guides/initial_project_intent_recovery.md)，不声称原失败 import 已恢复、原生保存或模型/求解通过。
+
 ## 2026-11-05：已关闭过程工程退休与独立文件清理（真实会话反馈）
 
 - 来源模型会话报告：在任务全部结束、标签已关闭、无排队任务后，仅退出原 worker，保留原 DE 和恢复引用，加载 `01202cb` / 插件 `0.3.14`。随后通过同一会话提交 close_project(retire=True, expected_digest=..., confirm_idle=True, review_note=...)，一个旧 working 过程副本的 job succeeded。
