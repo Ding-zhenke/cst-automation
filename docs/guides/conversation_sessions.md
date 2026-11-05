@@ -165,3 +165,7 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 ## 首次导入与已有标签恢复检查
 
 首次 create/import 的新登记在环境恢复之后写入，不参与旧工程缺标签审阅。已失败并复制目标的旧 import 不自动续接；按[原意图恢复路线](initial_project_intent_recovery.md)真实审阅并记录 resolution 后，沿同一 project_id 检查继续，不重导入或覆盖文件。
+
+## 几何验证失败与原生只读审阅
+
+已返回保存的几何验证失败与未知写入分别记录。对旧几何错误围栏可显式请求[受限只读检查](geometry_validation_review.md)，取得参数/实体证据但不清围栏；纯 INFO 仍不认证外部依赖或几何通过。

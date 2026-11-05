@@ -36,6 +36,11 @@ checks, relocation checks, temporary tabs, backups and final artifacts.
   Review missing numerical evidence before dependent tasks; ready alone does not approve them.
   Missing leaf logs do not by themselves mean an SDK write is still running. Existing historical
   needs_reconcile is not cleared automatically; distinguish that fence from numerical review.
+- Geometry validation may return unverified with INFO messages despite a normally returned
+  Rebuild. A fully identified returned/saved failure remains failed/review_required; ready is
+  not geometry/dependency acceptance. For an existing geometry fence, use the explicit
+  [bounded read-only review](../../docs/guides/geometry_validation_review.md) only after actual idle
+  confirmation and digest checks; it never rebuilds, saves, opens missing tabs or clears the fence.
 - needs_reconcile requires scene evidence. Do not automatically call reconcile_cst_session: only
   use it after explicit user review of the saved baseline and idle state; preserve evidence levels.
 - Keep the working project and its DE while the approved task is active, including replies and

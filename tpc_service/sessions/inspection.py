@@ -11,9 +11,19 @@ def validate_options(params):
         if not condition:
             raise ServiceError('invalid_session_argument', message)
     require(not set(params) - {'project_id', 'depends_on', 'native_readback',
-                               'parameter_names', 'solid_names', 'sample_points'},
+                               'parameter_names', 'solid_names', 'sample_points',
+                               'read_only_review', 'confirm_idle', 'expected_digest'},
             'Unsupported inspect option')
     require(type(params.get('native_readback', False)) is bool, 'native_readback must be boolean')
+    require(type(params.get('read_only_review', False)) is bool, 'read_only_review must be boolean')
+    if params.get('read_only_review'):
+        require(params.get('native_readback') is True and params.get('confirm_idle') is True,
+                'Read-only review requires native_readback and caller-confirmed idle')
+        value = params.get('expected_digest')
+        require(isinstance(value, str) and len(value) == 64 and all(c in '0123456789abcdef' for c in value),
+                'Read-only review requires explicit saved expected_digest')
+    else:
+        require(not set(params) & {'confirm_idle', 'expected_digest'}, 'Review fields require read_only_review=true')
     for key in ('parameter_names', 'solid_names'):
         if key in params:
             names = params[key]

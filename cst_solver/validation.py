@@ -20,6 +20,7 @@ CST 结构化验收 Mixin 模块
 """
 
 from cst_solver._guards import get_guard_state
+from cst_automation.run_messages import observe_messages
 
 
 class ValidationMixin:
@@ -51,7 +52,7 @@ class ValidationMixin:
         :return: dict::
 
             {
-              "status":     "success" | "error",   # 结论
+              "status":     "success" | "unverified" | "error",
               "messages":   [ ... ],               # 本次验收到的问题消息（含 rebuild 阶段）
               "rebuild_ok": bool,                  # Rebuild 本身是否干净
               "before":     [ ... ],               # 调用前积压的历史消息（已清空）
@@ -60,7 +61,8 @@ class ValidationMixin:
 
         判定规则（与 WORKFLOW §3 一致，不引入新口径）：
 
-        - ``before`` 或 ``rebuild`` 阶段**任一条**消息 ⇒ ``status='error'``
+        - 原生 INFO/WARNING 保留为 unverified；ERROR/未知消息为 error。
+          非空 INFO 也不认证外部依赖或几何有效性。
         - ``rebuild=False`` 时 ``rebuild_ok`` 恒为 True（未执行即不作失败论）
         - 本方法**不抛异常**，调用方按 ``status`` 分流；这样它既能用在
           断言脚本里，也能用在「先跑一遍看看能不能继续」的探测场景
@@ -69,6 +71,7 @@ class ValidationMixin:
 
         before = self.get_messages()
         rebuild_ok = True
+        rebuild_returned = False
         rebuild_messages = []
 
         if rebuild:
@@ -78,18 +81,28 @@ class ValidationMixin:
                 rebuild_ok = False
                 rebuild_messages = [f'Rebuild() 抛出异常：{exc!r}']
             else:
+                rebuild_returned = True
                 rebuild_messages = self.get_messages()
-                if rebuild_messages:
+                _, rebuild_summary = observe_messages(rebuild_messages)
+                if any(rebuild_summary[key] for key in ('warning', 'error', 'unknown')):
                     rebuild_ok = False
                 else:
                     # 历史已重放 ⇒ 参数与几何重新一致，清掉脏标记
                     state.mark_rebuilt()
 
-        messages = list(before) + list(rebuild_messages)
+        messages, summary = observe_messages(list(before) + list(rebuild_messages))
+        _, before_summary = observe_messages(before)
+        _, rebuild_summary = observe_messages(rebuild_messages)
+        status = ('error' if summary['error'] or summary['unknown'] or (rebuild and not rebuild_returned)
+                  else 'unverified' if messages else 'success')
         return {
-            'status': 'error' if messages else 'success',
+            'status': status,
             'messages': messages,
             'rebuild_ok': rebuild_ok,
+            'rebuild_performed': bool(rebuild), 'rebuild_returned': rebuild_returned,
+            'message_summary': summary, 'before_summary': before_summary, 'rebuild_summary': rebuild_summary,
+            'dependency_validation': 'unknown', 'validation_scope': 'rebuild_and_message_queue',
+            'message_scope': 'pending_queue_unbounded',
             'before': before,
             'guard': state.summary(),
         }

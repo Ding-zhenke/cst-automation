@@ -60,10 +60,49 @@ def _known_saved_solve(job, error, state, monitor_failure):
         return False
 
 
+def _known_saved_geometry(job, error, state, monitor_failure):
+    if (job.get('operation') not in ('set_parameters', 'model_api', 'configure_sweep', 'history')
+            or error.get('code') != 'session_geometry_unverified' or monitor_failure
+            or state.get('status') != 'ready' or state.get('launch_intent') or state.get('uncertain_jobs')):
+        return False
+    details = error.get('details', {})
+    proof = details.get('geometry_outcome', {})
+    validation = proof.get('validation', {})
+    project_id = job.get('params', {}).get('project_id')
+    record = state.get('projects', {}).get(project_id, {})
+    digest = details.get('saved_digest')
+    if (details.get('project_id') != project_id or details.get('saved') is not True
+            or details.get('execution_returned') is not True or proof.get('execution_returned') is not True
+            or proof.get('validation_returned') is not True or proof.get('saved') is not True
+            or validation.get('rebuild_performed') is not True or validation.get('rebuild_returned') is not True
+            or proof.get('operation') != job.get('operation') or not job.get('job_id') or not job.get('operation_id')
+            or proof.get('job_id') != job['job_id'] or proof.get('operation_id') != job['operation_id']
+            or proof.get('validation_passed') is not False or proof.get('geometry_verified') is not False
+            or record.get('saved') is not True or not digest or proof.get('saved_digest') != digest
+            or record.get('saved_digest') != digest or details.get('validation') != validation):
+        return False
+    try:
+        from .native import file_digest
+        return Path(proof['project']).resolve() == Path(record['path']).resolve() and file_digest(record['path']) == digest
+    except (KeyError, OSError, TypeError, ValueError):
+        return False
+
+
 def _finish_failed_job(job, error, state, *, monitor_failure=None):
     known = _known_saved_solve(job, error, state, monitor_failure)
+    geometry = _known_saved_geometry(job, error, state, monitor_failure)
     job.update(status='failed', error=error, finished_at=time.time())
-    if known:
+    if (job.get('operation') == 'inspect' and job.get('params', {}).get('read_only_review') is True
+            and not monitor_failure):
+        state['last_read_review_error'] = error
+        return  # A bounded getter failure neither lifts nor adds a write fence.
+    if geometry:
+        details = error['details']
+        job['result'] = dict(saved=True, saved_digest=details['saved_digest'],
+                             geometry_outcome=details['geometry_outcome'], execution_state='returned_saved',
+                             review_required=True, geometry_verified=False)
+        state['status'] = 'ready'
+    elif known:
         details = error['details']
         outcome = details.get('execution_receipt', details['outcome'])
         job['result'] = dict(saved=True, saved_digest=details['saved_digest'],

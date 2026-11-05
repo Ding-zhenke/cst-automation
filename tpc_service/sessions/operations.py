@@ -41,6 +41,9 @@ def execute(runtime, job):
         return {'closed': True, 'saved': True, 'backend': runtime.backend}
     if operation == 'inspect':
         state = runtime.state()
+        if params.get('read_only_review') is True:
+            from .read_review import inspect_saved_geometry
+            return inspect_saved_geometry(runtime, job)
         if state['status'] == 'needs_reconcile':
             return {'backend': runtime.backend, 'state': 'needs_reconcile', 'projects': state['projects'],
                     'uncertain_jobs': state.get('uncertain_jobs', []), 'readback_verified': False}
@@ -264,9 +267,19 @@ def execute(runtime, job):
         mark_stage(runtime, 'model.validate')
         validation = app.validate_model()
         if validation.get('status') != 'success' or not validation.get('rebuild_ok'):
+            if validation.get('rebuild_performed') is True and validation.get('rebuild_returned') is not True:
+                raise ServiceError('session_geometry_unverified', 'Rebuild did not return normally; inspect before saving',
+                                   validation=validation, project_id=params['project_id'],
+                                   saved=False, execution_returned=False)
             # Save partial evidence without permitting subsequent dependent stages.
-            runtime.save(app, params['project_id'])
-            raise ServiceError('session_geometry_unverified', 'Rebuild/messages require inspection', validation=validation)
+            saved = runtime.save(app, params['project_id'])
+            outcome = dict(project=record['path'], operation=operation, operation_id=job.get('operation_id'),
+                           job_id=job.get('job_id'), execution_returned=True, validation_returned=True,
+                           validation=validation, saved=True, saved_digest=saved.get('saved_digest'),
+                           validation_passed=False, geometry_verified=False)
+            raise ServiceError('session_geometry_unverified', 'Rebuild/messages require inspection', validation=validation,
+                               project_id=params['project_id'], saved=True, saved_digest=saved.get('saved_digest'),
+                               execution_returned=True, geometry_outcome=outcome)
     if runtime.backend == 'cst' and operation == 'set_parameters':
         # Legacy history can contain descriptions; restore metadata after rebuild.
         for name, text in params.get('expressions', {}).items():

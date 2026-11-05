@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05：几何验证消息分级与显式只读审阅（离线）
+
+- validate_model 不再因原生 INFO 非空把正常 Rebuild 返回当异常；INFO/WARNING 保持 unverified，ERROR/未知或 Rebuild 异常为 error，dependency_validation=unknown。外部模板源缺失与缓存存在均不自动转为几何通过，未按正文猜测严重级别或依赖完整。
+- 对正常返回的操作/验证/Rebuild，验证失败保存后带几何回执；worker 核对同任务/操作/工程及保存摘要，原 ready 且无未知/弹窗时，保持 job failed、geometry_verified=False 和 review_required，session 可 ready，不写成功 checkpoint、不通过 depends_on。Rebuild 异常不追加保存；缺回执、保存异常、摘要变化和旧围栏继续保留。
+- inspect 增加显式 read_only_review/native_readback/confirm_idle/expected_digest：在旧几何错误围栏中可借用 app 或精确 attach 原 DE，仅读取实际已打开的登记标签及受限原生 getters。核对原进程身份、文件/登记摘要及前后目标，不调用恢复/open/activate/rebuild/save/solve，不消费消息、不清围栏或写 human_reviewed。默认 fenced inspect 仍只返回元数据，读审阅失败保留原围栏/几何错误；实际弹窗失败仍执行原围栏。
+- 新增 27 项离线回归；相关 104 项通过，完整检查 1485 passed、3 skipped、2 deselected，独立审查无阻塞发现。未连接或修改真实 CST/worker/session/工程，未替所属会话采纳新基线；此处只确认离线行为，不认证当前缓存、几何、模板或求解有效性。
+- 原失败几何 job 缺少新回执时不追溯升为 ready。所属会话可先按[显式只读步骤](guides/geometry_validation_review.md)取得证据，后续新基线采纳仍须真实审阅；不能使用旧摘要或把单独的空闲确认当作已采纳新模型。
+
 ## 2026-11-05：首次 import 意图误入旧工程恢复检查（离线）
 
 - 确认旧调用顺序在 copy/register(saved=False) 后恢复原 DE，导致刚复制的首次 import 被 restore_reviewed_projects 当作缺失旧标签，错误要求历史审阅。现将 environment 恢复移至新登记之前，随后刷新当前状态；新意图仍在 native open/create/save 前登记，旧项目 guard 和 adopt 路径不放宽。

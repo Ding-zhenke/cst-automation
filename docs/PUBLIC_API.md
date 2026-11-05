@@ -1,5 +1,13 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-05：几何验证的消息级别、已保存失败与只读审阅
+
+validate_model 按原生 type 分级，记录 before/rebuild/合并消息摘要、rebuild_performed/rebuild_returned 及 dependency_validation=unknown。纯 INFO 不把正常返回的 Rebuild 判为异常，但非空 INFO/WARNING 仍 status=unverified；ERROR/未知或 Rebuild 异常为 error。消息正文不用于提升几何/依赖通过，外部源缺失不能因 INFO 或缓存存在自动通过。无消息的原 success 口径保留。
+
+set_parameters/model_api/configure_sweep/3D history 的验证失败若有明确操作及验证返回、正常 Rebuild 返回和保存回执，worker 核对同工程/操作/任务身份与登记/磁盘摘要，且原 ready、无未知/弹窗/启动意图，保留 failed job、geometry_unverified/review_required 和 returned_saved，session 可 ready。不建立成功 checkpoint，不允许 depends_on 将该失败当通过；原 needs_reconcile、缺回执、Rebuild 异常、保存失败等继续围栏，不回写旧任务。
+
+inspect 增加显式 native_readback=True/read_only_review=True/confirm_idle=True/expected_digest，用于该几何错误围栏的原生只读审阅。要求已登记保存文件/摘要相同、原环境身份存活、无其他运行/排队/未知任务/弹窗，且目标标签实际已打开。只借用既有 app 或精确 attach 原 PID，不调用 Runtime.environment/project 恢复、不 open/activate/rebuild/save/solve、不消费消息队列或修改会话状态；只执行既有受限 getters。目标不在打开列表就拒绝。inspect 成功仅表示查询返回，geometry_verified=False、idle_verified=False，fence 保留；默认 inspect 在围栏内仍只返回元数据。
+
 ## 2026-11-05：首次 create/import 与旧工程恢复检查分离
 
 create_project/import_project 在复制检查之后、登记新 project 意图之前取得/恢复原环境，并刷新当前登记快照；新 project 不参加这一步针对旧工程的恢复审阅检查。随后仍在原生 open/new/save 之前持久登记 saved=False 意图，保留中断/未知写入围栏和路径占用。adopt_project 及原 restore_reviewed_projects 的缺失旧工程审阅/摘要校验不放宽，不添加跳过全部 unsaved 的例外。
