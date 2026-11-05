@@ -187,14 +187,22 @@ def _is_qt_dialog(klass, title, visible):
 
 def _is_scripting_control(window):
     """Recognize the observed CST 2026 scripting overlay, never by title alone."""
-    labels = {b.get('text', '').strip() for b in window.get('buttons', [])}
-    return (window.get('class', '').startswith('Qt') and
-            window.get('class', '').endswith('QWindow') and
+    labels = sorted(b.get('text', '').strip() for b in window.get('buttons', []))
+    klass = window.get('class', '')
+    if not (_is_cst_process(window.get('process', '')) and
+            klass.startswith('Qt') and klass.endswith('QWindow') and
             window.get('title') == 'CST Studio Suite 2026' and
             window.get('owner_class', '').endswith('QWindowIcon') and
-            window.get('owner_pid') == window.get('pid') and
-            labels == {'Minimize', 'Switch to Interactive Mode'} and
-            not window.get('body', '').strip() and not window.get('read_errors'))
+            window.get('pid') and window.get('owner_pid') == window['pid'] and
+            labels == ['Minimize', 'Switch to Interactive Mode'] and
+            not window.get('truncated') and not window.get('read_errors')):
+        return False
+    body = window.get('body', '').strip()
+    if not body:
+        # The original sample exposed the two controls but no body text.
+        return True
+    return (body == 'Quiet/Scripting mode is active and pop up windows are blocked.' and
+            window.get('text_readable') is True and window.get('text_complete') is True)
 
 
 def _is_startup_controller(window):
@@ -433,8 +441,10 @@ def list_dialogs(only_cst=True, *, pid=None):
                                 else 'cst_dialog_unknown' if dialog['blocking'] and not decoration else None)
         if decoration:
             dialog['blocking'] = False
-        if _is_scripting_control(dialog) or _is_startup_controller(dialog):
-            dialog['window_role'] = 'scripting_control' if _is_scripting_control(dialog) else 'startup_controller'
+        if _is_scripting_control(dialog):
+            dialog.update(window_role='scripting_control', blocking=False, error_code=None)
+        elif _is_startup_controller(dialog):
+            dialog['window_role'] = 'startup_controller'
             dialog['blocking'] = False
         dialog['needs_visual_inspection'] = not dialog['text_complete'] and not decoration
         dialogs.append(dialog)

@@ -1,5 +1,9 @@
 # cst-automation 与领域包的公共接口
 
+## CST 2026 Quiet/Scripting 状态窗口
+
+`cst_solver.dialogs.list_dialogs` 在确认窗口类、同进程 Qt owner、标题、两个按钮和完整正文后，将 `Quiet/Scripting mode is active and pop up windows are blocked.` 归入 `window_role="scripting_control"`。快照保留原始文字和按钮，返回 `blocking=False`、`error_code=None`。该提示描述手动交互受限，巡检不会仅凭它锁存 API 阻塞。正文读取失败、内容不符和其他需答复弹窗仍按现有规则判定。历史 job 的窗口身份以当时快照为准。
+
 ## HB 后处理：自动生成并保留每参数曲线
 
 `cst_solver.circuit.hb_history.write_hb_history_template(destination)` 离线生成可注册的 `0D/single_run` 模板。通过既有 `register_python_result_template` 绑定在目标父任务的 HB 后；插件更新不绑定工程或部署运行时。`evaluate_hb_history(eval_params, calling_app, prj, settings)` 由模板调用，借用传入工程，不连接或启动 CST。
