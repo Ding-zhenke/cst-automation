@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-05：主错误与监测首失败并存的收尾证据（离线）
+
+- 确认主操作先抛异常时，旧 worker 虽用 monitor.failure 拒绝 returned_saved 放行，却未把锁存首失败写入该错误；最后 runtime_diagnostics=clear 不能排除期间已有失败。本聊天仅只读核对指定的保存回执，确认其缺少 session_monitor、completion_evidence 和 worker_runtime 字段；未读取或修改真实会话/DE。
+- 新回执保留原 code/message/完整几何或求解 outcome，另记首失败、最终快照和锁存标志；job 记录 prior_status、实际决策/原因及 unknown/launch/监测因素。快照读取失败明确来源为 worker_snapshot_error，首次失败不被后续 clear 覆盖。离线判定也读取回执锁存证据，不能漏传参数后将已有失败改判 ready。
+- job.worker_runtime 新增实际 worker PID/解释器/Python、契约修订及所选已加载函数的 code-object SHA256，不用磁盘 HEAD/插件版本冒充运行版本，不回填旧任务。另以两个本机新进程/hash seed 核对所选指纹一致；仍不称跨主机发布签名或完整依赖证明。
+- 新增 6 项离线回归；相关 78 项通过，完整检查 1491 passed、3 skipped、2 deselected。独立审查发现首个合成快照错误可能被第二次 clear 覆盖，已修正并新增红绿回归。未放松监测/未知写入围栏，未自动重试/重放、清旧围栏或提升模型/求解验收。
+- 旧回执仍不足以判定此次为何 needs_reconcile：不能断言曾出现瞬态弹窗/监测错误或实际加载版本有差异。本轮只补[监测收尾证据](guides/session_completion_monitor_evidence.md)，没有连接当前 DE、触碰 worker/工程或更改旧 job。
+
 ## 2026-11-05：旧几何围栏中的显式原生只读审阅（实机反馈）
 
 - 来源模型会话报告：确认无运行/排队/待核对任务、无 Solver 进程、保存摘要匹配且原 DE 仍存活后，仅刷新所属 worker，保留原 DE 和 needs_reconcile；加载 `4500b8f` 对应的显式 inspect/read_only_review 接口并按当前保存摘要提交，job succeeded。

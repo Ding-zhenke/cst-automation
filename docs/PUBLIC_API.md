@@ -1,5 +1,11 @@
 # cst-automation 与领域包的公共接口
 
+## 2026-11-05：失败回执保留锁存监测证据与加载代码身份
+
+worker 收尾在不覆盖主错误 code/message/原详情的前提下，将本任务 session_monitor.first_failure、final_snapshot、failure_latched 写入错误详情（有监测证据时），并在 job.completion_evidence 记录 prior_status、状态决策、原因、unknown/launch 与监测失败因素。首个监测失败即使最终 snapshot=clear 仍保留并阻止 returned_saved 放行；离线判定也读取回执内锁存证据。不以最后 clear 自动恢复、不改变监测严重性或重试未知写入，不回写旧 job。
+
+job.worker_runtime 记录 worker PID、sys.executable/Python 版本、实现修订标记，以及实际加载的 worker 规则函数/已加载 operations.execute 的 code-object SHA256（marshal 版本另记）。不靠磁盘 HEAD/插件版本伪称旧 worker 已加载新代码；指纹为本机/Python 代码对象身份，不是跨机器通用发布签名。原始错误与完整几何/求解回执保留；监测快照不可用要明确记录，不能将证据缺失当 clear。
+
 ## 2026-11-05：几何验证的消息级别、已保存失败与只读审阅
 
 validate_model 按原生 type 分级，记录 before/rebuild/合并消息摘要、rebuild_performed/rebuild_returned 及 dependency_validation=unknown。纯 INFO 不把正常返回的 Rebuild 判为异常，但非空 INFO/WARNING 仍 status=unverified；ERROR/未知或 Rebuild 异常为 error。消息正文不用于提升几何/依赖通过，外部源缺失不能因 INFO 或缓存存在自动通过。无消息的原 success 口径保留。

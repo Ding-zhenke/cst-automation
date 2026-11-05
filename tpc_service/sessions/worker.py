@@ -1,11 +1,49 @@
 """One long-lived process, one SDK thread, one environment. No client-owned handles."""
 import sys
 import time
+import copy
+import hashlib
+import marshal
+import os
 from pathlib import Path
 
 from tpc_service.errors import ServiceError
 from .store import lock, process_identity, read, write
 from .diagnostics import mark_stage, exception_diagnostics, exception_repr
+
+
+def _code_fingerprint(function):
+    try:
+        code = getattr(function, '__code__', None)
+        return hashlib.sha256(marshal.dumps(code)).hexdigest() if code is not None else None
+    except Exception:
+        return None
+
+
+def _worker_runtime_info():
+    operations = sys.modules.get('tpc_service.sessions.operations')
+    functions = {'run': run, 'finish_failed_job': _finish_failed_job,
+                 'known_saved_geometry': _known_saved_geometry, 'known_saved_solve': _known_saved_solve,
+                 'monitor_completion': _monitor_completion, 'recorded_monitor_failure': _recorded_monitor_failure,
+                 'operations_execute': getattr(operations, 'execute', None)}
+    return dict(pid=os.getpid(), executable=sys.executable, python_version=sys.version,
+                implementation_revision='completion-evidence-v1', marshal_version=marshal.version,
+                code_fingerprints={name: _code_fingerprint(function) for name, function in functions.items()})
+
+
+def _monitor_completion(monitor, *, prior_failure=None):
+    if monitor is None:
+        return prior_failure, None
+    try:
+        snapshot = monitor.snapshot()
+    except Exception as exc:
+        snapshot = dict(state='monitor_error', evidence_source='worker_snapshot_error', snapshot_error=exception_repr(exc))
+        return prior_failure or monitor.failure or snapshot, snapshot
+    return prior_failure or monitor.failure, snapshot
+
+
+def _recorded_monitor_failure(error):
+    return (error.get('details', {}).get('session_monitor') or {}).get('first_failure')
 
 
 def _error_for_exception(exc, runtime, job):
@@ -30,7 +68,8 @@ def _known_saved_solve(job, error, state, monitor_failure):
                and error.get('code') == 'session_circuit_failed')
     solve = job.get('operation') == 'solve' and error.get('code') == 'session_solve_unverified'
     if (not (solve or circuit)
-            or monitor_failure or state.get('uncertain_jobs') or state.get('launch_intent')
+            or monitor_failure or _recorded_monitor_failure(error)
+            or state.get('uncertain_jobs') or state.get('launch_intent')
             or state.get('status') != 'ready'):
         return False
     details = error.get('details', {})
@@ -62,7 +101,7 @@ def _known_saved_solve(job, error, state, monitor_failure):
 
 def _known_saved_geometry(job, error, state, monitor_failure):
     if (job.get('operation') not in ('set_parameters', 'model_api', 'configure_sweep', 'history')
-            or error.get('code') != 'session_geometry_unverified' or monitor_failure
+            or error.get('code') != 'session_geometry_unverified' or monitor_failure or _recorded_monitor_failure(error)
             or state.get('status') != 'ready' or state.get('launch_intent') or state.get('uncertain_jobs')):
         return False
     details = error.get('details', {})
@@ -88,13 +127,27 @@ def _known_saved_geometry(job, error, state, monitor_failure):
         return False
 
 
-def _finish_failed_job(job, error, state, *, monitor_failure=None):
+def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snapshot=None):
+    monitor_failure = monitor_failure or _recorded_monitor_failure(error)
+    prior = state.get('status')
+    if monitor_failure is not None or monitor_snapshot is not None:
+        error = dict(error, details=dict(error.get('details', {}), session_monitor=dict(
+            first_failure=copy.deepcopy(monitor_failure), final_snapshot=copy.deepcopy(monitor_snapshot),
+            failure_latched=bool(monitor_failure))))
     known = _known_saved_solve(job, error, state, monitor_failure)
     geometry = _known_saved_geometry(job, error, state, monitor_failure)
     job.update(status='failed', error=error, finished_at=time.time())
+    job['worker_runtime'] = _worker_runtime_info()
+    evidence = dict(prior_status=prior, monitor_failure_seen=bool(monitor_failure),
+                    monitor_snapshot_available=monitor_snapshot is not None,
+                    launch_intent=bool(state.get('launch_intent')),
+                    uncertain_job_count=len(state.get('uncertain_jobs') or []),
+                    known_saved_solve=known, known_saved_geometry=geometry)
+    job['completion_evidence'] = evidence
     if (job.get('operation') == 'inspect' and job.get('params', {}).get('read_only_review') is True
             and not monitor_failure):
         state['last_read_review_error'] = error
+        evidence.update(decision=prior, reason='read_only_review_preserved_state')
         return  # A bounded getter failure neither lifts nor adds a write fence.
     if geometry:
         details = error['details']
@@ -113,12 +166,15 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None):
         state['status'] = 'ready'
     else:
         state['status'] = 'close_failed' if job['operation'] == 'close' else 'needs_reconcile'
+    reason = ('monitor_failure_latched' if monitor_failure else 'prior_state_not_ready' if prior != 'ready'
+              else 'unknown_predecessor' if state.get('uncertain_jobs') else 'launch_intent_unresolved' if state.get('launch_intent')
+              else 'verified_returned_saved' if known or geometry else 'saved_receipt_not_verified')
+    evidence.update(decision=state['status'], reason=reason)
     state['last_error'] = error
 
 
 def run(folder):
     from .native import Runtime
-    import os
     folder = Path(folder).resolve()
     with lock(folder / 'worker.lock', blocking=False):
         with lock(folder / 'state.lock'):
@@ -166,11 +222,13 @@ def run(folder):
                 if job:
                     job['status'] = 'running'
                     job['started_at'] = time.time()
+                    job['worker_runtime'] = _worker_runtime_info()
                     write(folder / 'jobs' / (job['job_id'] + '.json'), job)
             if job is None:
                 time.sleep(.1)
                 continue
             monitor = None
+            monitor_failure = None
             try:
                 mark_stage(runtime, 'worker.monitor_setup')
                 from contextlib import nullcontext
@@ -188,15 +246,20 @@ def run(folder):
                     mark_stage(runtime, 'worker.execute')
                     result = runtime.execute(job)
                     mark_stage(runtime, 'worker.monitor_finalize')
-                if monitor is not None and monitor.failure:
+                monitor_failure, monitor_snapshot = _monitor_completion(monitor)
+                if monitor_failure:
                     raise ServiceError('cst_dialog_blocked', 'Operation returned after a detected CST dialog; inspect evidence',
-                                       diagnostics=monitor.failure)
+                                       diagnostics=monitor_failure)
                 job.update(status='succeeded', result=result, finished_at=time.time())
+                job['worker_runtime'] = _worker_runtime_info()
+                job['completion_evidence'] = dict(decision='succeeded', reason='operation_returned_without_monitor_failure',
+                                                 monitor_failure_seen=False, final_monitor_snapshot=monitor_snapshot)
             except Exception as exc:
                 error = _error_for_exception(exc, runtime, job)
+                monitor_failure, monitor_snapshot = _monitor_completion(monitor, prior_failure=monitor_failure)
                 with lock(folder / 'state.lock'):
                     state = read(folder / 'session.json')
-                    _finish_failed_job(job, error, state, monitor_failure=monitor.failure if monitor else None)
+                    _finish_failed_job(job, error, state, monitor_failure=monitor_failure, monitor_snapshot=monitor_snapshot)
                     write(folder / 'session.json', state)
             with lock(folder / 'state.lock'):
                 write(folder / 'jobs' / (job['job_id'] + '.json'), job)

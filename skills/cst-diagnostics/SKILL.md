@@ -43,3 +43,10 @@ See [environment setup](../../docs/guides/cst_environment.md), [dialog handling]
 检查 error.details.diagnostics 的异常类型、OS filename/errno、最后执行 stage 及文件/函数/行号。
 stage 不是成功检查点；PermissionError 或磁盘未变不授权重放未知写入，不猜 OS 原因。
 旧 job 缺字段不回填；不为加载新诊断中断当前 CST 或 worker。
+
+## 最终 clear 与首失败锁存
+
+当 returned_saved 未能保持 ready，先读[收尾监测证据与加载代码身份](../../docs/guides/session_completion_monitor_evidence.md)：
+主操作错误可与首个 monitor.failure 并存；最终 clear 不代表没有历史监测失败。检查
+error.details.session_monitor、job.completion_evidence 与 worker_runtime，不拿磁盘 HEAD
+当作活跃 worker 已加载版本。旧回执缺字段保持未知，不自动清围栏或重放写入。
