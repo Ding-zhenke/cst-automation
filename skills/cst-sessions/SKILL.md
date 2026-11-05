@@ -6,6 +6,7 @@ description: Manage independent persistent CST environments for separate convers
 # Persistent conversation sessions
 
 For actual CST work in Codex conversations, use the persistent session entry point by default.
+Use [in-situ validation](../cst-in-situ-validation/SKILL.md) to validate and improve automation while carrying out the authorized engineering task.
 Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
 Read [project reuse and delivery](references/project-lifecycle.md) for scans, native
 checks, relocation checks, temporary tabs, backups and final artifacts.

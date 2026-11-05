@@ -36,7 +36,8 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
         assert {Path(n).parent.name for n in entries} == {
             "cst-circuit", "cst-device-characterization", "cst-diagnostics",
             "cst-diode-loading", "cst-figures", "cst-mesh-frequency", "cst-modeling",
-            "cst-parameter-study", "cst-results", "cst-sessions", "cst-simulation"}
+            "cst-parameter-study", "cst-results", "cst-sessions", "cst-simulation",
+            "cst-in-situ-validation"}
         for name, content in before.items():
             if name == "skills/README.md":
                 continue

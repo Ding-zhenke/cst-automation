@@ -3,6 +3,7 @@
 Codex skill entry points for this package:
 
 - [cst-sessions](cst-sessions/SKILL.md): default conversation-bound persistent CST environments, recovery, and deduplication.
+- [cst-in-situ-validation](cst-in-situ-validation/SKILL.md): validate and improve reusable automation during authorized engineering work.
 
 - [cst-modeling](cst-modeling/SKILL.md)
 - [cst-simulation](cst-simulation/SKILL.md)
