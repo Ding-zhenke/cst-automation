@@ -1,5 +1,13 @@
 # cst-automation 与领域包的公共接口
 
+## HB 后处理：自动生成并保留每参数曲线
+
+`cst_solver.circuit.hb_history.write_hb_history_template(destination)` 离线生成可注册的 `0D/single_run` 模板。通过既有 `register_python_result_template` 绑定在目标父任务的 HB 后；插件更新不绑定工程或部署运行时。`evaluate_hb_history(eval_params, calling_app, prj, settings)` 由模板调用，借用传入工程，不连接或启动 CST。
+
+`run_hb_history(api, task_name, *, settings, expected_results, note="")` 在调用方已持有的工程上为一次 HB 父任务建立独立执行身份，委托既有 network `api.run_checked` 执行和保存，附加 `hb_history` 回执；不重试、重开或改变原有求解验证。手动 CST 父任务触发的模式需工程适配器提供独立、经核验的执行身份；保存由原生工作流负责，回调不嵌套保存。
+
+工程适配器显式提供实际请求参数、匹配 EM 来源、有效 HB 点证据、存储参数读回及派生计算。模板只接受匹配存储参数和共同正 Schematic Run ID 的完整复谱，按同一执行内已配置的频率/方向积累。完整后自动归档并写入 `Results\HBHistory` 的独立参数/执行曲线，保留旧执行；未覆盖、冲突或失败不补值，也不覆盖已有叶。返回静态快照，原生参数存储、Navigator 与重开验证不因离线检查提升。配置与适配器契约见[自动刷新与参数历史](guides/hb_parametric_storage_and_length_results.md)。
+
 ## 2026-11-05：失败回执保留锁存监测证据与加载代码身份
 
 worker 收尾在不覆盖主错误 code/message/原详情的前提下，将本任务 session_monitor.first_failure、final_snapshot、failure_latched 写入错误详情（有监测证据时），并在 job.completion_evidence 记录 prior_status、状态决策、原因、unknown/launch 与监测失败因素。首个监测失败即使最终 snapshot=clear 仍保留并阻止 returned_saved 放行；离线判定也读取回执内锁存证据。不以最后 clear 自动恢复、不改变监测严重性或重试未知写入，不回写旧 job。

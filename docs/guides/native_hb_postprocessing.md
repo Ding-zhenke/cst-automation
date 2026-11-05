@@ -12,6 +12,8 @@ HB 频率数值沿用目标任务当前生效的频率单位，任务可能启�
 HB 存储开关、模板参数保存和 Navigator 叠加是独立能力；当前未确认全部
 原生写入关联。具体缺口、自动生成每参数独立 Results 的退路和验收见
 [参数历史与自动刷新](hb_parametric_storage_and_length_results.md)。
+独立 Results 路线使用 `cst_solver.circuit.hb_history` 生成可注册 Post 模板，
+收齐同一执行的频率与方向后自动出图；同参数重跑按执行版本保留。
 
 ## HB 与原生参数扫描
 

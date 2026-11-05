@@ -113,11 +113,73 @@ PNG、dB 表格或少量指标不能代替原始复数数据。
 离线检查只能验证代码契约、技能与打包；上述实机链未完成前，明确报告
 “自动改参历史曲线尚未验收”，不能以接口存在或文档补全宣称已打通。
 
-当前还需具体实现并验证：实际运行入口的自动触发；逐点持久累积及频点/
-方向完成判据、重复点和重跑处理；任务返回后的安全自动保存及失败记录。
-这些责任必须落在绑定模板/原生任务或随工程交付的明确编排上，不能以
-“所属会话以后保存”替代无人值守的自动链。它们与上文的原生设置和写入
-关联缺口分别记录；本指南规定目标与退路，不宣称已经补齐运行实现。
+## 已实现的独立 Results 入口
+
+`cst_solver.circuit.hb_history` 提供绑定回调和单次托管运行入口。配置仅在
+所属工程空闲时进行。`.rtpy` 在 HB 的同一串行 Parameter Sweep 父任务内、
+HB 后面的专用 Post 执行；只运行 HB 子项不保证触发 Post。模板返回的 `0D`
+是本轮是否已发布的标志（0 收集中，1 已发布），真实曲线在 `Results\HBHistory`。
+
+```python
+from cst_solver.circuit.hb_history import (
+    run_hb_history, validate_hb_history_settings, write_hb_history_template,
+)
+
+# 只填写已核对的工程值；项目适配器随该工程维护。
+settings = validate_hb_history_settings({
+    "namespace": workflow_name, "task_name": parent_task,
+    "adapter": project_adapter_module, "revision": formula_revision,
+    "frequency_parameter": rf_parameter_name, "direction_parameter": direction_parameter_name,
+    "frequencies": reviewed_rf_points, "directions": reviewed_direction_values,
+    "parameter_units": units_by_stored_parameter,
+    "em_parameter_map": em_name_to_schematic_name,
+    "spectra": {spectrum_path: {"x_unit": spectral_frequency_unit, "y_unit": spectral_value_unit}},
+    "normalization": reviewed_wave_and_port_conventions,
+})
+source = write_hb_history_template(template_path)  # 新建 .rtpy，不覆盖、不连接 CST
+
+# 只在所属会话中、空闲且获准配置时，按实际任务树绑定一次：
+app.circuit.register_python_result_template(
+    parent_task, hb_task, post_task, source, result_name="HB History Published",
+    template_name="HB History", group="HB Results", result_type="0D",
+    eval_type="single_run", settings=settings, create=True,
+)
+
+# 用户改参并重跑匹配 EM 后，拥有当前工程的编排调用一次；无独立刷新步骤。
+outcome = run_hb_history(app.circuit, parent_task, settings=settings,
+                         expected_results=verified_expected_parent_results)
+history = outcome["hb_history"]
+```
+
+工程适配器是 CST 模板解释器可导入的受信任项目模块。需要实现三个函数：
+
+| 函数 | 输入与返回 |
+|---|---|
+| `observe(*, eval_params, calling_app, prj, settings)` | 返回 `expected_parameters`（当前真实请求数值）、`result_id`（与当点证据绑定的正 Schematic ID）、`point_verified`、`evidence`（当前 HB 完成、来源、日志或其他真实证据）、`configuration_sha256`、`em_source`（`path`、`sha256`、实际 `parameters`，可带其他来源元数据）。手动原生运行时另给 `execution_id`：在同一轮所有回调一致、每轮重新运行唯一，不能用 Run ID、固定字符串或几何参数代替。托管入口提供执行身份。 |
+| `read_parameters(*, prj, calling_app, result_id)` | 返回该已存储 ID 的实际全量参数数值。必须使用经验证的读回实现；禁止以当前参数或回调别名伪造存储值。 |
+| `derive(*, points, settings)` | 接收按频点、再按配置方向排列的完整工况；每点有实际 `rf`、`direction`、`parameters`、`result_id`、`spectra`（完整 `x/yre/yim` 和单位）。返回 `{quantity: {"y": [...], "y_label": ..., "y_unit": ..., "title": ..., "values_in_db": ...}}`；后两项可省，量名使用安全 ASCII 标识符。输出横轴使用实际 RF 参数值，每个 RF 点输出一个实数；由工程决定公式、相位及归一化口径。 |
+
+`parameter_units` 覆盖全部存储参数，频率/方向两维之外的参数共同标识工况；
+`em_parameter_map` 两侧数值必须先按同一单位解释。`normalization` 应记录端口、方向、
+波或电压电流约定及参考阻抗。`configuration_sha256` 和 EM 数据摘要须来自本轮
+实际输入，`revision` 在派生公式变化时更新。`point_verified=True` 要有同一正 ID 的
+当前轮证据，不能从参数相等、回调顺序或历史曲线存在推断。缺少经核验的本机存储
+参数 getter 或当前 HB 点证据时先补适配器，不能在回调里猜 ByRef 或嵌套 VBA。
+
+每次托管运行只处理一组固定 EM/其他工况参数，内部扫约定 RF 和方向。每个回调
+先核对同一正 ID、存储参数和匹配的 EM 来源，再将完整复谱原子写入相邻的
+`<project>.cst.hb-history/<namespace>/run-…`。缺点收集，重复且内容相同不新增，
+冲突或发布中断保留失败和已采数据。同参数重跑保留新的执行子组，不删除旧子组；
+按 `Results\HBHistory\<namespace>\<case>\<run>\<quantity>` 选择曲线。
+
+`run_hb_history` 调用已有 `run_checked`；回调结束后才走原有保存路径，不在模板内
+保存、不重开。核对 `history.status`、`project_save_reported` 与父任务回执；父任务
+返回不证明 Post 执行，`callback_not_observed`/`incomplete` 不表示历史已生成。
+手动点击已配置的父任务也由回调生成快照，但需适配器证明该次运行身份，且由 CST
+工作流完成项目保存；当前没有为任意 GUI 点击提供通用安全自动保存钩子。
+保留项目及 `.cst.hb-history` 配套归档。插件只更新技能和说明，不安装项目适配器、
+绑定工程或刷新运行中的 CST。此链已用离线替身测试，当前项目的原生绑定、执行与
+保存重开仍需上述双参数试验；同一原生叶的参数化写入和 Navigator 叠加仍未打通。
 
 ## 本机官方帮助依据（CST 2026）
 
