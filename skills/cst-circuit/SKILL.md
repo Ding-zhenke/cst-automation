@@ -54,7 +54,7 @@ Post evaluate 内自动嵌套宏。文档/离线契约通过仍保持 native_bri
 
 | 需求 | 当前入口 |
 |---|---|
-| 离线规格检查、原理图预览 | `validate_circuit_spec`、`preview_circuit`，位于 `cst_automation` |
+| 离线规格检查、原理图预览 | `cst_automation.circuit_schema.validate_circuit_spec`、`cst_automation.circuit_preview.preview_circuit` |
 | 静态能力发现 | `cst_solver.circuit.circuit_capabilities()`，不连接 CST |
 | 配置与读回 | `app.circuit.inspect/apply/set_properties/list_pins` |
 | 周期稳态射击法配置，不求解 | `app.circuit.configure_steady_state_task`；手动 value/unit 周期或自动检测，可选相对容差 |

@@ -97,6 +97,8 @@ session circuit 使用同一登记 project_id/规范路径；外部正式工程�
 
 `setup.create_material_full_tensor(name, epsilon_tensor, mu_tensor, *, epsilon_imag=None, mu_imag=None, epsilon_axes=((1,0,0),(0,1,0)), mu_axes=((1,0,0),(0,1,0)), color=None, colour=None)` 对齐 CST 内置 Create Full Tensor Material 宏：电磁两组完整复数3×3矩阵、每组独立 TensorAlignment2。axes 为全局坐标下两条数值正交单位向量，第三轴 U×V；输入数学虚部，统一转换为 CST 负虚部。全输入先验证，提交单个历史块，不自动保存或求解。旧 create_material_tensor 保留签名并委托新接口，将标量 epsilon 展开为对角矩阵。原生适用范围仍为四面体通用频域。
 
+会话 `model_api` 显式支持 `create_material_full_tensor`，并在执行同批次任何调用前离线校验完整张量、轴与颜色；输入需采用 JSON 兼容形式。实际写入仍通过所属工程，原生读回与求解不由该路由认证。
+
 
 ## 2026-10-26：原生 HB 扫描与后处理代码接口
 

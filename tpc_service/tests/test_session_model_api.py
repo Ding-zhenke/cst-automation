@@ -2,6 +2,25 @@ import hashlib,json
 from types import SimpleNamespace
 import pytest
 
+def test_full_tensor_uses_owned_model_and_invalid_batch_has_no_side_effects():
+    from tpc_service.sessions.model_api import dispatch
+    from cst_solver.material.materials import MaterialMixin
+    history = []
+    class App(MaterialMixin):
+        cst_file = SimpleNamespace(model3d=SimpleNamespace(
+            add_to_history=lambda name, text: history.append((name, text))))
+        def new_component(self, name):
+            history.append(('component', name))
+    identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    valid = {'method': 'create_material_full_tensor', 'args': ['tensor', identity, identity]}
+    dispatch(App(), [valid])
+    assert len(history) == 1 and 'tensor' in history[0][0]
+    history.clear()
+    invalid = {'method': 'create_material_full_tensor', 'args': ['tensor', identity, [[1]]]}
+    with pytest.raises(Exception):
+        dispatch(App(), [{'method': 'new_component', 'args': ['must-not-run']}, invalid])
+    assert history == []
+
 def params(calls):
     return dict(project_id='p', stage_id='s', calls=calls,
         preview_digest=hashlib.sha256(json.dumps(calls,sort_keys=True,ensure_ascii=False).encode()).hexdigest())

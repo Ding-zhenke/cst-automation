@@ -18,7 +18,7 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'translate','rotation','rotate','rotate_port','mirror','scale',
     'pick_clear','pick_face','pick_edge','pick_vertex','pick_endpoint',
     'reset_wcs','rotate_wcs','translate_wcs','set_wcs_origin','store_wcs','restore_wcs',
-    'create_component','create_material_custom','create_material_tensor','create_material_gyrotropic',
+    'create_component','create_material_custom','create_material_tensor','create_material_full_tensor','create_material_gyrotropic',
     'create_waveguide_port','create_discrete_port','create_lumped_element','create_probe',
     'set_boundary','configure_fd_frequency','configure_fd_parallelization','configure_tetrahedral_mesh',
     'delete_solid','delete_curve_item','rotation_face','rotate_face','extrude_face','trace_curve',
@@ -32,7 +32,13 @@ def _preflight_settings(method, bound):
     """Validate focused configuration payloads before earlier batch mutations."""
     values = dict(bound.arguments)
     values.pop('self', None)
-    if method == 'configure_fd_parallelization':
+    if method == 'create_material_full_tensor':
+        from types import SimpleNamespace
+        from cst_solver.material.materials import MaterialMixin
+        sink = SimpleNamespace(cst_file=SimpleNamespace(model3d=SimpleNamespace(
+            add_to_history=lambda *_: None)))
+        MaterialMixin.create_material_full_tensor(sink, **values)
+    elif method == 'configure_fd_parallelization':
         from cst_solver.simulation.frequency import normalize_fd_parallelization_settings
         normalize_fd_parallelization_settings(values['settings'])
     elif method == 'configure_fd_frequency':
