@@ -43,6 +43,42 @@
 不要以重新 run、启用自适应或 quiet 模式代替选择。后续可串行录制操作并核对 History 是否
 产生可复用命令，再决定是否新增 API。
 
+### 2026-11-03 补查：有界 Continue 的公开语义仍不充分
+
+本次仅再次读取本机官方 HTML 和可读 SDK wrapper，未 import 原生 SDK、连接工程或执行求解。
+
+| 要求 | 官方可确认内容 | 仍未确认 |
+|---|---|---|
+| 从当前细化网格延续 | `common_general_mesh_adaption_question.htm` 的 CONTINUE 使用当前网格作为新 adaptation passes 起点；RESTART 删除当前网格后重新生成 | 未找到可显式选择该 CONTINUE 的公开 Python/VBA 方法/参数 |
+| 限制新增细化次数 | `MeshAdaption3D.MaxPasses(int passes)` 限最大 passes；UI 频域自适应帮助说明多适应频率时上限分别适用 | 继续时该数值是新增次数还是含旧轮次的累计次数、旧 pass index 是否计入，文档未定义 |
+| 最小轮次 | `MinPasses(int passes)` 是自适应的最小轮次 | 不能替代 Continue 选择，也不能据此推断 continuation 计数重置 |
+| 连续收敛检查 | `NumberOfDeltaSChecks(int value)` 是 S 偏差连续满足 MaxDeltaS 的轮次数 | 不是新增计算轮次预算；改变它会改变验收条件，不能自动改成 1 |
+
+准确本机依据（相对 Online Help）：
+
+- `mergedProjects/3D/common_general/common_general_mesh_adaption_question.htm`，CONTINUE/RESTART 段。
+- `mergedProjects/VBA_3D/special_vbamesh/special_vbamesh_meshadaption3d_object.htm`，
+  MinPasses/MaxPasses/NumberOfDeltaSChecks/RefThetaFactor 段。
+- `mergedProjects/3D/special_solvopt/special_solvopt_adaptive_mesh_refinement_frequency_domain.htm`，
+  Number of passes / Maximum 段：最大轮次分别适用于各适应频率，不是跨频率合计预算。
+- `Python/source/cst.interface.html`，Model3D.resume_solver/run_solver/start_solver：公开签名仅有 timeout；
+  resume_solver 是恢复暂停的 solver，不是已完成或达到 MaxPasses 后选择网格 Continue。
+- 安装目录 `AMD64/python_cst_libraries/cst/interface/studio.py` 直接从 `_cst_interface` 导入 Model3D；
+  可读 wrapper 未实现额外 continuation 选择器。未检查编译模块内部或声称其绝对不存在内部能力。
+
+`FDSolver.Start` 文档化为按当前设置启动求解，无 Continue 选择参数。
+`MeshAdaptionTet(True)` 只是启用自适应；AcceleratedRestart、ForceRecalculateOldSamples 和 quiet mode
+均不能作为明确 Continue 的证明。RefThetaFactor 的 cells 增量限制是近似值且可能不被保持，
+不能拿 MaxPasses 或细化比例保证某个硬 cells 上限。
+
+因此暂不提供声称可执行的 bounded-continue API：不能承诺 MaxPasses=N 等于“再算 N 轮”，
+也不能承诺 MaxPasses=旧轮次+N 是正确策略。需要先取得 continuation 选择方式和计数语义的
+权威依据，或在独立授权工程做受控串行验证。应保留已批准的 Checks、阈值和资源上限，
+不得用默认弹窗选项、自动确认、旧无界脚本或降低 Checks 替代缺失证据。
+
+本仓库未发现来源任务提及的 continue_em.main，不据其名称推断安全边界，也未运行它。
+当前正式 pilot 继续由来源任务控制；本调查不授权占用其会话或改变正在运行的设置。
+
 ## 调用示例
 
 以下均为通用示例。真实操作前必须持有全机串行锁并确认其他 CST 工作已完成；
@@ -153,10 +189,13 @@ PID 复用与已知错误确认后的实际状态；受限/主机桌面诊断与
    原控制器随后退出。中止已完成，但恢复失败，不能称为求解成功、完整矩阵或可用的已恢复解。
    这些控制与结果状态应分别记录，保留原始消息，不能用“中止完成”覆盖 ERROR。
 4. `MeshSettings.ItemMeshSettings(group_name)` 不是无副作用 getter，而是选择网格设置
-   上下文的变更调用，返回 bool。来源会话对其返回值使用 `dir(...)` 时触发结果兼容性提示，
+   上下文的变更调用。Python 侧曾观察到 bool；这不能推出 VBA 中支持可赋值的返回函数。
+   来源会话对其返回值使用 `dir(...)` 时触发结果兼容性提示，
    已选择 Cancel。这一案例归为使用方调用语义错误，不能据此认定 API 缺失；后续能力检查
    应读取对象属性/官方签名，避免通过调用未知方法来“探测”只读能力。Cancel 也不作为
    所有上下文均已恢复的证明，需要显式 readback。
+   后续实测 `ok = MeshSettings.ItemMeshSettings(...)` 报 10091，而原 `With` 内的
+   `.ItemMeshSettings(...)` 调用形式可配合读回；两种语言/调用形式的证据不能互相替代。
 5. 求解后可能出现 solver-generated 特殊实体，例如报告中的 `special air_0:brick`。
    `Solid.GetLooseBoundingBoxOfShape` 对该特殊体返回 `no simple bounding box`，
    不能直接解释为原始几何实体损坏。几何 readback 应独立记录实体来源、特殊体名称、
@@ -261,3 +300,6 @@ not_evaluated，不保证完整端口/模式/频率覆盖，也不代替原生�
 
 已存点重算造成诊断频点偏离的边界，以及纯离线计划/频点核对接口见
 [指定缺失样点计划](missing-sample-plan.md)。计划不是原生点集保证，abort/频点 mismatch 不判精度失败。
+
+SPICE 内部模型卡缓存、局部组保存重开一致性及低频/RF 验证隔离的新增证据与待实现方案见
+[SPICE 缓存与网格持久化](spice-cache-and-mesh-persistence-proposal.md)；本次仅文档，未改变运行时断言。

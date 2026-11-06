@@ -230,7 +230,7 @@
 - 本轮没有找到公开显式选择 CONTINUE 的已文档化 Python/VBA 方法；ForceRecalculateOldSamples/AcceleratedRestart/resume_solver 不能作为该能力的证明。未实现或声称原生网格 continuation 可用。
 - 主机 preflight 为新增 opt-in 入口，既有 setup/服务尚未迁移；收敛评价器处理调用方提供的证据，未实现原生自适应结果提取；Qt 非标准确认按钮与不可读正文仍上报，不自动处理。新增连接、暂停、停止案例仅记录来源会话报告，未复测。
 - 调用示例、官方帮助相对路径和逐项真机待验清单见 [API 修复说明](guides/api-offline-repairs.md)。真机验收须等待其他求解结束，并持有全机串行锁、核对 PID+创建时间、在可访问主机环境执行。
-- 来源会话后续报告：中止完成、控制器退出，但恢复最后成功解后出现离散面端口解加载失败，原生 state 为 ERROR，不计完整矩阵或求解通过。ItemMeshSettings 是返回 bool 的上下文变更调用，误作 getter 属使用方语义错误；求解器自动生成特殊体不支持 simple bounding box 的情况须与普通几何损坏分开记录。以上仅补充记录，未复测；主任务即将继续，不据此认定全机空闲或取得真机使用授权。
+- 来源会话后续报告：中止完成、控制器退出，但恢复最后成功解后出现离散面端口解加载失败，原生 state 为 ERROR，不计完整矩阵或求解通过。ItemMeshSettings 为上下文变更调用，误作 getter 属使用方语义错误；Python 侧观察到 bool 不证明 VBA 可赋值表达式合法，后续该表达式已报 10091，而原 With 内调用形式可配合读回。求解器自动生成特殊体不支持 simple bounding box 的情况须与普通几何损坏分开记录。以上仅补充记录，未复测；主任务即将继续，不据此认定全机空闲或取得真机使用授权。
 - 逐轮结果结论更正（来源会话真机只读核实，本会话未连接）：Model3D 树枚举可发现 Python results 树列表漏列的 `1D Results\Adaptive Meshing\f=<frequency>\S-Parameters\S<i>,<j>`；这些条目可由 Python results 按已有 run ID 读取，xlabel 为 Pass、y 为每轮复数 S。来源会话已全量读回并复现原生 Delta All S、核对末轮主矩阵及归一化。不能再以 run ID 未增加或 Python 树漏列断言无逐轮数据；后续联合枚举须显式使用已授权会话，不能隐式连接。本轮仅记录通用语义，未新增实现或纳入具体矩阵数据。
 
 ## 2026-10-27 维护验证
