@@ -4,6 +4,7 @@ from pathlib import Path
 
 from tpc_service.errors import ServiceError
 from .store import identifier
+from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY
 
 
 def validate(operation, params):
@@ -12,6 +13,10 @@ def validate(operation, params):
             raise ServiceError('invalid_session_argument', message)
     if operation in ('start', 'close'):
         require(not params, 'start/close take no params')
+        return
+    if operation == SCHEMATIC_RECOVERY:
+        from .schematic_recovery import validate_options
+        validate_options(params)
         return
     identifier(params.get('project_id'))
     if operation == 'configure_sweep':

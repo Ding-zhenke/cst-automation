@@ -162,6 +162,28 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 
 使用[显式退休](retire_closed_process_projects.md)处理已关闭、已完成用途但仍在活动登记的本会话过程工程。close_project 的 retire=True 需保存摘要、现场空闲确认与审阅说明；不触碰 DE 或文件，默认关闭行为不变。
 
+## Schematic History 部分写入后回退一个标签
+
+原生 VBA 错误响应表示这次调用已以异常返回，报错语句之前的参数和元件可能留在内存。新的失败回执用 `completion_evidence.schematic_call_state=returned_native_vba_error` 记录这一事实，仍保留 `needs_reconcile`。旧回执只有在完整错误格式、原任务、阶段和当前围栏一致时可使用同一路径。仅有 `RuntimeError`、磁盘摘要相同、超时或连接断开，无法确认 VBA 已结束。
+
+由拥有该工程的会话确认实际空闲后，通过 `submit --operation recover_schematic_history` 或已注册的 `submit_cst_session_operation` 提交。每次提交使用新的操作 ID，重查回执沿用原 request ID。先用 `action="inspect"` 读取指定参数和元件类型，空值表示所请求对象在当前标签中未找到。
+
+```json
+{
+  "action": "inspect",
+  "project_id": "reviewed_project",
+  "failed_job_id": "job-original",
+  "expected_digest": "<已登记保存点的64位小写SHA256>",
+  "confirm_idle": true,
+  "parameter_names": ["example_parameter"],
+  "block_names": ["example_block"]
+}
+```
+
+获准丢弃目标标签的**全部未保存更改**后，保留 `project_id`、`failed_job_id`、`expected_digest` 和 `confirm_idle`，改为 `action="rollback"` 并加 `confirm_discard=true`、具体 `review_note`，省去两个查询字段。工作进程验证当前围栏指向同一失败回执、登记与磁盘摘要一致、无其他运行或排队任务，并按已记录的 PID 与创建身份借用目标标签。真实阻塞窗口、未知前序写入或有锁存监测失败时应停止并审阅原任务证据。
+
+回退使用 CST Python 帮助明确规定的 `Project.close()` 关闭单个项目且不保存，再在同一 DE 中打开同一保存文件。关闭和打开之间重新核对 SHA256、DE 和标签清单。若关闭或打开结果不明，保留失败回执并停止。回退成功仍保留原失败任务和 `needs_reconcile`。所属会话检查回退回执和当前现场后，再走原有显式 reconcile。`.cst` 摘要检查只覆盖项目文件本身。项目配套资源、几何和求解仍分别验收。
+
 ## 首次导入与已有标签恢复检查
 
 首次 create/import 的新登记在环境恢复之后写入，不参与旧工程缺标签审阅。已失败并复制目标的旧 import 不自动续接；按[原意图恢复路线](initial_project_intent_recovery.md)真实审阅并记录 resolution 后，沿同一 project_id 检查继续，不重导入或覆盖文件。

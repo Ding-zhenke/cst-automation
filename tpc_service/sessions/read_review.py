@@ -6,6 +6,29 @@ from .project_lifecycle import path_key
 from .store import read
 
 
+def borrow_open_project(runtime, identity, path):
+    """Borrow one already-open tab from the exact recorded environment."""
+    from .store import alive
+    from cst_solver.environment import environment_pid
+
+    if not alive(identity):
+        raise ServiceError('session_environment_mismatch', 'Recorded environment identity is not live')
+    app = runtime.app
+    if app is None:
+        from cst_solver import setup
+        app = setup.attach(pid=identity['pid'])
+    if environment_pid(app.project) != identity['pid'] or not alive(identity):
+        raise ServiceError('session_environment_mismatch', 'Exact environment identity mismatch')
+    opened = {path_key(p): p for p in app.project.list_open_projects()}
+    target = opened.get(path_key(path))
+    if target is None:
+        raise ServiceError('session_read_review_refused', 'Target is not already open; no restoration is permitted')
+    handle = app.project.get_open_project(target)
+    if path_key(handle.filename()) != path_key(path):
+        raise ServiceError('session_environment_mismatch', 'Native project does not match registration')
+    return app, handle, opened
+
+
 def inspect_saved_geometry(runtime, job):
     from .store import alive
     from .native import file_digest
@@ -29,22 +52,7 @@ def inspect_saved_geometry(runtime, job):
         if other.get('job_id') != job['job_id'] and other.get('status') in ('running', 'queued', 'needs_reconcile'):
             raise ServiceError('session_busy', 'Other work prevents read-only review')
     identity = state.get('environment')
-    if not alive(identity):
-        raise ServiceError('session_environment_mismatch', 'Recorded environment identity is not live')
-    app = runtime.app
-    from cst_solver.environment import environment_pid
-    if app is None:
-        from cst_solver import setup
-        app = setup.attach(pid=identity['pid'])
-    if environment_pid(app.project) != identity['pid'] or not alive(identity):
-        raise ServiceError('session_environment_mismatch', 'Exact read-only environment identity mismatch')
-    opened = {path_key(p): p for p in app.project.list_open_projects()}
-    target = opened.get(path_key(record['path']))
-    if target is None:
-        raise ServiceError('session_read_review_refused', 'Target is not already open; no restoration is permitted')
-    handle = app.project.get_open_project(target)
-    if path_key(handle.filename()) != path_key(record['path']):
-        raise ServiceError('session_environment_mismatch', 'Read-only native project does not match registration')
+    app, handle, _ = borrow_open_project(runtime, identity, record['path'])
     app.cst_file = handle
     result = inspect_native(app, params)
     if not alive(identity) or file_digest(record['path']) != expected or path_key(handle.filename()) != path_key(record['path']):

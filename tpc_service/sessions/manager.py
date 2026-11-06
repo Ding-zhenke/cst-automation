@@ -9,10 +9,12 @@ import time
 from uuid import uuid4
 
 from tpc_service.errors import ServiceError
+from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
-                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close'))
+                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', SCHEMATIC_RECOVERY))
+FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY))
 
 
 class SessionManager:
@@ -110,8 +112,10 @@ class SessionManager:
                     return old
             if state['status'] in ('closing', 'closed', 'close_failed') or state.get('close_requested'):
                 raise ServiceError('session_closing', 'Session is closing or closed')
-            if state['status'] == 'needs_reconcile' and operation not in ('inspect', 'close'):
+            if state['status'] == 'needs_reconcile' and operation not in FENCED_OPERATIONS:
                 raise ServiceError('session_needs_reconcile', 'Inspect uncertain operations before further writes')
+            if operation == SCHEMATIC_RECOVERY and (state['status'] != 'needs_reconcile' or self.backend != 'cst'):
+                raise ServiceError('session_schematic_recovery_refused', 'Schematic recovery requires a fenced CST session')
             from .project_lifecycle import check_project_intent
             check_project_intent(state, [read(p) for p in (folder / 'jobs').glob('*.json')], operation, params)
             from .formal_paths import PROJECT_OPERATIONS, assert_path_unclaimed
