@@ -30,18 +30,36 @@ def read(path, default=None):
         return default
 
 
+def _replace_record(temp, path):
+    # A Windows reader can briefly deny rename access to the old record.
+    # Keep the same flushed source and the caller's lock across all attempts.
+    for delay in (.025, .05, .1, .2, .4):
+        try:
+            os.replace(temp, path)
+            return
+        except OSError as exc:
+            if os.name != 'nt' or getattr(exc, 'winerror', None) not in (5, 32):
+                raise
+            time.sleep(delay)
+    os.replace(temp, path)
+
+
 def write(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_name(path.name + '.' + uuid4().hex + '.tmp')
+    stream = temp.open('x', encoding='utf-8')
     try:
-        with temp.open('x', encoding='utf-8') as stream:
+        with stream:
             json.dump(value, stream, ensure_ascii=False, allow_nan=False, indent=2)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(str(temp), str(path))
-    finally:
-        temp.unlink(missing_ok=True)
+        _replace_record(str(temp), str(path))
+    except BaseException:
+        # Cleanup can hit the same sharing restriction. Preserve the write error.
+        with contextlib.suppress(OSError):
+            temp.unlink(missing_ok=True)
+        raise
 
 
 @contextlib.contextmanager
