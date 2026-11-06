@@ -22,6 +22,14 @@ See [result APIs](../../docs/packages/cst_solver.md) and [Python examples](../..
 
 ## Parameter-study history
 
+For sequential EM points, `set_parameters` → `app.update()` (session-owned) →
+`solve` is distinct from a native Parameter Sweep. Do not call full `Rebuild`
+after the parameter update: CST documents that it deletes all results. For
+acceptance check two geometry parameter combinations and all four complex S
+leaves with positive 3D IDs and their actual parameter combinations, both before
+and after native save/close/reopen. A successful SDK update alone is not proof
+of persistence; retain independent per-case complex exports and logs.
+
 For manual EM parameter changes followed by EM/HB reruns, require the bound native
 postprocessor to regenerate the matching curves automatically and retain curves for
 other parameter combinations. Verify HB storage, derived-result association and

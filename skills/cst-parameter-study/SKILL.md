@@ -14,6 +14,11 @@ Choose the appropriate mechanism:
 
 - Native EM sweep configuration: `setup.configure_sweep` or session operation
   `configure_sweep`; editable in CST and no solve starts.
+- Serial EM points in one existing project: session `set_parameters` refreshes
+  with `app.update()` and checks messages; session `solve` then runs without a
+  second full rebuild. This is distinct from configuring a native sweep. A live
+  case retained two parameter states and all four S leaves using this SDK update
+  path; saving/reopening and general retention are not yet certified.
 - Coupled EM/circuit or pure-circuit study with per-case evidence/archives:
   [cst-circuit](../cst-circuit/SKILL.md). Its `run_parameter_study` saves and solves;
   it is not interchangeable with native sweep configuration.
@@ -67,3 +72,7 @@ reuse the project and restore baseline values. Retain a single final project,
 necessary paired data and modeling/configuration Python with clear server
 instructions. Unknown native readback stays unverified; offline tests, native
 configuration, completed runs and numerical convergence are separate evidence.
+For native history acceptance, check two different geometric parameter combinations
+in the same project: all four complex S leaves, each state's positive 3D Run ID
+and actual stored parameter combination, then save, close and reopen and repeat
+the reads. Keep exported complex data and logs; same-state reruns can overwrite an ID.

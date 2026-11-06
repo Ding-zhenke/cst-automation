@@ -22,6 +22,13 @@ Before HB consumes new or changed EM data, apply the [HB coverage and stop gates
 
 Confirm the target project, solver type, frequency range, ports, boundaries, mesh, and requested outputs before starting a costly solve. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.
 
+For sequential changes of existing geometry parameters, use session `set_parameters`
+followed by session `solve`: the former invokes the SDK `app.update()` path and
+the latter calls `run_checked` without an additional full `Rebuild`. This is not
+a configured native Parameter Sweep. Preserve complex per-case exports and verify
+native IDs and parameter combinations after save/reopen; update success alone
+does not guarantee all history survives. Full topology rebuild may delete results.
+
 F-solver CPU parallelization uses `configure_fd_parallelization(settings)` through
 the existing session `model_api`: boolean `enabled`, positive integer `threads`
 and `cpu_devices` (sockets), with omitted fields preserved. Use explicit enabled=True

@@ -12,7 +12,7 @@ def test_native_parameter_stage_uses_existing_parameter_and_validation_api(tmp_p
     record = {'path': str(tmp_path / b['session_id'] / 'p.cst')}
     calls = []
     app = SimpleNamespace(para=lambda name, value: calls.append(('para', name, value)),
-                          validate_model=lambda: {'status': 'success', 'messages': [], 'rebuild_ok': True})
+                          validate_model=lambda **kwargs: {'status': 'success', 'messages': [], 'rebuild_ok': True})
     runtime.backend = 'cst'
     runtime.project = lambda project_id: (app, record)
     runtime.save = lambda app, project_id: dict(record, saved_digest='saved')

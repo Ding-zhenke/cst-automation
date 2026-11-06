@@ -265,7 +265,8 @@ def execute(runtime, job):
     validation = None
     if runtime.backend == 'cst' and not (operation == 'history' and params.get('domain') == 'schematic'):
         mark_stage(runtime, 'model.validate')
-        validation = app.validate_model()
+        validation = (app.validate_model(rebuild_mode='parametric')
+                      if operation == 'set_parameters' else app.validate_model())
         if validation.get('status') != 'success' or not validation.get('rebuild_ok'):
             if validation.get('rebuild_performed') is True and validation.get('rebuild_returned') is not True:
                 raise ServiceError('session_geometry_unverified', 'Rebuild did not return normally; inspect before saving',

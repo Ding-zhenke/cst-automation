@@ -41,12 +41,14 @@ class ValidationMixin:
         """
         return list(self.cst_file.get_messages() or [])
 
-    def validate_model(self, rebuild=True, messages_prefix='1D Results'):
+    def validate_model(self, rebuild=True, messages_prefix='1D Results', *, rebuild_mode='full'):
         """
         验收当前工程：读消息 + 跑 Rebuild + 再读消息，返回结构化结果。
 
         :param rebuild: bool, 是否执行 ``Rebuild()`` 重放工程历史，默认 True。
             重放会重新生成几何，是发现「参数改了但历史没重建」的最后一道检查。
+        :param rebuild_mode: ``full`` 使用原生 Rebuild（删除结果）；
+            ``parametric`` 使用 SDK full_history_rebuild 的 app.update 路径。
         :param messages_prefix: str, 预留参数（当前未用于过滤，仅为将来按导航树
             筛消息留出签名位置）
         :return: dict::
@@ -67,6 +69,8 @@ class ValidationMixin:
         - 本方法**不抛异常**，调用方按 ``status`` 分流；这样它既能用在
           断言脚本里，也能用在「先跑一遍看看能不能继续」的探测场景
         """
+        if rebuild_mode not in ('full', 'parametric'):
+            raise ValueError('rebuild_mode must be full or parametric')
         state = get_guard_state(self)
 
         before = self.get_messages()
@@ -76,10 +80,13 @@ class ValidationMixin:
 
         if rebuild:
             try:
-                self.cst_file.model3d.Rebuild()
+                if rebuild_mode == 'parametric':
+                    self.update()
+                else:
+                    self.cst_file.model3d.Rebuild()
             except Exception as exc:          # 只有 Rebuild 本身炸了才走到这里
                 rebuild_ok = False
-                rebuild_messages = [f'Rebuild() 抛出异常：{exc!r}']
+                rebuild_messages = [f'{rebuild_mode} rebuild 抛出异常：{exc!r}']
             else:
                 rebuild_returned = True
                 rebuild_messages = self.get_messages()
@@ -100,6 +107,7 @@ class ValidationMixin:
             'messages': messages,
             'rebuild_ok': rebuild_ok,
             'rebuild_performed': bool(rebuild), 'rebuild_returned': rebuild_returned,
+            'rebuild_mode': rebuild_mode if rebuild else None,
             'message_summary': summary, 'before_summary': before_summary, 'rebuild_summary': rebuild_summary,
             'dependency_validation': 'unknown', 'validation_scope': 'rebuild_and_message_queue',
             'message_scope': 'pending_queue_unbounded',

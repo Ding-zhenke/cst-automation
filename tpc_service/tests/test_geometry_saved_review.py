@@ -37,7 +37,7 @@ def receipt(tmp_path):
     state={'projects':{'p':record},'status':'ready','uncertain_jobs':[],'launch_intent':False}
     validation={'status':'unverified','rebuild_ok':True,'rebuild_returned':True,
                 'rebuild_performed':True,'messages':[{'type':'INFO','text':'source missing'}]}
-    app=SimpleNamespace(para=lambda *a,**k:None,validate_model=lambda:validation)
+    app=SimpleNamespace(para=lambda *a,**k:None,validate_model=lambda **kwargs:validation)
     def save(*args):
         path.write_bytes(b'saved partial model'); record['saved_digest']=hashlib.sha256(path.read_bytes()).hexdigest()
         return record
@@ -46,6 +46,44 @@ def receipt(tmp_path):
     job={'operation':'set_parameters','job_id':'j','operation_id':'o','fingerprint':'f',
          'params':{'project_id':'p','values':{'new_unused_parameter':1}}}
     return runtime,app,record,state,job
+
+
+def test_parameter_update_uses_parametric_validation_not_full_rebuild(tmp_path):
+    runtime, app, record, state, job = receipt(tmp_path)
+    seen = []
+    app.validate_model = lambda **kw: seen.append(kw) or {
+        'status': 'success', 'rebuild_ok': True, 'rebuild_performed': True,
+        'rebuild_returned': True}
+    result = execute(runtime, job)
+    assert seen == [{'rebuild_mode': 'parametric'}]
+    assert result['saved'] is True
+
+
+def test_solve_does_not_rebuild_after_parameter_update(tmp_path):
+    runtime, app, record, state, job = receipt(tmp_path)
+    app.validate_model = lambda **kwargs: pytest.fail('solve must not rebuild')
+    app.run_checked = lambda **kwargs: {'status': 'succeeded'}
+    job.update(operation='solve', params={'project_id': 'p'})
+    assert execute(runtime, job)['solver_outcome']['status'] == 'succeeded'
+
+
+def test_parametric_validation_checks_native_return_and_preserves_full_path():
+    app = validation_app([])
+    calls = []
+    app.update = lambda: calls.append('update')
+    app.cst_file.model3d.Rebuild = lambda: pytest.fail('full rebuild destroys results')
+    result = app.validate_model(rebuild_mode='parametric')
+    assert calls == ['update']
+    assert result['status'] == 'success' and result['rebuild_mode'] == 'parametric'
+
+
+def test_parametric_validation_rejects_update_exception():
+    app = validation_app([])
+    def fail():
+        raise RuntimeError('SDK update failed')
+    app.update = fail
+    result = app.validate_model(rebuild_mode='parametric')
+    assert result['status'] != 'success' and result['rebuild_ok'] is False
 
 
 def error_receipt(case):
@@ -137,7 +175,7 @@ def test_fenced_review_rejects_unsafe_context_without_reopening(tmp_path,monkeyp
 
 def test_unknown_rebuild_exception_does_not_trigger_another_save(tmp_path):
     case=receipt(tmp_path); calls=[]
-    case[1].validate_model=lambda:{'status':'error','rebuild_ok':False,'rebuild_performed':True,'rebuild_returned':False}
+    case[1].validate_model=lambda **kwargs:{'status':'error','rebuild_ok':False,'rebuild_performed':True,'rebuild_returned':False}
     case[0].save=lambda *args:calls.append('save')
     error=error_receipt(case)
     assert calls==[] and error['details']['saved'] is False

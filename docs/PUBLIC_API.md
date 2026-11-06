@@ -1,5 +1,17 @@
 # cst-automation 与领域包的公共接口
 
+## EM 参数更新与结果保留
+
+会话 `set_parameters` 更新参数后使用 `validate_model(rebuild_mode="parametric")`，
+调用 `app.update()`（SDK `full_history_rebuild()`）并检查异常及消息；后续
+`solve` 复用 `run_checked`，不再次重建。SDK 更新接口不提供可供本包装器认证的
+原生布尔结果。原工程会话已观察到该路径下两组参数的四条 S 参数叶各保留两个正 ID
+及对应参数；这不保证任意结果或工程均保留，保存重开仍须另验。
+其他几何/历史操作仍走既有完整 `Rebuild`，CST 文档说明该操作删除全部结果，
+执行前须保存所需历史。`validate_model` 默认保持完整重建，参数更新模式为显式选项。
+这与配置原生 Parameter Sweep 是不同工作流，不能据此认定原生历史已保留；须在同一
+工程以两组不同参数验证四条复数 S 叶的正 Run ID、参数组合及保存重开后的可读性。
+
 ## CST 2026 Quiet/Scripting 状态窗口
 
 `cst_solver.dialogs.list_dialogs` 在确认窗口类、同进程 Qt owner、标题、两个按钮和完整正文后，将 `Quiet/Scripting mode is active and pop up windows are blocked.` 归入 `window_role="scripting_control"`。快照保留原始文字和按钮，返回 `blocking=False`、`error_code=None`。该提示描述手动交互受限，巡检不会仅凭它锁存 API 阻塞。正文读取失败、内容不符和其他需答复弹窗仍按现有规则判定。历史 job 的窗口身份以当时快照为准。

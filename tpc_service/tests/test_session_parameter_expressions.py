@@ -7,7 +7,7 @@ class Runtime:
     def __init__(self):
         self.calls = []
         self.app = SimpleNamespace(para=lambda *a, **kw: self.calls.append((a,kw)),
-            validate_model=lambda: {'status':'success','rebuild_ok':True})
+            validate_model=lambda **kwargs: {'status':'success','rebuild_ok':True})
     def project(self, project_id): return self.app, {'path':'model.cst'}
     def save(self, app, project_id): return {'saved_digest':'test'}
     def checkpoint(self, value): pass
@@ -22,7 +22,7 @@ def test_expression_reaches_existing_python_parameter_api(monkeypatch):
     monkeypatch.setattr(operations, 'write', lambda *a: None)
     r=Runtime()
     # Stop after API call; this test checks dispatch, not CST or file saving.
-    r.app.validate_model=lambda: (_ for _ in ()).throw(RuntimeError('stop after call'))
+    r.app.validate_model=lambda **kwargs: (_ for _ in ()).throw(RuntimeError('stop after call'))
     with pytest.raises(RuntimeError,match='stop after call'):
         execute(r,job({'yf':'探针、波导及端口共同中心，随dy联动'}))
     assert r.calls == [(('yf','e2/2+dy'), {'expression':'探针、波导及端口共同中心，随dy联动'})]
@@ -38,7 +38,7 @@ def test_description_is_restored_after_history_rebuild_before_save(tmp_path):
     r.folder=tmp_path
     (tmp_path/'checkpoints').mkdir()
     actual={}
-    def rebuild():
+    def rebuild(**kwargs):
         actual['yf']='Old English history description'
         return {'status':'success','rebuild_ok':True}
     r.app.validate_model=rebuild

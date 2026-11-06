@@ -54,3 +54,7 @@ checks, relocation checks, temporary tabs, backups and final artifacts.
 - If sandbox launch/identity checks fail, preserve exact diagnostics and use the approved execution
   context for this same fixed entry point; do not invent paths, attach targets or launch workarounds.
 - Keep native/process/offline/geometry/solver evidence separate. Fake backend never certifies CST.
+- For existing EM parameter points, `set_parameters` uses the session-owned
+  `app.update()` and message validation; `solve` does not add a full rebuild.
+  Full `Rebuild` on geometry/history operations can delete results: preserve
+  required history before topology changes. Native save/reopen acceptance remains separate.

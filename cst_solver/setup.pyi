@@ -751,7 +751,8 @@ class _ExportMixin:
 class _ValidationMixin:
     def get_messages(self) -> List[Any]: ...
     def validate_model(self, rebuild: bool = True,
-                       messages_prefix: str = '1D Results') -> Dict[str, Any]: ...
+                       messages_prefix: str = '1D Results', *,
+                       rebuild_mode: str = 'full') -> Dict[str, Any]: ...
 
 # ============================================================
 # 运行时守卫层（cst_solver._guards）

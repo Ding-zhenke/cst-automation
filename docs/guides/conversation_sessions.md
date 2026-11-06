@@ -56,7 +56,7 @@ submit 只表示任务已持久接受；以 job 的 succeeded 和 result 判断�
 | create_project | project_id，project_type=MWS 或 DS |
 | import_project | project_id，源 CST 工程的绝对 source_path；只首次复制 |
 | inspect | project_id；未知状态返回持久现场信息，不冒充原生读回 |
-| set_parameters | project_id、values 参数字典；原生阶段会 rebuild 并读消息 |
+| set_parameters | project_id、values 参数字典；使用 app.update() 参数刷新并读消息，不追加完整 Rebuild |
 | history | project_id、稳定 stage_id、name、完整 vba、preview_digest |
 | solve | project_id，可选 note；使用现有 run_checked |
 | circuit | project_id、kind=build/solve/study、settings=原 circuit handler 参数 |
