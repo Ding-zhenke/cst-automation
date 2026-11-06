@@ -10,6 +10,8 @@ from pathlib import Path
 from tpc_service.errors import ServiceError
 from .store import lock, process_identity, read, write
 from .diagnostics import mark_stage, exception_diagnostics, exception_repr
+from .manager import FENCED_OPERATIONS
+from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY, ROLLBACK_ERROR, returned_vba_error
 
 
 def _code_fingerprint(function):
@@ -136,6 +138,7 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
             failure_latched=bool(monitor_failure))))
     known = _known_saved_solve(job, error, state, monitor_failure)
     geometry = _known_saved_geometry(job, error, state, monitor_failure)
+    schematic_error_returned = returned_vba_error(job, error)
     job.update(status='failed', error=error, finished_at=time.time())
     job['worker_runtime'] = _worker_runtime_info()
     evidence = dict(prior_status=prior, monitor_failure_seen=bool(monitor_failure),
@@ -143,12 +146,18 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
                     launch_intent=bool(state.get('launch_intent')),
                     uncertain_job_count=len(state.get('uncertain_jobs') or []),
                     known_saved_solve=known, known_saved_geometry=geometry)
+    if schematic_error_returned:
+        evidence['schematic_call_state'] = 'returned_native_vba_error'
     job['completion_evidence'] = evidence
     if (job.get('operation') == 'inspect' and job.get('params', {}).get('read_only_review') is True
             and not monitor_failure):
         state['last_read_review_error'] = error
         evidence.update(decision=prior, reason='read_only_review_preserved_state')
         return  # A bounded getter failure neither lifts nor adds a write fence.
+    if job['operation'] == SCHEMATIC_RECOVERY and error.get('code') != ROLLBACK_ERROR and not monitor_failure:
+        state['last_schematic_recovery_error'] = error
+        evidence.update(decision=prior, reason='schematic_recovery_refused_before_mutation')
+        return
     if geometry:
         details = error['details']
         job['result'] = dict(saved=True, saved_digest=details['saved_digest'],
@@ -168,7 +177,8 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
         state['status'] = 'close_failed' if job['operation'] == 'close' else 'needs_reconcile'
     reason = ('monitor_failure_latched' if monitor_failure else 'prior_state_not_ready' if prior != 'ready'
               else 'unknown_predecessor' if state.get('uncertain_jobs') else 'launch_intent_unresolved' if state.get('launch_intent')
-              else 'verified_returned_saved' if known or geometry else 'saved_receipt_not_verified')
+              else 'verified_returned_saved' if known or geometry
+              else 'schematic_vba_error_partial_write_possible' if schematic_error_returned else 'saved_receipt_not_verified')
     evidence.update(decision=state['status'], reason=reason)
     state['last_error'] = error
 
@@ -213,7 +223,7 @@ def run(folder):
                 job = next((j for j in queue if j['status'] == 'queued'), None)
                 if state['status'] == 'closed':
                     return
-                if job and state['status'] == 'needs_reconcile' and job['operation'] not in ('inspect', 'close'):
+                if job and state['status'] == 'needs_reconcile' and job['operation'] not in FENCED_OPERATIONS:
                     # Fence all accepted but not started writes after an uncertain predecessor.
                     job['status'] = 'blocked'
                     job['error'] = {'code': 'session_needs_reconcile', 'message': 'Predecessor outcome is uncertain'}

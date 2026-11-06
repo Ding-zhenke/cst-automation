@@ -5,12 +5,16 @@ from pathlib import Path
 from tpc_service.errors import ServiceError
 from .native import file_digest
 from .store import contained, identifier, write
-from .diagnostics import mark_stage
+from .diagnostics import exception_diagnostics, exception_repr, mark_stage
+from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY, is_native_vba_response
 
 
 def execute(runtime, job):
     mark_stage(runtime, 'operation.dispatch')
     operation, params = job['operation'], job['params']
+    if operation == SCHEMATIC_RECOVERY:
+        from .schematic_recovery import recover
+        return recover(runtime, job)
     for predecessor in params.get('depends_on', []):
         from .store import read
         matches = [read(p) for p in (runtime.folder / 'jobs').glob('*.json')]
@@ -224,7 +228,15 @@ def execute(runtime, job):
             app.cst_file.setdefault(key, []).append({'name': params['name'], 'vba': code})
         elif domain == 'schematic':
             mark_stage(runtime, 'history.submit_schematic')
-            app.cst_file.schematic.execute_vba_code('Sub Main\n' + code + '\nEnd Sub', timeout=None)
+            try:
+                app.cst_file.schematic.execute_vba_code('Sub Main\n' + code + '\nEnd Sub', timeout=None)
+            except RuntimeError as exc:
+                if not is_native_vba_response(str(exc)):
+                    raise
+                # Classify before the echoed macro is truncated in the bounded diagnostic.
+                raise ServiceError('session_operation_failed', exception_repr(exc),
+                                   schematic_call_state='returned_native_vba_error',
+                                   diagnostics=exception_diagnostics(exc, runtime, job)) from exc
         else:
             mark_stage(runtime, 'history.submit_model3d')
             app.cst_file.model3d.add_to_history(params['name'], code)

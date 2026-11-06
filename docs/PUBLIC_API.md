@@ -12,6 +12,12 @@
 这与配置原生 Parameter Sweep 是不同工作流，不能据此认定原生历史已保留；须在同一
 工程以两组不同参数验证四条复数 S 叶的正 Run ID、参数组合及保存重开后的可读性。
 
+## Schematic History 部分写入的定向恢复
+
+`recover_schematic_history` 通过现有会话 submit/CLI/MCP 队列提交。参数含 `action="inspect"|"rollback"`、`project_id`、`failed_job_id`、`expected_digest`、`confirm_idle=True`。inspect 可给 `parameter_names`、`block_names`，读取当前已打开目标标签。rollback 另需 `confirm_discard=True` 和 `review_note`，关闭该标签而不保存，再在原 DE 打开同一摘要的保存文件。保留原失败回执和 `needs_reconcile`，由所属会话审阅回退回执后按现有 reconcile 流程处理围栏。
+
+入口仅接受当前围栏对应的、已结束且有明确 CST VBA 错误响应的 schematic history 失败。进程身份、项目归属、登记和磁盘摘要、其它任务、真实阻塞窗口均须核对。调用未返回、回执丢失、连接错误或监测锁存仍需单独审阅。保留部分写入可能性，回退只验证目标标签和 `.cst` 文件，不认证配套资源、几何或求解。详见[会话恢复](guides/conversation_sessions.md)。
+
 ## CST 2026 Quiet/Scripting 状态窗口
 
 `cst_solver.dialogs.list_dialogs` 在确认窗口类、同进程 Qt owner、标题、两个按钮和完整正文后，将 `Quiet/Scripting mode is active and pop up windows are blocked.` 归入 `window_role="scripting_control"`。快照保留原始文字和按钮，返回 `blocking=False`、`error_code=None`。该提示描述手动交互受限，巡检不会仅凭它锁存 API 阻塞。正文读取失败、内容不符和其他需答复弹窗仍按现有规则判定。历史 job 的窗口身份以当时快照为准。
