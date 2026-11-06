@@ -109,6 +109,45 @@ def stage_python_result_template(template_source, library_root, *, group, name):
     }
 
 
+def inspect_embedded_python_result_template_files(project_resources, *, metadata_path):
+    """Audit one supplied, unpacked binding without importing or running its code.
+
+    A resource binding is not proof of native task activation, persistence, or
+    automatic evaluation. Unknown metadata/settings are retained verbatim.
+    """
+    try:
+        root = Path(project_resources).resolve()
+        ds_root = (root / 'Model' / 'DS').resolve()
+        meta = Path(metadata_path).resolve()
+        if not ds_root.is_relative_to(root) or not meta.is_relative_to(ds_root) or meta.suffix.lower() != '.rtjson':
+            raise ResultTemplateError('Metadata must be an existing .rtjson within project Model/DS')
+        metadata_bytes = meta.read_bytes()
+        metadata = json.loads(metadata_bytes.decode('utf-8'))
+        relative = metadata['template']['python_module']['path']
+        if not isinstance(relative, str) or not relative.strip() or Path(relative).is_absolute():
+            raise ResultTemplateError('Bound module must use a project-relative path')
+        module = (meta.parent / relative).resolve()
+        if not module.is_relative_to(ds_root) or module.suffix.lower() not in ('.py', '.rtpy'):
+            raise ResultTemplateError('Bound module must remain within project Model/DS')
+    except ResultTemplateError:
+        raise
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
+        raise ResultTemplateError('Cannot inspect embedded binding: ' + str(exc)) from exc
+    report = {'metadata_path': str(meta), 'metadata': metadata,
+              'metadata_sha256': hashlib.sha256(metadata_bytes).hexdigest(),
+              'module_path': str(module), 'module_sha256': None, 'module_error': None,
+              'validation': None, 'native_binding_verified': False,
+              'automatic_update_verified': False, 'settings_semantics_verified': False,
+              'solver_verified': False}
+    try:
+        payload = module.read_bytes()
+        report['module_sha256'] = hashlib.sha256(payload).hexdigest()
+        report['validation'] = validate_python_result_template(payload.decode('utf-8'))
+    except (OSError, UnicodeError, ResultTemplateError) as exc:
+        report['module_error'] = f'{type(exc).__name__}: {exc}'
+    return report
+
+
 def replace_embedded_python_result_template(template_source, project_resources, *,
                                             metadata_path, expected_sha256):
     """Replace one already-bound module in opened/unpacked project resources.

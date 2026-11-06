@@ -100,6 +100,11 @@ session circuit 使用同一登记 project_id/规范路径；外部正式工程�
 `text_readable/text_complete` 保持 False，不伪造已读取正文。结构不完整或含矛盾证据仍按原路径读取，
 失败保持 unknown/blocking；真正模态窗口仍独立报告。不自动关闭窗口或改变原 job/session 状态。
 
+## 2026-11-04：原生后处理模板离线审计
+
+- `cst_automation.result_templates.inspect_embedded_python_result_template_files(project_resources, *, metadata_path)` 只读检查显式指定的现有 `Model/DS/*.rtjson` 绑定，返回原始 metadata、metadata/module SHA-256、模块路径、静态语法/入口检查结果及错误。不导入模块、不调用 CST、不扫描/修改其他任务。metadata 不可读/结构错误或路径越界报 `ResultTemplateError`；绑定模块缺失/不可读/静态检查失败保留状态及原始错误。
+- metadata 来自已有工程格式，并非已发现首次创建/设置 Post-Processing 绑定的公开 setter；原样保留设置，不推断 Active/Parametric/任务依赖。`native_binding_verified`、`automatic_update_verified`、`settings_semantics_verified` 和 `solver_verified` 始终 False。已有暂存/替换源码接口也不等于绑定完成或求解后自动执行已经验收。官方任务行为与公开签名见 [DS 原生后处理](guides/ds-native-postprocessing.md)。无新增 service/MCP 操作。
+
 ## 2026-11-03：SPICE 缓存身份核验（离线回归）
 
 - `configure_nonlinear_model` 不再要求 SPICE `GetFile()` 与 `SetFile` 路径相等。输入保持兼容；请求源快照增加字节数及可解析的 `.SUBCKT` 端口顺序。只支持唯一、简单的子电路声明；复杂语法、编码及 include/lib 依赖闭包保持 unknown。
