@@ -11,6 +11,7 @@ from tpc_service.errors import ServiceError
 from .store import lock, process_identity, read, write
 from .diagnostics import mark_stage, exception_diagnostics, exception_repr
 from .manager import FENCED_OPERATIONS
+from .job_index import JobIndex
 from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY, ROLLBACK_ERROR, returned_vba_error
 
 
@@ -191,10 +192,14 @@ def run(folder):
             state = read(folder / 'session.json')
             state['worker'] = process_identity(os.getpid())
             # A running journal means an uncertain SDK side effect. Never requeue it.
-            uncertain = []
-            for path in (folder / 'jobs').glob('*.json'):
-                job = read(path)
+            uncertain = list(state.get('uncertain_jobs') or [])
+            # Audit the original receipts once at process start. This also
+            # covers restored journals whose filenames already exist in the index.
+            for job in JobIndex.load(folder, rebuild=True).active_jobs():
+                if job['status'] == 'needs_reconcile' and job['job_id'] not in uncertain:
+                    uncertain.append(job['job_id'])
                 if job['status'] == 'running':
+                    path = folder / 'jobs' / (job['job_id'] + '.json')
                     from .native import file_digest
                     checkpoint = read(folder / 'checkpoints' / (job['job_id'] + '.json'))
                     project = state['projects'].get(job['params'].get('project_id'))
@@ -207,7 +212,8 @@ def run(folder):
                     job['status'] = 'needs_reconcile'
                     job['error'] = {'code': 'execution_receipt_missing', 'message': 'Inspect before replay'}
                     write(path, job)
-                    uncertain.append(job['job_id'])
+                    if job['job_id'] not in uncertain:
+                        uncertain.append(job['job_id'])
             if uncertain or state.get('launch_intent'):
                 state['status'] = 'needs_reconcile'
                 state['uncertain_jobs'] = uncertain
@@ -218,11 +224,9 @@ def run(folder):
         while True:
             with lock(folder / 'state.lock'):
                 state = read(folder / 'session.json')
-                queue = sorted((read(p) for p in (folder / 'jobs').glob('*.json')),
-                               key=lambda j: j['sequence'])
-                job = next((j for j in queue if j['status'] == 'queued'), None)
                 if state['status'] == 'closed':
                     return
+                job = JobIndex.load(folder).next_queued()
                 if job and state['status'] == 'needs_reconcile' and job['operation'] not in FENCED_OPERATIONS:
                     # Fence all accepted but not started writes after an uncertain predecessor.
                     job['status'] = 'blocked'

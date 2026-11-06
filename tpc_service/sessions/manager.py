@@ -9,6 +9,7 @@ import time
 from uuid import uuid4
 
 from tpc_service.errors import ServiceError
+from .job_index import JobIndex
 from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
@@ -99,17 +100,17 @@ class SessionManager:
             if alias:
                 if alias['fingerprint'] != fingerprint:
                     raise ServiceError('request_id_conflict', 'Same request has different payload')
-                return read(folder / 'jobs' / (alias['job_id'] + '.json'))
-            # Journals themselves are the authoritative indices: no index/receipt crash gap.
-            maximum_sequence = state['sequence']
-            for path in (folder / 'jobs').glob('*.json'):
-                old = read(path)
-                maximum_sequence = max(maximum_sequence, old['sequence'])
-                if old['request_id'] == request_id or old['operation_id'] == operation_id:
-                    if old['fingerprint'] != fingerprint:
-                        raise ServiceError('request_id_conflict', 'Same request/stage has different payload')
-                    write(alias_path, {'fingerprint': fingerprint, 'job_id': old['job_id']})
-                    return old
+                old = read(folder / 'jobs' / (identifier(alias['job_id']) + '.json'))
+                if not old or old.get('fingerprint') != fingerprint:
+                    raise ServiceError('session_job_journal_missing', 'Request alias has no matching journal')
+                return old
+            index = JobIndex.load(folder)
+            old = index.match(request_id, operation_id)
+            if old:
+                if old['fingerprint'] != fingerprint:
+                    raise ServiceError('request_id_conflict', 'Same request/stage has different payload')
+                write(alias_path, {'fingerprint': fingerprint, 'job_id': old['job_id']})
+                return old
             if state['status'] in ('closing', 'closed', 'close_failed') or state.get('close_requested'):
                 raise ServiceError('session_closing', 'Session is closing or closed')
             if state['status'] == 'needs_reconcile' and operation not in FENCED_OPERATIONS:
@@ -117,17 +118,19 @@ class SessionManager:
             if operation == SCHEMATIC_RECOVERY and (state['status'] != 'needs_reconcile' or self.backend != 'cst'):
                 raise ServiceError('session_schematic_recovery_refused', 'Schematic recovery requires a fenced CST session')
             from .project_lifecycle import check_project_intent
-            check_project_intent(state, [read(p) for p in (folder / 'jobs').glob('*.json')], operation, params)
             from .formal_paths import PROJECT_OPERATIONS, assert_path_unclaimed
             if operation in PROJECT_OPERATIONS:
+                check_project_intent(state, index.active_jobs(), operation, params)
                 assert_path_unclaimed(self.root, folder, operation, params)
-            state['sequence'] = maximum_sequence + 1
+            state['sequence'] = max(state['sequence'], index.maximum_sequence) + 1
             job = {'job_id': 'job-' + uuid4().hex, 'session_id': session_id,
                    'sequence': state['sequence'], 'request_id': request_id, 'operation_id': operation_id,
                    'fingerprint': fingerprint, 'operation': operation, 'params': params,
                    'status': 'queued', 'created_at': time.time(), 'result': None, 'error': None}
-            # Persist queue acceptance before state sequence; worker sorts by durable sequence.
+            # Publish the full receipt first. A missing index entry is repaired from its filename.
             write(folder / 'jobs' / (job['job_id'] + '.json'), job)
+            index.add(job)
+            index.save()
             write(alias_path, {'fingerprint': fingerprint, 'job_id': job['job_id']})
             if operation == 'close':
                 state['close_requested'] = True

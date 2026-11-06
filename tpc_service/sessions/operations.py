@@ -4,7 +4,7 @@ from pathlib import Path
 
 from tpc_service.errors import ServiceError
 from .native import file_digest
-from .store import contained, identifier, write
+from .store import contained, identifier, lock, write
 from .diagnostics import exception_diagnostics, exception_repr, mark_stage
 from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY, is_native_vba_response
 
@@ -15,11 +15,14 @@ def execute(runtime, job):
     if operation == SCHEMATIC_RECOVERY:
         from .schematic_recovery import recover
         return recover(runtime, job)
-    for predecessor in params.get('depends_on', []):
-        from .store import read
-        matches = [read(p) for p in (runtime.folder / 'jobs').glob('*.json')]
-        if not any(j['operation_id'] == predecessor and j['status'] == 'succeeded' for j in matches):
-            raise ServiceError('session_dependency_incomplete', 'Required predecessor stage is not confirmed', predecessor=predecessor)
+    if params.get('depends_on'):
+        from .job_index import JobIndex
+        with lock(runtime.folder / 'state.lock'):
+            index = JobIndex.load(runtime.folder)
+            for predecessor in params['depends_on']:
+                receipt = index.match(operation_id=predecessor)
+                if not receipt or receipt['status'] != 'succeeded':
+                    raise ServiceError('session_dependency_incomplete', 'Required predecessor stage is not confirmed', predecessor=predecessor)
     if operation == 'close':
         # If a worker was lost during a mutation, closing must not silently discard that state.
         if runtime.state().get('uncertain_jobs') or runtime.state()['launch_intent'] or runtime.state()['status'] == 'needs_reconcile':
