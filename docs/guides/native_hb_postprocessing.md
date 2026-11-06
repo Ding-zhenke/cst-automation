@@ -47,6 +47,118 @@ box scheme 的混频最高频率可按 `sum(order_i * f_i)` 核对被动数据�
 HB 还需要被动数据支持 DC。数据覆盖不能替代谐波阶数收敛验证；本接口
 不注入固定频段、谐波阶数、端口名称或模型专用的偏置/归一化公式。
 
+## 两频点双方向最小配置与验收
+
+以下是**配置示例，不是已在任意工程跑通的四工况记录**。假定当前所属会话
+已打开并保存目标工程，存在 Parameter Sweep `RF_Sweep` 与其直接子任务
+Spectral Lines `RF_Sweep\HB`；如需自动出图，另有已启用并实际绑定模板的
+`RF_Sweep\Post`，顺序为 HB 后接 Post。调用前通过实际任务树核对类型、
+父子关系和启用状态；不同工程名称由调用方替换。
+
+如果工程没有父任务或 HB，AI 应直接使用所属工程的原生接口创建，而不是向
+用户索要其他电脑的工程。以下仅创建缺失项并启用，不运行求解；已有同名但
+类型不匹配时停止并检查，不覆盖：
+
+```python
+s = app.cst_file.schematic
+task = s.SimulationTask
+for name, kind in (("RF_Sweep", "parameter sweep"),
+                   (r"RF_Sweep\HB", "spectral lines")):
+    task.Reset()
+    task.Name(name)
+    if task.DoesExist():
+        if str(task.GetTypeForTask(name)).lower() != kind:
+            raise ValueError("Existing task has a different type: " + name)
+    else:
+        task.Type(kind)
+        task.Name(name)
+        task.Create()
+    task.Reset()
+    task.Name(name)
+    task.SetProperty("enabled", "True")
+```
+
+用 `app.circuit.inspect()`、`list_pins()` 和目标工程原生对象检查已有源与
+连接。创建并启用任务不会自动设置源。目标是给 HB 的 RF 基频及对应 RF 源
+频率使用同一个实际工程参数，并让方向参数确实切换两个实际端口的激励。
+如果源/端口的表达式尚未设置，依据本机 `SimulationTask`、具体源块与
+Spectral Lines 官方帮助配置；先验证该命令适用于 HB。仓库现有
+`configure_task_ports` 只支持 transient；官方 `SetComplexPortExcitation`
+针对 AC，均不得当成已验证的 HB 激励绑定接口。若发现接口缺口，应报告
+具体对象、属性和已完成项，而不是要求用户提供另一机器的宏。
+
+首先确认 `rf_frequency` 是已有的工程参数，且 HB 对应基频**和 RF 源频率**
+均引用它，单位与任务局部单位一致。确认 `rf_direction` 的两个实际取值
+通过已有端口激励表达式或已配置的控制电路选择两个相反方向；本库扫描函数
+只改变参数值，不创建这些绑定，也不假定 `+1/-1` 或激励电压计算方式。
+检查真实端口/源、偏置、泵浦、负载与正反功率归一化，并清点本工程是否有
+自工程 3D 链接块、外部 Touchstone 多端口块及各自数据来源；二者可以同时
+存在，但不能预设每个工程都同时拥有它们。
+
+```python
+from cst_solver.circuit.native import configure_hb_task, replace_parameter_sweep_sequences
+
+# app 是已由所属会话通过明确 project_id 取得的 app；以下参数由调用方提供。
+s = app.cst_file.schematic
+configure_hb_task(s, r"RF_Sweep\HB", [
+    {"frequency": "pump_frequency", "order": "pump_order"},
+    {"frequency": "rf_frequency", "order": "rf_order"},
+])
+replace_parameter_sweep_sequences(s, "RF_Sweep", {
+    "FrequencyDirection": {
+        "rf_frequency": [frequency_1, frequency_2],
+        "rf_direction": [direction_forward, direction_reverse],
+    },
+})
+app.save()
+```
+
+`frequency_1/2` 和两个方向值必须是调用方核对的不同实际值；两轴在同一
+sequence 中形成 2×2 笛卡尔积，共四组。函数先 `DeleteAllSequences()`，再
+`AddSequence()` 和 `AddParameter_ArbitraryPoints()`，会替换该父任务全部旧
+序列；当前实现**没有显式调用 `EnableSequence`**。原生序列是否启用须在
+目标 CST 版本和工程中读回；如需明确启用，仅在核对本机官方 API 后使用
+`ParameterSweep.EnableSequence(sequence_name, True)`，再读回状态。不能把
+函数返回或一条旧结果当作四组扫描成功。
+
+本机 CST 2026 的 Design Studio 官方 `ParameterSweep` 帮助已列出
+`EnableSequence(name, bool)`；对于该版本，可在上述替换序列后显式调用：
+
+```python
+sweep = s.ParameterSweep
+sweep.SetSimulationType("RF_Sweep")
+sweep.EnableSequence("FrequencyDirection", True)
+app.save()
+```
+
+这是明确设置启用状态，不等于原生启用状态已经读回。若本机公开接口没有
+getter，应保留下发记录并报告读回未验证；不要因此停止配置其他已知步骤。
+后处理任务的创建、启用和 HB→Post 顺序使用
+`configure_hb_postprocessing_chain(s, parent_task, hb_task, post_task, create=...)`；
+实际模板注册另使用下文的 `register_python_result_template`。
+
+仅在用户授权求解、工程空闲且依赖和结果范围明确时启动目标父任务。底层
+`SimulationTask.Update()` 执行所选任务及子任务；本仓库受控路径是
+`app.circuit.run_checked`，其 `mode` 和 `expected_results` 须根据真实项目
+提供。`ParameterSweep.Start()`、父任务 Update 和界面启动是不同入口，
+这里没有将它们的行为或完成状态验证为等价。Update 抛异常不能推断空闲或
+完成；查原始任务、日志和实际状态，不自动重跑。
+
+完成后保存工程，用 `CircuitResult(project_path)` 的 `get_tree_items()` 找到
+实际 HB 原始谱线，再对每条必要谱线调用 `get_run_ids(tree_path)` 和
+`get_parameter_combination(run_id)`。以真实存储的频率、方向与共同正
+Schematic Run ID 对照四组，读取对应复数谱线及单位；缺项报告缺项，不用
+run 0、最大 ID 或其他工况填充。正 ID 可能在同参数重跑时复用，须结合
+本轮日志、参数与来源证据。若输出自动图，还需确认 Post 的内嵌注册、
+父任务执行触发、生成的曲线与数据、保存重开；仅注册/静态生成不证明
+回调或四组结果已成功。自动历史曲线的适配器及验证边界见
+[参数历史与自动刷新](hb_parametric_storage_and_length_results.md)。
+
+移植或求助时报告 CST 完整版本、实际任务树与启用状态、参数到 HB/源/方向
+的表达式、实际启动入口、每组谱线的结果路径与参数组合、是否存在 3D 和
+Touchstone 块，以及模板证据。没有这些本机证据时标明未知；不要把此符号
+示例包装成已跑通的真实两频点双向实验。
+
 ## 指定运行的复数谱线与 Results 曲线
 
 ```python

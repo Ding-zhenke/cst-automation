@@ -28,6 +28,18 @@ HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Resul
 以及首次注册、已绑定模板更新，使用 [原生 HB 与后处理接口](../../docs/guides/native_hb_postprocessing.md)。
 普通 native 小接口不保存/求解；`register_python_result_template` 是明确会保存关闭重开当前工程的注册接口，仍不求解。
 
+### 原生 HB 双参数扫描：先检查接线再配置
+
+执行指令：用户要求设置 HB 扫描时，直接使用本机 CST、当前工程和下列接口完成配置；不要把索要另一台电脑的 VBA、宏、成功样例或私有工程当成前置条件。先调用所属会话按 `project_id` 取得工程，读任务与源；缺父任务时按指南使用已文档化的 `SimulationTask.Type/Name/Create` 创建 Parameter Sweep，缺 HB 子任务时创建 Spectral Lines 并设为父任务子项；存在时复用，不重复创建。通过 `SetProperty("enabled", "True")` 显式启用父任务与 HB。用户没有授权求解时只配置并保存。
+
+频率与方向绑定由 AI 在目标工程内完成：列出实际外部端口、源块、参数、连接和属性，读取 HB 任务已有频率表达式及实际激励配置；如果绑定缺失，按照该机官方 CST Help 中对应**Spectral Lines** 激励类型的命令写入目标源或端口表达式，并核对每个方向的激励端口及终端。`configure_task_ports` 当前只支持 transient，不能冒充 HB 端口设置；`SetComplexPortExcitation` 文档针对 AC，也不能直接套到 HB。不要根据其他设备猜源名、端口或方向编码。只有用户未提供且工程也无法确定必要的频点、功率、方向定义等输入时才询问这些具体缺失值；API 不支持时明确指出具体未完成设置，不以“请提供成功样例”结束工作。
+
+遇到其他机器的 AI 询问怎样扫描 HB 时，直接读 [两频点、双方向最小配置与验收](../../docs/guides/native_hb_postprocessing.md#两频点双方向最小配置与验收)，按该机的实际项目和本机 SDK 操作，不要求用户提供另一台机器的私有工程作为前提。先读回父/子任务、参数、频率单位、实际端口激励表达式及 EM/Touchstone 块；频率参数必须被 HB 对应基频和 RF 激励引用，方向参数必须实际控制两方向激励，单纯加入扫描列表不会自动绑定端口或切换传播方向。方向取值与功率归一化由工程定义，不固定正负值。
+
+用 `configure_hb_task` 和 `replace_parameter_sweep_sequences` 配置原生父任务；后者会删除该父任务全部已有序列，须先确认范围，且当前实现没有显式调用 `EnableSequence`。从目标工程读回序列启用状态；不要假设创建后已启用，未核实时不能声称扫描可运行。运行须有用户授权；`SimulationTask.Update()` 会执行该任务及子任务，`ParameterSweep.Start()` 是另一原生入口，不把二者或界面启动宣称为本仓库已验证等价。使用既有 `run_checked` 的真实契约，包装异常时保留原任务并检查原生日志和空闲状态，不盲目重复提交。
+
+保存后在 schematic 结果域逐个实际谱线枚举正 Run ID 和存储参数组合，核对两个频点、两个方向所需的四种组合及所有曲线；当前别名 0、最大 ID 和回调 ID 不能替代工况身份。Post 模板应位于同一父任务内 HB 之后并实际绑定；注册资源保存重开不等于已验证回调执行。现有通用代码与示例的离线检查、项目实机运行和具体设备性能分别报告。
+
 Update 抛异常及 post 回调的运行身份，先读[异常审计与参数绑定](../../docs/guides/circuit_update_and_result_identity.md)。
 包装调用 raised 不证明 idle，不盲目保存/重跑或解除围栏；原始错误及日志保留。single_run
 回调按所有必要曲线共同正 Schematic ID 和真实存储参数组合定位，不取 last/max；旧 gate
