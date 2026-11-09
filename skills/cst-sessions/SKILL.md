@@ -7,6 +7,10 @@ description: Manage independent persistent CST environments for separate convers
 
 # Persistent conversation sessions
 
+参数修改 → EM → HB 使用[强制工作流接口](../../docs/guides/workflow_enforcement.md)：
+空闲时绑定工程规格，提交入口与 worker 自动检查。不能用可选 checklist、
+`passed=true` 或助手承诺代替；旧 worker 能力不符时等待安全升级，不重启正在求解的环境。
+
 For actual CST work in Codex conversations, use the persistent session entry point by default.
 Use [in-situ validation](../cst-in-situ-validation/SKILL.md) to validate and improve automation while carrying out the authorized engineering task.
 Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.

@@ -144,6 +144,13 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     raise CircuitError('circuit_spec_invalid', str(exc), template_source=str(configuration_source)) from exc
                 return ok_result(saved=True, result_summary={**report, 'project_modified': False},
                                  artifacts=[artifact(report['path'], kind='rtpy_template')])
+            if not borrowed_project:
+                from tpc_service.sessions.workflow import reject_unowned_route
+                from tpc_service.errors import ServiceError
+                try:
+                    reject_unowned_route(path)
+                except ServiceError as exc:
+                    raise CircuitError(exc.code, str(exc), **exc.details) from exc
             app = app_factory(str(path))
             if getattr(backend, "dialog_monitoring", False):
                 from cst_solver.environment import environment_pid

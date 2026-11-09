@@ -66,6 +66,12 @@ class CstBackend(Backend):
         path = str(project.get("path") or "")
         if not os.path.isfile(path):
             return fail_result("project_not_found", f"工程不存在：{path}", path=path)
+        from tpc_service.sessions.workflow import reject_unowned_route
+        from tpc_service.errors import ServiceError
+        try:
+            reject_unowned_route(path)
+        except ServiceError as exc:
+            return fail_result(exc.code, str(exc), **exc.details)
         app = None
         outcome = None
         log: List[str] = []

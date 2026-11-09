@@ -17,6 +17,10 @@ def register_session_tools(root, *, backend='cst', replace=False):
     def status(a):
         return tool_payload({'session': manager.status(a['session_id'], a['credential'])})
 
+    def bind(a):
+        return tool_payload({'workflow': manager.bind_workflow(a['session_id'], a['credential'],
+                            a['project_id'], a['spec'], expected_revision=a.get('expected_revision'))})
+
     def submit(a):
         return tool_payload({'job': manager.submit(a['session_id'], a['credential'], a['request_id'],
                             a['operation'], a.get('params'), operation_id=a.get('operation_id'))},
@@ -39,6 +43,9 @@ def register_session_tools(root, *, backend='cst', replace=False):
                             abandon_projects=a.get('abandon_projects'))})
 
     entries = [
+        ('bind_cst_workflow', 'Bind an immutable engineering specification while idle, without starting CST.',
+         dict(identity, project_id=string, spec={'type': 'object'}, expected_revision=string),
+         list(identity) + ['project_id', 'spec'], bind, False),
         ('ensure_cst_session', 'Allocate an independent conversation binding without starting CST.',
          {'binding': string, 'request_id': string}, ['binding', 'request_id'], ensure, False),
         ('get_cst_session', 'Read the explicit session and durable task state.', identity,

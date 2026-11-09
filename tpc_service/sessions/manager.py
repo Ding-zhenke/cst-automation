@@ -14,7 +14,7 @@ from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
-                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', SCHEMATIC_RECOVERY))
+                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', SCHEMATIC_RECOVERY))
 FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY))
 
 
@@ -78,6 +78,12 @@ class SessionManager:
             raise ServiceError('unknown_job', 'Unknown session job')
         return value
 
+    def bind_workflow(self, session_id, credential, project_id, spec, *, expected_revision=None):
+        from .workflow import bind
+        folder = self._folder(session_id)
+        with lock(self.root / 'registry.lock'), lock(folder / 'state.lock'):
+            return bind(folder, self._state(folder, credential), identifier(project_id), spec, expected_revision)
+
     def submit(self, session_id, credential, request_id, operation, params=None, *, operation_id=None):
         if operation not in OPERATIONS:
             raise ServiceError('unknown_session_operation', 'Unknown explicit session operation')
@@ -122,11 +128,15 @@ class SessionManager:
             if operation in PROJECT_OPERATIONS:
                 check_project_intent(state, index.active_jobs(), operation, params)
                 assert_path_unclaimed(self.root, folder, operation, params)
+            from .workflow import preflight
+            workflow_guard = preflight(folder, state, operation, params)
             state['sequence'] = max(state['sequence'], index.maximum_sequence) + 1
             job = {'job_id': 'job-' + uuid4().hex, 'session_id': session_id,
                    'sequence': state['sequence'], 'request_id': request_id, 'operation_id': operation_id,
                    'fingerprint': fingerprint, 'operation': operation, 'params': params,
                    'status': 'queued', 'created_at': time.time(), 'result': None, 'error': None}
+            if workflow_guard is not None:
+                job['workflow_guard'] = workflow_guard
             # Publish the full receipt first. A missing index entry is repaired from its filename.
             write(folder / 'jobs' / (job['job_id'] + '.json'), job)
             index.add(job)

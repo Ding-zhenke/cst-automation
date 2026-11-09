@@ -30,7 +30,7 @@ def _worker_runtime_info():
                  'monitor_completion': _monitor_completion, 'recorded_monitor_failure': _recorded_monitor_failure,
                  'operations_execute': getattr(operations, 'execute', None)}
     return dict(pid=os.getpid(), executable=sys.executable, python_version=sys.version,
-                implementation_revision='completion-evidence-v1', marshal_version=marshal.version,
+                implementation_revision='workflow-enforcement-v1', marshal_version=marshal.version,
                 code_fingerprints={name: _code_fingerprint(function) for name, function in functions.items()})
 
 
@@ -150,6 +150,10 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
     if schematic_error_returned:
         evidence['schematic_call_state'] = 'returned_native_vba_error'
     job['completion_evidence'] = evidence
+    if (job.get('workflow_preflight_rejected') is True and error.get('code', '').startswith('workflow_')
+            and not monitor_failure):
+        evidence.update(decision=prior, reason='workflow_rejected_before_native_access')
+        return
     if (job.get('operation') == 'inspect' and job.get('params', {}).get('read_only_review') is True
             and not monitor_failure):
         state['last_read_review_error'] = error
@@ -191,6 +195,8 @@ def run(folder):
         with lock(folder / 'state.lock'):
             state = read(folder / 'session.json')
             state['worker'] = process_identity(os.getpid())
+            from .workflow import CAPABILITY
+            state['worker_capabilities'] = [CAPABILITY]
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also
@@ -264,6 +270,8 @@ def run(folder):
                 if monitor_failure:
                     raise ServiceError('cst_dialog_blocked', 'Operation returned after a detected CST dialog; inspect evidence',
                                        diagnostics=monitor_failure)
+                from .workflow import record_success
+                record_success(runtime, job)
                 job.update(status='succeeded', result=result, finished_at=time.time())
                 job['worker_runtime'] = _worker_runtime_info()
                 job['completion_evidence'] = dict(decision='succeeded', reason='operation_returned_without_monitor_failure',

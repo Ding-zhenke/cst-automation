@@ -7,6 +7,11 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 
 # CST simulation
 
+原生会话的参数修改和 EM 求解必须先绑定[工程规格](../../docs/guides/workflow_enforcement.md)。
+等参数更新成功后再提交 EM；完成 EM 后提交关联本次回执和原始文件的数值报告，
+由服务检查后才可继续 HB。绑定工程暂不支持原生 EM 扫参配置或非托管 study，
+以下原生扫参建议不构成绕过该限制的许可。
+
 Before choosing mesh/frequency settings, use
 [cst-mesh-frequency](../cst-mesh-frequency/SKILL.md) to estimate electrical size
 and select automatic or representative-point adaptation. For native ranges and

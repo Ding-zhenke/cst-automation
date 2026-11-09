@@ -1,5 +1,10 @@
 # Repository skills
 
+For parameter → EM → HB work, use the mandatory
+[session workflow contract](../docs/guides/workflow_enforcement.md).
+The submission and execution gates run automatically; the optional checkpoint
+script is not a substitute. Existing running workers must not be interrupted to upgrade.
+
 Codex skill entry points for this package:
 
 The user prohibits treating a partial skill read as completion. Read each selected

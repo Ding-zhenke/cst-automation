@@ -18,6 +18,10 @@ def main(argv=None):
     sub.add_parser('ensure')
     sub.add_parser('status')
     sub.add_parser('resume')
+    bind = sub.add_parser('bind-workflow')
+    bind.add_argument('--project-id', required=True)
+    bind.add_argument('--spec-file', required=True)
+    bind.add_argument('--expected-revision')
     submit = sub.add_parser('submit')
     submit.add_argument('--request-id', required=True)
     submit.add_argument('--operation', required=True)
@@ -56,6 +60,9 @@ def main(argv=None):
                 result = manager.status(sid, credential)
             elif args.command == 'resume':
                 result = manager.resume(sid, credential)
+            elif args.command == 'bind-workflow':
+                result = manager.bind_workflow(sid, credential, args.project_id, read(args.spec_file),
+                                               expected_revision=args.expected_revision)
             elif args.command == 'job':
                 result = manager.job(sid, credential, args.job_id)
             elif args.command == 'close':

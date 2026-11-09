@@ -7,6 +7,11 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 # CST 场路联合
 
+参数修改 → EM → HB 的[强制提交检查](../../docs/guides/workflow_enforcement.md)
+已接入所属会话；HB 需匹配的成功 EM 回执、已接受数值报告及原生设置读回。
+先绑定规格，按回执依次推进，不能靠助手自觉调用可选检查。数值报告来源分析和
+未声明的工程判断仍须实际完成；下述低层 API 不得用来绕过受保护工程的会话门槛。
+
 实际 Codex 操作先使用[对话持久会话](../cst-sessions/SKILL.md)，配置/求解/在线读回均借用同一会话。
 
 多轮 EM→HB 工作先恢复[要求与证据清单](../cst-sessions/references/workflow-checkpoint.md)，

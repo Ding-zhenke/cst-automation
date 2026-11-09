@@ -19,6 +19,11 @@ def validate(operation, params):
         validate_options(params)
         return
     identifier(params.get('project_id'))
+    if operation == 'accept_workflow_evidence':
+        require(set(params) == {'project_id', 'em_job_id', 'report_path'}, 'Exact evidence arguments required')
+        identifier(params.get('em_job_id'))
+        require(isinstance(params.get('report_path'), str) and Path(params['report_path']).is_absolute(),
+                'Absolute evidence report path required')
     if operation == 'configure_sweep':
         from cst_solver.simulation.sweep import sweep_code
         identifier(params.get('stage_id'))

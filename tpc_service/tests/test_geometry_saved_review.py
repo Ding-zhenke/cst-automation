@@ -5,7 +5,8 @@ import hashlib
 import pytest
 from cst_solver.validation import ValidationMixin
 from tpc_service.errors import ServiceError
-from tpc_service.sessions.operations import execute
+# Test the native dispatch in isolation; guarded entry is covered by test_workflow_enforcement.
+from tpc_service.sessions.operations import _execute_operation as execute
 from tpc_service.sessions.worker import _finish_failed_job
 
 

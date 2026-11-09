@@ -12,6 +12,26 @@ from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY, is_native_vba_r
 def execute(runtime, job):
     mark_stage(runtime, 'operation.dispatch')
     operation, params = job['operation'], job['params']
+    from . import workflow
+    try:
+        workflow.preflight(runtime.folder, runtime.state(), operation, params, job=job)
+    except ServiceError:
+        job['workflow_preflight_rejected'] = True
+        raise
+    return _execute_operation(runtime, job)
+
+
+def _execute_operation(runtime, job):
+    """Native dispatch implementation; callers must use the guarded execute entry."""
+    from . import workflow
+    operation, params = job['operation'], job['params']
+    if operation == 'accept_workflow_evidence':
+        state = runtime.state()
+        project = state['projects'][params['project_id']]
+        evidence = workflow.evidence_report(runtime.folder, project, params)
+        project['workflow']['evidence'] = evidence
+        runtime.update(projects=state['projects'])
+        return {'accepted': True, 'revision': project['workflow']['revision'], 'started_cst': False}
     if operation == SCHEMATIC_RECOVERY:
         from .schematic_recovery import recover
         return recover(runtime, job)
@@ -181,6 +201,11 @@ def execute(runtime, job):
         return circuit(runtime, app, record, params)
     mark_stage(runtime, 'project.acquire')
     app, record = runtime.project(params['project_id'])
+    contract = record.get('workflow')
+    if contract and (operation == 'solve' or (operation == 'circuit' and params.get('kind') == 'solve')):
+        workflow.live_checks(app, contract, 'em' if operation == 'solve' else 'hb')
+    if contract:
+        workflow.invalidate(runtime, job)
     mark_stage(runtime, 'operation.' + operation)
     if operation == 'reload_project':
         reviewed = runtime.state().get('last_resolution', {})

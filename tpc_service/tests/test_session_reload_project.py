@@ -2,7 +2,8 @@ from pathlib import Path
 from types import SimpleNamespace
 import hashlib
 import pytest
-from tpc_service.sessions.operations import execute
+# Test the native dispatch in isolation; guarded entry is covered by test_workflow_enforcement.
+from tpc_service.sessions.operations import _execute_operation as execute
 from tpc_service.sessions.validation import validate
 
 

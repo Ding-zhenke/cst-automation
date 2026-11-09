@@ -855,3 +855,55 @@ Failed project-operation journals retain their destination claim until
 explicit reconciliation resolves the receipt, including failures before
 the native-open result could be registered as a project. A state-only change
 does not release an uncertain claim.
+
+## Mandatory parameter → EM → HB workflow contracts
+
+`SessionManager.bind_workflow(session_id, credential, project_id, spec,
+expected_revision=None)` binds an immutable, versioned engineering specification
+to an idle registered project. CLI `bind-workflow --project-id ... --spec-file ...`
+and explicit MCP `bind_cst_workflow` expose the same method. Updates require the
+previous revision (compare-and-swap), invalidate previous evidence, and are refused
+while any session job is queued/running or an old worker is alive. No CST is opened.
+
+For native sessions, new `set_parameters`, `solve` and circuit solve/study requests
+require a bound specification; omitting it is not a bypass. Fake sessions remain
+non-certifying fixtures; when bound they use the same contract validation. Once
+bound, raw history and unmanaged parameter studies are refused. Typed model and
+circuit configuration invalidates dependent evidence. The gate is enforced both
+before durable queue acceptance/worker launch and again before project acquisition.
+Queued jobs carry the contract revision; mismatches block rather than silently
+adopting a newer contract. No existing running job is rewritten or interrupted.
+
+Schema v1: `parameters` maps names to `value` (fixed) or `min/max` (independent
+numeric range), plus `affects="em"|"hb"`; `initial_values` supplies all parameter
+values. Values are finite and in native project units. `em_checks` and `hb_checks`
+are nonempty native readback assertions: `source="parameter"` with `name`, or
+`source="block_property"|"task_property"` with `name/property`; each carries
+`expected` and optional nonnegative `atol`. Native getters are selected explicitly,
+never arbitrary Python/VBA. Missing getters/values block rather than pass.
+`hb_task` names the only permitted circuit solve task; `hb_request` specifies
+the required `mode`. Other declared settings may be matched exactly.
+
+`evidence_rules` is a nonempty mapping of numeric JSON field names to `min/max`
+limits. Session operation `accept_workflow_evidence` accepts `project_id`,
+`em_job_id` and an absolute `report_path`. It reads a saved analysis report with
+`em_job_id`, `em_saved_digest`, `metrics`, and nonempty `artifacts` (absolute
+`path/sha256`). The referenced EM job must be a successful native saved solve of
+this project and current EM generation. The service computes comparisons and file
+hashes, snapshots the report into its own receipt, and binds it to current
+parameters and specification revision. HB cannot proceed without this receipt.
+The caller cannot submit a passed flag. Reports are trusted analysis inputs,
+not independent certification of the numerical algorithm that produced them;
+native settings are separately re-read immediately before solver execution.
+
+Parameter/geometry/EM configuration attempts invalidate EM and HB evidence before
+the first native mutation; circuit-only changes invalidate HB settings observations
+but retain matching EM evidence. Every solve rechecks relevant parameter values,
+numeric independence and native assertions. Missing/changed artifacts, failed or
+stale EM jobs, unknown parameters, fixed-value changes, out-of-range expressions,
+wrong HB tasks/requests, and unsupported worker revisions fail closed.
+
+The protected project also has a sidecar ownership marker. The legacy temporary
+RunService EM/circuit routes reject marked projects before constructing an app;
+they must use the owning session. This is an accidental-bypass guard, not a security
+boundary against direct SDK access or deliberate editing of session files.

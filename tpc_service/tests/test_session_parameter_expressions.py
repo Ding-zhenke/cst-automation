@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 import pytest
-from tpc_service.sessions.operations import execute
+# Test the native dispatch in isolation; guarded entry is covered by test_workflow_enforcement.
+from tpc_service.sessions.operations import _execute_operation as execute
 
 class Runtime:
     backend = 'cst'

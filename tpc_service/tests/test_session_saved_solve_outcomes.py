@@ -60,7 +60,8 @@ def test_missing_execution_receipt_is_never_released_by_an_existing_file(tmp_pat
 def test_native_solve_failure_carries_explicit_return_and_save_receipts(tmp_path):
     from types import SimpleNamespace
     from tpc_service.errors import ServiceError
-    from tpc_service.sessions.operations import execute
+    # Test the native dispatch in isolation; guarded entry is covered by test_workflow_enforcement.
+    from tpc_service.sessions.operations import _execute_operation as execute
     job, error, state = receipt(tmp_path)
     outcome = error['details']['outcome']; calls = []
     app = SimpleNamespace(run_checked=lambda **kw: outcome)
@@ -80,7 +81,8 @@ def test_native_solve_failure_carries_explicit_return_and_save_receipts(tmp_path
 
 def test_save_exception_never_becomes_a_known_saved_solve(tmp_path):
     from types import SimpleNamespace
-    from tpc_service.sessions.operations import execute
+    # Test the native dispatch in isolation; guarded entry is covered by test_workflow_enforcement.
+    from tpc_service.sessions.operations import _execute_operation as execute
     job, error, state = receipt(tmp_path)
     app = SimpleNamespace(run_checked=lambda **kw: error['details']['outcome'])
     class Runtime:

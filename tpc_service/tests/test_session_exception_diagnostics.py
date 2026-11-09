@@ -74,7 +74,7 @@ def test_checkpoint_failure_is_tagged_after_one_history_submission(tmp_path, mon
     code='synthetic code'; job={'operation':'history','job_id':'j','operation_id':'o','fingerprint':'f',
         'params':{'project_id':'p','domain':'schematic','vba':code,'preview_digest':hashlib.sha256(code.encode()).hexdigest(),
                   'name':'stage','stage_id':'stage'}}
-    try: operations.execute(runtime,job)
+    try: operations._execute_operation(runtime,job)
     except PermissionError as exc: error=_error_for_exception(exc,runtime,job)
     assert calls==['history','save']
     assert error['details']['diagnostics']['stage']=='checkpoint.write'
