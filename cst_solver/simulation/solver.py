@@ -205,6 +205,15 @@ End With"""
                 f' .MeshAdaptionTet "{flag}"\n .SweepConsiderAll "True"\nEnd With')
         self.cst_file.model3d.add_to_history('General purpose FEM solver', code)
 
+    def configure_fd_linear_solver(self, settings):
+        """Sparse linear controls; no Reset/rebuild/solve or promised fallback."""
+        from cst_automation.fd_linear import linear_solver_code
+        code = linear_solver_code(settings)
+        self.cst_file.model3d.add_to_history('FDSolver linear controls', code)
+        return {'requested': dict(settings), 'native_commands': code, 'submitted': True,
+                'readback_verified': False, 'result_preservation_verified': False,
+                'direct_fallback_verified': False}
+
     def configure_fd_parallelization(self, settings):
         """Set sparse FDSolver CPU controls; no reset, GPU change, save or solve.
 

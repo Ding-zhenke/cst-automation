@@ -129,6 +129,11 @@ class SessionManager:
                 check_project_intent(state, index.active_jobs(), operation, params)
                 assert_path_unclaimed(self.root, folder, operation, params)
             from .workflow import preflight
+            from .model_api import settings_only, SETTINGS_ONLY_CAPABILITY
+            if (operation == 'model_api' and settings_only(params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and SETTINGS_ONLY_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Settings-only batches require an upgraded idle worker')
             workflow_guard = preflight(folder, state, operation, params)
             state['sequence'] = max(state['sequence'], index.maximum_sequence) + 1
             job = {'job_id': 'job-' + uuid4().hex, 'session_id': session_id,

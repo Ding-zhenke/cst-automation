@@ -1,5 +1,22 @@
 # cst-automation 与领域包的公共接口
 
+## F-solver linear controls and settings-only session batches
+
+`app.configure_fd_linear_solver(settings)` accepts sparse `solver_type=Auto|Iterative|Direct`,
+boolean `limit_iterations`, and positive integer `max_iterations`. Setting an explicit
+maximum requires `limit_iterations=True`; enabling a limit requires an explicit maximum.
+Commands use `FDSolver.Type/LimitIterations/MaxIterations`, without Reset, solver selection,
+mesh changes, rebuild, save or solve. A limit does not promise automatic Direct fallback.
+The receipt records requested commands, with native readback and result preservation unverified.
+
+Session `model_api` explicitly registers this method. Batches containing only
+`configure_fd_linear_solver/configure_fd_frequency/configure_fd_parallelization`
+validate the message queue with `rebuild=False`, save, and mark `settings_only=True`.
+They do not certify geometry or clear a dirty-geometry guard; mixed geometry batches retain
+the existing full-rebuild path. Workflow evidence is invalidated before setting changes.
+These batches require worker capability `solver-settings-no-rebuild-v1` before queueing
+to an already live worker. Updating source/plugin does not upgrade a running worker.
+
 ## EM 参数更新与结果保留
 
 会话 `set_parameters` 更新参数后使用 `validate_model(rebuild_mode="parametric")`，

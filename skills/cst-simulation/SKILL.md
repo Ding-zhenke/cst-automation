@@ -53,6 +53,16 @@ to turn it on; do not substitute transient `set_parallel_threads` or DS HB setti
 The receipt records configuration only; verify actual threads from the native run log.
 This interface does not configure GPU acceleration or choose a different solver.
 
+For F-solver linear comparisons use `configure_fd_linear_solver(settings)` with
+`solver_type=Auto|Iterative|Direct` and optional explicit `limit_iterations/max_iterations`.
+Do not use unrestricted SolverParameter keys or assume an iteration cap triggers Direct fallback.
+Submit only `configure_fd_linear_solver/configure_fd_frequency/configure_fd_parallelization`
+in one settings batch: the session automatically checks messages and saves without a full rebuild.
+Mixed geometry batches still rebuild; keep them separate when retaining existing results matters.
+The worker must advertise `solver-settings-no-rebuild-v1`; never restart a busy worker to upgrade.
+No-rebuild receipts do not prove CST retained every result: archive required data and check native
+IDs/readback in the authorized idle engineering session. Compare bounded cases before a full band.
+
 For reviewed transient EM projects, `app.configure_em_time_settings(settings)` sets a sparse `stability_factor` in `(0,1]` and/or `output_sampling="every_step"/"automatic"`. It submits history only, without reset, rebuild, save, DS changes, external-link edits, or solving. Save explicitly. Requested factor and history submission do not establish actual integration timestep or every-step output: native readback is unsupported and verification flags stay False. See the [time-control guide](../../docs/guides/circuit_cosimulation.md#em-时间步与每步输出配置). Do not start validation solves when the user requests offline work only.
 
 Inspect real CST dialogs when an SDK call stalls. A timeout, open dialog, or closed dialog is not solver success. Keep offline/fake backend evidence separate from CST execution. Do not infer isolation, topology, or device performance from a successful solver return alone.

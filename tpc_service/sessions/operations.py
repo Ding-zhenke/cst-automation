@@ -305,8 +305,15 @@ def _execute_operation(runtime, job):
     validation = None
     if runtime.backend == 'cst' and not (operation == 'history' and params.get('domain') == 'schematic'):
         mark_stage(runtime, 'model.validate')
-        validation = (app.validate_model(rebuild_mode='parametric')
-                      if operation == 'set_parameters' else app.validate_model())
+        from .model_api import settings_only
+        only_settings = operation == 'model_api' and settings_only(params['calls'])
+        api_result['settings_only'] = only_settings
+        if only_settings:
+            validation = app.validate_model(rebuild=False)
+            validation.update(validation_scope='settings_message_queue', geometry_verified=False)
+        else:
+            validation = (app.validate_model(rebuild_mode='parametric')
+                          if operation == 'set_parameters' else app.validate_model())
         if validation.get('status') != 'success' or not validation.get('rebuild_ok'):
             if validation.get('rebuild_performed') is True and validation.get('rebuild_returned') is not True:
                 raise ServiceError('session_geometry_unverified', 'Rebuild did not return normally; inspect before saving',

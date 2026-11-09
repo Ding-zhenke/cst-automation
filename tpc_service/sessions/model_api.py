@@ -2,12 +2,20 @@
 import inspect
 from tpc_service.errors import ServiceError
 
+SETTINGS_ONLY_CAPABILITY = 'solver-settings-no-rebuild-v1'
+SETTINGS_ONLY_METHODS = frozenset(('configure_fd_linear_solver', 'configure_fd_frequency',
+                                 'configure_fd_parallelization'))
+
+
+def settings_only(calls):
+    return bool(calls) and all(call.get('method') in SETTINGS_ONLY_METHODS for call in calls)
+
 METHODS = frozenset(('set_units','new_component','new_curve','square','polyline',
     'extrude','add','subtract','create_elliptical_cylinder',
     'create_brick','cylinder','create_cylinder','create_sphere','create_cone','create_torus',
     'configure_sweep','configure_discrete_sweep','add_sweep_parameter_arbitrary_points',
     'change_material','boundary','set_background',
-    'create_waveguide_port_free','configure_fem_solver','set_frequency_range',
+    'create_waveguide_port_free','configure_fem_solver','set_frequency_range','configure_fd_linear_solver',
     'create_field_monitor','add_parameter_sweep_sequence','add_sweep_parameter_samples',
     'set_wcs_basis','activate_global_wcs',
     'triangle','create_triangular_prism','hexagon','create_hexagonal_prism','create_wire',
@@ -38,6 +46,9 @@ def _preflight_settings(method, bound):
         sink = SimpleNamespace(cst_file=SimpleNamespace(model3d=SimpleNamespace(
             add_to_history=lambda *_: None)))
         MaterialMixin.create_material_full_tensor(sink, **values)
+    elif method == 'configure_fd_linear_solver':
+        from cst_automation.fd_linear import linear_solver_code
+        linear_solver_code(values['settings'])
     elif method == 'configure_fd_parallelization':
         from cst_solver.simulation.frequency import normalize_fd_parallelization_settings
         normalize_fd_parallelization_settings(values['settings'])
@@ -94,7 +105,7 @@ def dispatch(app,calls):
     receipts = []
     for index, call in enumerate(calls):
         result = getattr(app,call['method'])(*call.get('args',[]),**call.get('kwargs',{}))
-        if call['method'] in ('configure_fd_frequency', 'configure_fd_parallelization', 'configure_tetrahedral_mesh'):
+        if call['method'] in ('configure_fd_linear_solver', 'configure_fd_frequency', 'configure_fd_parallelization', 'configure_tetrahedral_mesh'):
             receipts.append({'call_index': index, 'method': call['method'], 'receipt': result})
     return {'python_api_calls':len(calls),'methods':sorted({c['method'] for c in calls}),
             'configuration_receipts': receipts}
