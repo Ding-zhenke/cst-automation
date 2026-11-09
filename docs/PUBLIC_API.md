@@ -1,5 +1,34 @@
 # cst-automation 与领域包的公共接口
 
+## Exact-ID waveguide port replacement
+
+`app.replace_port_with_waveguide(id_val, settings, *, expected_type, preserve_ports)`
+replaces only the explicit positive integer port ID. `expected_type` is Discrete or
+Waveguide; `preserve_ports` maps canonical string IDs to expected native types and
+cannot include the replacement ID. Settings require all three finite numeric ranges,
+an explicit orientation, positive mode count and boolean port_on_bound; optional
+shield and numeric reference_plane_distance are bounded typed inputs. Ranges must
+form a nondegenerate axis-aligned face matching the orientation; project units apply.
+This v1 interface deliberately does not accept symbolic coordinates.
+
+Before mutation the session checks every target and preserved ID in the batch.
+It enumerates native Port IDs/GetType/GetNumberOfModes, verifies
+the target and preserved IDs, and builds the entire creation command using the
+existing free-port wrapper. One history entry contains exact `Port.Delete(id)` and
+creation under the same ID. Afterwards it verifies identical ID inventory, the new
+Waveguide type/mode count and unchanged non-target type/mode observations. Native
+query failure before deletion blocks the edit; failures during/after submission are
+partial/unknown and never retried or rolled back automatically.
+
+Session model_api explicitly registers the method and requires live-worker capability
+`port-replacement-readback-v1`. Replacement batches contain only replacements with
+unique target IDs; a preserved ID cannot be another target. They remain topology edits:
+EM evidence is invalidated and the normal full rebuild/message/save stage remains.
+After rebuild the final native port inventory is checked again before saving a success.
+Archive required results before this topology change. Bounds, mode fields/impedance,
+boundary compatibility and electrical usability of preserved ports are not certified
+by type/mode readback; matrix renormalization is a separate numerical operation.
+
 ## Tetrahedral settings without a full history rebuild
 
 Session `model_api` now also treats `configure_tetrahedral_mesh` as a settings-only

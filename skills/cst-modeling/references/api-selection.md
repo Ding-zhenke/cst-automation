@@ -18,7 +18,7 @@ runtime version. Never instantiate setup just to discover its signatures.
 | Transforms | `translate`, `rotation` / `rotate`, `mirror`, `scale`; ports use explicit `rotate_port` |
 | Coordinates and picks | `set_wcs_basis`, `activate_global_wcs`, `reset_wcs`, `rotate_wcs`, `translate_wcs`, `pick_face`, `pick_edge`, `pick_clear` |
 | Materials and assignments | `create_material_custom`, `create_material_tensor`, `create_material_full_tensor`, `create_material_gyrotropic`, `change_material` |
-| Boundaries, ports, monitors | `boundary`, `set_background`, `create_waveguide_port_free`, `create_discrete_port`, `create_lumped_element`, `create_field_monitor`, `create_probe` |
+| Boundaries, ports, monitors | `boundary`, `set_background`, `create_waveguide_port_free`, `replace_port_with_waveguide`, `create_discrete_port`, `create_lumped_element`, `create_field_monitor`, `create_probe` |
 
 These names establish discoverability, not native validation of every command
 in every CST version. Check signatures and relevant version evidence before use.

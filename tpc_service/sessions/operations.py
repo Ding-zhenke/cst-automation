@@ -328,6 +328,9 @@ def _execute_operation(runtime, job):
             raise ServiceError('session_geometry_unverified', 'Rebuild/messages require inspection', validation=validation,
                                project_id=params['project_id'], saved=True, saved_digest=saved.get('saved_digest'),
                                execution_returned=True, geometry_outcome=outcome)
+    if runtime.backend == 'cst' and operation == 'model_api':
+        from .model_api import verify_replacements
+        verify_replacements(app, api_result.get('configuration_receipts', []))
     if runtime.backend == 'cst' and operation == 'set_parameters':
         # Legacy history can contain descriptions; restore metadata after rebuild.
         for name, text in params.get('expressions', {}).items():

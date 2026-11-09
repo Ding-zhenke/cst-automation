@@ -198,6 +198,12 @@ class PortMixin:
         """
         self.add_port(id_val, orientation, shield, **kwargs)
 
+    def replace_port_with_waveguide(self, id_val, settings, *, expected_type, preserve_ports):
+        """Exact-ID topology replacement with native identity checks; never solves."""
+        from .port_replacement import replace_port_with_waveguide
+        return replace_port_with_waveguide(self, id_val, settings,
+            expected_type=expected_type, preserve_ports=preserve_ports)
+
     def create_waveguide_port_free(self, id_val, xrange=None, yrange=None,
                                    zrange=None, orientation=None,
                                    shield='', *, number_of_modes=1,

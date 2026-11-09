@@ -130,6 +130,11 @@ class SessionManager:
                 assert_path_unclaimed(self.root, folder, operation, params)
             from .workflow import preflight
             from .model_api import settings_only, settings_capability
+            from cst_automation.port_replacement import CAPABILITY as PORT_CAPABILITY, METHOD as PORT_METHOD
+            if (operation == 'model_api' and any(c['method'] == PORT_METHOD for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and PORT_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Port replacement requires a readback-capable worker')
             if (operation == 'model_api' and settings_only(params['calls'])
                     and state.get('worker') and alive(state['worker'])
                     and settings_capability(params['calls']) not in state.get('worker_capabilities', [])):

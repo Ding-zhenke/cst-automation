@@ -21,7 +21,7 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'create_brick','cylinder','create_cylinder','create_sphere','create_cone','create_torus',
     'configure_sweep','configure_discrete_sweep','add_sweep_parameter_arbitrary_points',
     'change_material','boundary','set_background',
-    'create_waveguide_port_free','configure_fem_solver','set_frequency_range','configure_fd_linear_solver',
+    'create_waveguide_port_free','configure_fem_solver','set_frequency_range','configure_fd_linear_solver','replace_port_with_waveguide',
     'create_field_monitor','add_parameter_sweep_sequence','add_sweep_parameter_samples',
     'set_wcs_basis','activate_global_wcs',
     'triangle','create_triangular_prism','hexagon','create_hexagonal_prism','create_wire',
@@ -52,6 +52,9 @@ def _preflight_settings(method, bound):
         sink = SimpleNamespace(cst_file=SimpleNamespace(model3d=SimpleNamespace(
             add_to_history=lambda *_: None)))
         MaterialMixin.create_material_full_tensor(sink, **values)
+    elif method == 'replace_port_with_waveguide':
+        from cst_automation.port_replacement import normalize
+        normalize(**values)
     elif method == 'configure_fd_linear_solver':
         from cst_automation.fd_linear import linear_solver_code
         linear_solver_code(values['settings'])
@@ -88,6 +91,7 @@ def validate_calls(calls):
     from cst_solver import setup as CstSetup
     if not isinstance(calls,list) or not 1 <= len(calls) <= 5000:
         raise ServiceError('invalid_session_argument','Bounded modeling calls required')
+    replacements = []
     for call in calls:
         if (not isinstance(call,dict) or call.get('method') not in METHODS
                 or not isinstance(call.get('args',[]),list)
@@ -103,15 +107,45 @@ def validate_calls(calls):
                 if type(flag) is not int or flag != 1:
                     raise ValueError('Executing model_api calls require log_flag=1')
             _preflight_settings(call['method'], bound)
+            if call['method'] == 'replace_port_with_waveguide':
+                replacements.append(dict(bound.arguments))
         except (TypeError,AttributeError,ValueError) as exc:
             raise ServiceError('invalid_session_argument','Invalid modeling method signature',method=call['method']) from exc
+    if replacements:
+        ids = [r['id_val'] for r in replacements]
+        preserved = {int(pid) for r in replacements for pid in r['preserve_ports']}
+        if len(replacements) != len(calls) or len(ids) != len(set(ids)) or preserved & set(ids):
+            raise ServiceError('invalid_session_argument', 'Replacement-only batch requires unique targets disjoint from preserved IDs')
 
 def dispatch(app,calls):
     validate_calls(calls)
     receipts = []
+    if calls[0]['method'] == 'replace_port_with_waveguide':
+        from inspect import signature
+        from cst_solver import setup as CstSetup
+        from cst_solver.simulation.port_replacement import preflight_batch, PortReplacementError
+        replacements = [signature(CstSetup.replace_port_with_waveguide).bind(
+            None, *c.get('args', []), **c.get('kwargs', {})).arguments for c in calls]
+        try:
+            preflight_batch(app, replacements)
+        except PortReplacementError as exc:
+            raise ServiceError('session_port_replacement_failed', str(exc), receipt=exc.receipt) from exc
     for index, call in enumerate(calls):
-        result = getattr(app,call['method'])(*call.get('args',[]),**call.get('kwargs',{}))
-        if call['method'] in ('configure_fd_linear_solver', 'configure_fd_frequency', 'configure_fd_parallelization', 'configure_tetrahedral_mesh'):
+        from cst_solver.simulation.port_replacement import PortReplacementError
+        try:
+            result = getattr(app,call['method'])(*call.get('args',[]),**call.get('kwargs',{}))
+        except PortReplacementError as exc:
+            raise ServiceError('session_port_replacement_failed', str(exc), call_index=index,
+                               receipt=exc.receipt, earlier_receipts=receipts) from exc
+        if call['method'] in ('replace_port_with_waveguide', 'configure_fd_linear_solver', 'configure_fd_frequency', 'configure_fd_parallelization', 'configure_tetrahedral_mesh'):
             receipts.append({'call_index': index, 'method': call['method'], 'receipt': result})
     return {'python_api_calls':len(calls),'methods':sorted({c['method'] for c in calls}),
             'configuration_receipts': receipts}
+
+
+def verify_replacements(app, receipts):
+    from cst_solver.simulation.port_replacement import verify_after_rebuild, PortReplacementError
+    try:
+        verify_after_rebuild(app, receipts)
+    except PortReplacementError as exc:
+        raise ServiceError('session_port_replacement_failed', str(exc), receipt=exc.receipt) from exc
