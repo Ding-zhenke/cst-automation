@@ -22,6 +22,13 @@ Before HB consumes new or changed EM data, apply the [HB coverage and stop gates
 
 Confirm the target project, solver type, frequency range, ports, boundaries, mesh, and requested outputs before starting a costly solve. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.
 
+For multi-stage work, reload the [workflow checkpoint](../cst-sessions/references/workflow-checkpoint.md)
+and check the requested stage before submission. Compare actual settings to the
+latest requirements, not merely to the script's defaults. A representative-point
+check is an intermediate gate: retain the authorized full sweep and its expected
+case set as a pending deliverable. Native warning review and numerical acceptance
+remain separate from checklist consistency.
+
 For parameter studies, prefer a suitable CST native sweep as described in
 [cst-parameter-study](../cst-parameter-study/SKILL.md); configure once instead
 of issuing per-point writes and solves. For specifically justified sequential

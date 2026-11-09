@@ -39,6 +39,16 @@ Explain the estimate, chosen adaptation frequencies/mode and expected cost
 before settings are applied. A choice of a few points is conditional, not a ban
 on automatic adaptation and not permission to weaken convergence targets.
 
+For nonlinear downstream use, the highest retained mixing frequency is a data
+coverage requirement, not automatically a mesh-adaptation frequency. Before
+carrying standalone subcomponent settings into a larger assembly, reassess cost
+using the assembly's extent, ports, local features and available memory. Record
+adaptation points, pass/growth limits and prior memory/timing in the workflow
+checkpoint. Reuse a previously accepted cost-controlled strategy for comparable
+iterations; justify any reset to broader adaptation. Reaching a pass cap is not
+convergence. Review native memory/disk-solver warnings before proposing a restart;
+do not automatically stop a live solve or relax numerical acceptance.
+
 ## Separate the controls
 
 | Control | Purpose / API |

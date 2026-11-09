@@ -7,6 +7,9 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 实际 Codex 操作先使用[对话持久会话](../cst-sessions/SKILL.md)，配置/求解/在线读回均借用同一会话。
 
+多轮 EM→HB 工作先恢复[要求与证据清单](../cst-sessions/references/workflow-checkpoint.md)，
+确认当前源/负载、矩阵、扫描范围和后处理输入，不能只恢复 project_id 就沿用旧默认设置。
+
 使用本仓库的 `app.circuit` 与 `CircuitResult`，区分原理图配置、网络协同计算和瞬态场路联合。仅在三维模型中放置集总元件的任务使用 `cst-modeling` / `cst-simulation`。
 
 先读 [使用指南](../../docs/guides/circuit_cosimulation.md)。开发接口时再读 [公共协议](../../docs/PUBLIC_API.md)；确认实机能力时读 [验证记录](../../docs/VALIDATION.md)，不要从接口存在推断验收通过。

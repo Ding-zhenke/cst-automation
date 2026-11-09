@@ -6,10 +6,18 @@ description: Manage independent persistent CST environments for separate convers
 # Persistent conversation sessions
 
 For actual CST work in Codex conversations, use the persistent session entry point by default.
+Read the selected skill entry points in full; a header excerpt can omit their
+acceptance and handoff rules. Load only operation-relevant supporting references.
 Use [in-situ validation](../cst-in-situ-validation/SKILL.md) to validate and improve automation while carrying out the authorized engineering task.
 Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
 Read [project reuse and delivery](references/project-lifecycle.md) for scans, native
 checks, relocation checks, temporary tabs, backups and final artifacts.
+
+For multi-turn builds, EM→circuit handoffs and optimization, maintain and reload
+the [workflow checkpoint](references/workflow-checkpoint.md) before continuing.
+It preserves the latest requirements and binds each observation to its actual
+inputs; run its read-only checker before dependent submissions. It does not
+replace native inspection or the session's job/recovery checks.
 
 - Before the first actual modeling call, allocate one conversation-specific recovery reference with
   the CLI or ensure_cst_session. Use an explicit authorized absolute root, normally this repository's

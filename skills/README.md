@@ -2,6 +2,11 @@
 
 Codex skill entry points for this package:
 
+Read the selected `SKILL.md` completely, then only the references needed for the
+current operation. A `-TotalCount`/head excerpt or search hit is discovery, not
+completion of the workflow instructions. On resumed work, reload the saved
+requirements and any changed skill entry point before the next dependent action.
+
 - [cst-sessions](cst-sessions/SKILL.md): default conversation-bound persistent CST environments, recovery, and deduplication.
 - [cst-in-situ-validation](cst-in-situ-validation/SKILL.md): validate and improve reusable automation during authorized engineering work.
 
@@ -17,5 +22,14 @@ Codex skill entry points for this package:
 - [cst-diagnostics](cst-diagnostics/SKILL.md)
 
 These repository-local rules preserve preview-first geometry work, real-dialog diagnosis, dependency-stage acceptance, and evidence boundaries without relying on a user-level skill installation.
+
+For multi-turn engineering, start from the saved
+[workflow checkpoint](cst-sessions/references/workflow-checkpoint.md), not a remembered
+subset of the last turn. The selected task skill supplies the checks; the checkpoint
+preserves current requirements, dependencies and evidence across handoffs.
+When both user-level and plugin copies exist, record the chosen skill path and
+runtime module path once and use that source consistently. Repository maintenance
+uses this directory; plugin consumers use their installed bundle. A source edit
+does not update an installed plugin or an already running worker.
 
 Current field-circuit work prioritizes functional coverage and reusable skills. Dedicated engineering validation is deferred to actual projects; existing evidence and acceptance criteria remain in force. See [development priorities](../docs/CIRCUIT_DEVELOPMENT.md).

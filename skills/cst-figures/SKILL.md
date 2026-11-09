@@ -9,6 +9,9 @@ description: Use when plotting supplied CST or electromagnetic research data, pa
 
 - 先核对输入列、坐标、单位、复数约定及无效样本；保持采样事实，不擅自平滑、插值、补零或删除异常点。
 - 结构图与建模共用参数和坐标，等比例画真实轮廓、层叠、端口、极性及关键尺寸；未知量标待确认，夸张显示注明非按比例。专门晶格/相区语义使用目标领域规范。
+- 用户要求全参数或独立优化变量时，使用建模的实体段→参数覆盖表检查标注完整性；
+  主图放不下就补局部图。固定量、派生量、独立变量和同初值的独立实例要可区分，
+  不以“主要参数已标”替代用户要求的全部范围。
 - 数据图按物理问题组织，器件指标由 [cst-device-characterization](../cst-device-characterization/SKILL.md)确定，读取身份由 [cst-results](../cst-results/SKILL.md)保留。
 - 字体、字号、配色及导出先读[统一样式](references/style.md)。[样式资产](assets/research.mplstyle)提供可覆盖默认值；用局部 style context，不永久更改全局样式。
 - 保存可复现源码、实际输入/来源和 PNG；仅用户明确要求时生成 SVG/PDF。建模示意图默认仅保留最终 PNG，同图原位更新，不生成阶段图集。打开导出图检查遮挡、裁切、缺字、图例、色条与最终字号。画出图不等于物理结论通过。

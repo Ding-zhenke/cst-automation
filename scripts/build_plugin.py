@@ -29,7 +29,8 @@ def build_plugin(root: Path) -> Path:
         raise ValueError("No repository skills found")
 
     # Explicit inputs keep environments, projects, credentials, and work/ out.
-    entries = [(template, ".codex-plugin/plugin.json"), (root / "LICENSE", "LICENSE")]
+    entries = [(template, ".codex-plugin/plugin.json"), (root / "LICENSE", "LICENSE"),
+               (root / "skills" / "README.md", "skills/README.md")]
     for directory in [*skill_dirs, root / "docs"]:
         for source in sorted(directory.rglob("*")):
             if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":

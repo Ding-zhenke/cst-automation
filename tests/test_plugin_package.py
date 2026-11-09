@@ -31,6 +31,7 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
             assert portable[key] == manifest[key]
         assert portable["extensions"]["com.openai"]["interface"] == manifest["interface"]
         assert manifest["skills"] == "./skills/"
+        assert bundle.read('skills/README.md') == before['skills/README.md']
         assert "mcpServers" not in manifest
         entries = sorted(n for n in names if n.startswith("skills/") and n.endswith("/SKILL.md"))
         assert {Path(n).parent.name for n in entries} == {
@@ -39,7 +40,8 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
             "cst-parameter-study", "cst-results", "cst-sessions", "cst-simulation",
             "cst-in-situ-validation"}
         for name, content in before.items():
-            if name == "skills/README.md":
+            if '__pycache__' in Path(name).parts or name.endswith('.pyc'):
+                assert name not in names
                 continue
             assert bundle.read(name) == content
         extracted = tmp_path / "unpacked"
@@ -48,7 +50,8 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
         (extracted / "plugin.json").write_text(json.dumps({"name": "cst-automation", "version": "0.0.0"}), encoding="utf-8")
         bundle.extractall(extracted)
         assert json.loads((extracted / "plugin.json").read_text(encoding="utf-8"))["version"] == manifest["version"]
-        for entry in entries:
+        for entry in [*entries, 'skills/README.md',
+                      'skills/cst-sessions/references/workflow-checkpoint.md']:
             text = (extracted / entry).read_text(encoding="utf-8")
             for target in re.findall(r"\]\(([^)]+)\)", text):
                 # Markdown heading fragments are not part of the file path.
