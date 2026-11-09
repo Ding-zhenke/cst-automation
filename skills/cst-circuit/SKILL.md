@@ -87,7 +87,7 @@ Post evaluate 内自动嵌套宏。文档/离线契约通过仍保持 native_bri
 
 ## 通用参数研究与历史比较
 
-拓扑不变的纯电路或同工程 EM＋电路参数研究，使用 `app.circuit.run_parameter_study(spec)`；结构和用法见 [通用参数研究](../../docs/guides/circuit_parameter_studies.md)。这是会保存和求解的显式逐点序列，不是原生扫描配置接口。参数 scope、单位、元件绑定、已有叶任务和结果路径必须明确；全局参数使用调用者核对的原生单位，已固化元件值用 block/property 显式更新。
+拓扑不变的纯电路或同工程 EM＋电路参数研究，先检查 CST Design Studio 原生 Parameter Sweep 及任务链是否满足参数、依赖和输出要求；满足时优先原生扫参，避免逐点 Python 写入和求解的通信时延。需要逐点决策、特定证据归档或原生任务无法满足的明确需求时，使用 `app.circuit.run_parameter_study(spec)`；结构和用法见 [通用参数研究](../../docs/guides/circuit_parameter_studies.md)。这是会保存和求解的显式逐点序列，不是原生扫描配置接口。参数 scope、单位、元件绑定、已有叶任务和结果路径必须明确；全局参数使用调用者核对的原生单位，已固化元件值用 block/property 显式更新。
 
 - 每点使用匹配的 EM 数据；指定 EM 数据文件必须更新、原生状态 SUCCESS 且结果全局参数匹配。仅日志/全目录变化不能放行；缺原生来源证据返回 unverified。第一版 EM 依赖每点重算，不宣称自动缓存复用、外部 EM 映射或瞬态双向联合已支持。
 - 保留每批次/每工况的复数原始数据、单位、参数读回、EM 来源及电路运行证据。汇总叶按批次和工况唯一命名，不用 replace=True 覆盖其他参数的曲线，不把当前 run 0 当成不可变历史。

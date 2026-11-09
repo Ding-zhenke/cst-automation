@@ -22,7 +22,10 @@ Before HB consumes new or changed EM data, apply the [HB coverage and stop gates
 
 Confirm the target project, solver type, frequency range, ports, boundaries, mesh, and requested outputs before starting a costly solve. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.
 
-For sequential changes of existing geometry parameters, use session `set_parameters`
+For parameter studies, prefer a suitable CST native sweep as described in
+[cst-parameter-study](../cst-parameter-study/SKILL.md); configure once instead
+of issuing per-point writes and solves. For specifically justified sequential
+changes of existing geometry parameters, use session `set_parameters`
 followed by session `solve`: the former invokes the SDK `app.update()` path and
 the latter calls `run_checked` without an additional full `Rebuild`. This is not
 a configured native Parameter Sweep. Preserve complex per-case exports and verify

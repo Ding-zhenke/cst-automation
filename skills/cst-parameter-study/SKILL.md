@@ -10,18 +10,28 @@ project, independent axes, parameter formulas/units, baseline, outputs and run
 authorization. Reuse the accepted project when topology is unchanged. A request
 to configure a server scan does not authorize starting the scan locally.
 
+Default to CST's native parameter sweep when it can express the requested axes,
+task dependencies and required outputs. Configure it once and run the native
+task under the existing authorization; avoid repeated Python parameter writes,
+updates and solves for every point, which add communication and write latency.
+Check the actual project, native task type, parameter binding and result storage
+first; configuration alone does not prove a sweep was executed or preserved.
+
 Choose the appropriate mechanism:
 
 - Native EM sweep configuration: `setup.configure_sweep` or session operation
   `configure_sweep`; editable in CST and no solve starts.
-- Serial EM points in one existing project: session `set_parameters` refreshes
+- Serial EM points in one existing project only when native sweep cannot meet a
+  specific requirement (such as dependent per-point decisions, unsupported task
+  behavior or explicitly requested per-point control): session `set_parameters` refreshes
   with `app.update()` and checks messages; session `solve` then runs without a
   second full rebuild. This is distinct from configuring a native sweep. A live
   case retained two parameter states and all four S leaves using this SDK update
   path; saving/reopening and general retention are not yet certified.
-- Coupled EM/circuit or pure-circuit study with per-case evidence/archives:
-  [cst-circuit](../cst-circuit/SKILL.md). Its `run_parameter_study` saves and solves;
-  it is not interchangeable with native sweep configuration.
+- Coupled EM/circuit or pure-circuit study: first check the applicable native
+  Design Studio sweep and task chain. Use [cst-circuit](../cst-circuit/SKILL.md)
+  `run_parameter_study` when native operation cannot meet explicit per-case evidence,
+  dependency or control requirements. It saves and solves and is not a native sweep.
 - Existing case analysis: [cst-results](../cst-results/SKILL.md), retaining actual
   run identity, units and complex data. Do not treat the current run as all cases.
 
@@ -72,7 +82,7 @@ reuse the project and restore baseline values. Retain a single final project,
 necessary paired data and modeling/configuration Python with clear server
 instructions. Unknown native readback stays unverified; offline tests, native
 configuration, completed runs and numerical convergence are separate evidence.
-For native history acceptance, check two different geometric parameter combinations
+When acceptance requires retained native history, check two different geometric parameter combinations
 in the same project: all four complex S leaves, each state's positive 3D Run ID
 and actual stored parameter combination, then save, close and reopen and repeat
 the reads. Keep exported complex data and logs; same-state reruns can overwrite an ID.
