@@ -3,6 +3,8 @@ name: cst-figures
 description: Use when plotting supplied CST or electromagnetic research data, parameter-based geometry previews, field maps, spectra, or device comparison figures with reproducible scientific styles.
 ---
 
+**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+
 # 科研图与结构预览
 
 数据及尺寸由当前工程、用户输入或已保存结果取得；绘图本身不授权修改模型或运行求解。通用结构图和科研数据图使用 Python/Matplotlib 等精确工具，不能用生图猜测数据或真实尺寸。

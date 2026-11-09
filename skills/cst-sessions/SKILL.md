@@ -3,11 +3,11 @@ name: cst-sessions
 description: Manage independent persistent CST environments for separate conversations, including recovery and deduplication.
 ---
 
+**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+
 # Persistent conversation sessions
 
 For actual CST work in Codex conversations, use the persistent session entry point by default.
-Read the selected skill entry points in full; a header excerpt can omit their
-acceptance and handoff rules. Load only operation-relevant supporting references.
 Use [in-situ validation](../cst-in-situ-validation/SKILL.md) to validate and improve automation while carrying out the authorized engineering task.
 Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
 Read [project reuse and delivery](references/project-lifecycle.md) for scans, native

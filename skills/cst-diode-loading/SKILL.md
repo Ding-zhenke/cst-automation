@@ -3,6 +3,8 @@ name: cst-diode-loading
 description: Use when loading diodes into CST structures or circuits, selecting lumped or physical representations, checking A/K and bias paths, package parasitics, mesh, or nonlinear numerical validity.
 ---
 
+**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+
 # 二极管加载方法
 
 面向开关、调制、混频、整流及其他二极管加载结构。参数来自当前工程；不预设特定器件拓扑、源布局或频段。

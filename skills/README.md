@@ -2,10 +2,19 @@
 
 Codex skill entry points for this package:
 
-Read the selected `SKILL.md` completely, then only the references needed for the
-current operation. A `-TotalCount`/head excerpt or search hit is discovery, not
-completion of the workflow instructions. On resumed work, reload the saved
-requirements and any changed skill entry point before the next dependent action.
+The user prohibits treating a partial skill read as completion. Read each selected
+`SKILL.md` through its end, plus the reference sections required by the operation.
+`-TotalCount`, `head`, `Select -First`, search hits and remembered summaries do not
+meet this requirement. If tool output is truncated, retrieve the missing contiguous
+sections before any dependent model write or solve. Split large reads instead of
+batching so much text that the tool drops the middle. A full-file read command alone
+does not prove that its output reached the model in full.
+
+After context compaction, if only a summary remains, reload the selected entry
+points and needed reference sections before acting. Reuse complete unchanged text
+still present in the current context; do not reread it mechanically on every call.
+Restore the current project requirements as well. Do not ask the user to remind
+you, and do not substitute a read receipt, file hash or `read=true` flag for reading.
 
 - [cst-sessions](cst-sessions/SKILL.md): default conversation-bound persistent CST environments, recovery, and deduplication.
 - [cst-in-situ-validation](cst-in-situ-validation/SKILL.md): validate and improve reusable automation during authorized engineering work.

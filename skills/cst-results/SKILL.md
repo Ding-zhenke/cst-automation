@@ -3,6 +3,8 @@ name: cst-results
 description: Read, export, and analyze CST result trees, fields, far fields, or S-parameter curves while preserving run identity and evidence boundaries.
 ---
 
+**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+
 # CST results
 
 Online CST reads must use [the conversation's persistent session](../cst-sessions/SKILL.md).

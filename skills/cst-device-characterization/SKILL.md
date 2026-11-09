@@ -3,6 +3,8 @@ name: cst-device-characterization
 description: Use when designing evaluation conditions or analyzing existing CST results for diode-based modulators, isolators, mixers, switches, or related nonlinear devices, including metric definitions and figure selection.
 ---
 
+**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+
 # 器件表征与报告
 
 根据当前器件、任务和数据选择工况、指标及图形。以二极管器件为主要应用，通用数据方法也可用于其他驱动机制；不预设特定布局、端口数或固定图集。

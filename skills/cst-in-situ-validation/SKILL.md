@@ -3,6 +3,8 @@ name: cst-in-situ-validation
 description: Use when performing an actual CST engineering task with an existing automation capability that needs native evidence, or when a reusable CST automation defect is found while carrying out that task.
 ---
 
+**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+
 # 在实际工程中验证并迭代
 
 把当前工程任务作为主线。已有接口虽只有离线验证，仍可在授权的实际工作中使用；不因缺少单独的验收机器或历史实机记录而停止，也不另建无关工程或额外启动昂贵求解。按任务使用 [cst-sessions](../cst-sessions/SKILL.md) 和相应建模、电路、求解、结果或诊断技能。
