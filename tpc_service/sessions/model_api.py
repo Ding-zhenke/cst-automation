@@ -3,12 +3,18 @@ import inspect
 from tpc_service.errors import ServiceError
 
 SETTINGS_ONLY_CAPABILITY = 'solver-settings-no-rebuild-v1'
+MESH_SETTINGS_CAPABILITY = 'mesh-settings-no-rebuild-v1'
 SETTINGS_ONLY_METHODS = frozenset(('configure_fd_linear_solver', 'configure_fd_frequency',
-                                 'configure_fd_parallelization'))
+                                 'configure_fd_parallelization', 'configure_tetrahedral_mesh'))
 
 
 def settings_only(calls):
     return bool(calls) and all(call.get('method') in SETTINGS_ONLY_METHODS for call in calls)
+
+
+def settings_capability(calls):
+    return (MESH_SETTINGS_CAPABILITY if any(call.get('method') == 'configure_tetrahedral_mesh'
+            for call in calls) else SETTINGS_ONLY_CAPABILITY)
 
 METHODS = frozenset(('set_units','new_component','new_curve','square','polyline',
     'extrude','add','subtract','create_elliptical_cylinder',

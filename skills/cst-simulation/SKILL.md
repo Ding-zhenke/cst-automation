@@ -58,6 +58,8 @@ For F-solver linear comparisons use `configure_fd_linear_solver(settings)` with
 Do not use unrestricted SolverParameter keys or assume an iteration cap triggers Direct fallback.
 Submit only `configure_fd_linear_solver/configure_fd_frequency/configure_fd_parallelization`
 in one settings batch: the session automatically checks messages and saves without a full rebuild.
+`configure_tetrahedral_mesh` can join this batch only with the newer worker
+capability `mesh-settings-no-rebuild-v1`; it also avoids full Rebuild.
 Mixed geometry batches still rebuild; keep them separate when retaining existing results matters.
 The worker must advertise `solver-settings-no-rebuild-v1`; never restart a busy worker to upgrade.
 No-rebuild receipts do not prove CST retained every result: archive required data and check native

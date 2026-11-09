@@ -7,6 +7,7 @@ import pytest
 from cst_automation.fd_linear import linear_solver_code
 from cst_solver.simulation.solver import SolverMixin
 from cst_solver.validation import ValidationMixin
+from cst_solver.mesh.mesh import MeshMixin
 from tpc_service.errors import ServiceError
 from tpc_service.sessions.model_api import validate_calls, settings_only
 
@@ -40,9 +41,13 @@ def test_disable_limit_preserves_other_settings():
 
 
 @pytest.mark.parametrize('messages', [[], [{'type': 'WARNING', 'text': 'configuration warning'}]])
-def test_settings_only_dispatch_saves_without_rebuild_or_solve(tmp_path, messages):
+@pytest.mark.parametrize('method,settings', [
+    ('configure_fd_linear_solver', {'solver_type': 'Direct'}),
+    ('configure_tetrahedral_mesh', {'local_solids': [{'solid': 'component:contact', 'max_step': 0.01}],
+                                  'adaptation': {'max_passes': 3}})])
+def test_settings_only_dispatch_saves_without_rebuild_or_solve(tmp_path, messages, method, settings):
     from tpc_service.sessions.operations import _execute_operation
-    class App(SolverMixin, ValidationMixin):
+    class App(SolverMixin, ValidationMixin, MeshMixin):
         pass
     app = App()
     from cst_solver._guards import get_guard_state
@@ -57,8 +62,7 @@ def test_settings_only_dispatch_saves_without_rebuild_or_solve(tmp_path, message
     runtime = SimpleNamespace(folder=tmp_path, backend='cst', project=lambda pid: (app, record),
         save=lambda *a: saves.append(a) or record)
     job = {'operation': 'model_api', 'job_id': 'j', 'operation_id': 'o', 'fingerprint': 'f',
-           'params': {'project_id': 'p', 'calls': [{'method': 'configure_fd_linear_solver',
-                        'args': [{'solver_type': 'Direct'}]}]}}
+           'params': {'project_id': 'p', 'calls': [{'method': method, 'args': [settings]}]}}
     if messages:
         with pytest.raises(ServiceError) as caught:
             _execute_operation(runtime, job)
@@ -71,7 +75,7 @@ def test_settings_only_dispatch_saves_without_rebuild_or_solve(tmp_path, message
     assert result['settings_only'] is True
     assert result['geometry_validation']['rebuild_performed'] is False
     assert result['geometry_validation']['geometry_verified'] is False
-    assert result['configuration_receipts'][0]['receipt']['submitted'] is True
+    assert result['configuration_receipts'][0]['method'] == method
     assert get_guard_state(app).param_dirty is True
 
 
@@ -79,18 +83,24 @@ def test_mixed_batch_not_classified_as_settings_only():
     assert not settings_only([{'method': 'configure_fd_linear_solver'}, {'method': 'create_brick'}])
 
 
-def test_old_worker_refused_before_queue_or_launch(tmp_path, monkeypatch):
+@pytest.mark.parametrize('method,settings', [
+    ('configure_fd_linear_solver', {'solver_type': 'Direct'}),
+    ('configure_tetrahedral_mesh', {'adaptation': {'max_passes': 3}})])
+def test_old_worker_refused_before_queue_or_launch(tmp_path, monkeypatch, method, settings):
     from tpc_service.sessions import manager as module
     from tpc_service.sessions.store import read, write
     manager = module.SessionManager(str(tmp_path), backend='fake')
     ref = manager.ensure('test', 'test')
     folder = tmp_path/ref['session_id']
     state = read(folder/'session.json')
-    state.update(status='ready', worker={'pid': 123}, worker_capabilities=['parameter-em-hb-v1'])
+    capabilities = ['parameter-em-hb-v1']
+    if method == 'configure_tetrahedral_mesh':
+        capabilities.append('solver-settings-no-rebuild-v1')
+    state.update(status='ready', worker={'pid': 123}, worker_capabilities=capabilities)
     write(folder/'session.json', state)
     monkeypatch.setattr(module, 'alive', lambda *a: True)
     monkeypatch.setattr(manager, '_launch', lambda *a: pytest.fail('No launch'))
-    calls = [{'method': 'configure_fd_linear_solver', 'args': [{'solver_type': 'Direct'}]}]
+    calls = [{'method': method, 'args': [settings]}]
     params = {'project_id': 'p', 'stage_id': 'linear', 'calls': calls,
               'preview_digest': hashlib.sha256(json.dumps(calls, sort_keys=True, ensure_ascii=False).encode()).hexdigest()}
     with pytest.raises(ServiceError) as caught:

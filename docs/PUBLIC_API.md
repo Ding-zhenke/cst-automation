@@ -1,5 +1,20 @@
 # cst-automation 与领域包的公共接口
 
+## Tetrahedral settings without a full history rebuild
+
+Session `model_api` now also treats `configure_tetrahedral_mesh` as a settings-only
+method. A batch consisting only of that method and the three supported FD settings
+methods reads messages and saves with `rebuild=False`, preserving dirty-geometry guards
+and invalidating prior EM workflow evidence. It never generates a mesh or solves.
+Mixed geometry batches retain the full-rebuild path. Any settings-only batch containing
+tetrahedral mesh settings requires worker capability `mesh-settings-no-rebuild-v1`;
+`solver-settings-no-rebuild-v1` alone is insufficient.
+
+This changes session orchestration only. It does not establish that legacy global
+Mesh controls affect the active modern HF Tet group or that native CST preserves
+all result IDs when settings change. No arbitrary MeshSettings keys, automatic
+mesher switching, or unverified active-group quality controls are introduced.
+
 ## F-solver linear controls and settings-only session batches
 
 `app.configure_fd_linear_solver(settings)` accepts sparse `solver_type=Auto|Iterative|Direct`,

@@ -111,6 +111,22 @@ readback_verified/mesh_verified/solver_verified False. Session rebuild/save does
 not turn them into mesh or solver evidence. Report requested settings separately
 from checked native flags, actual mesh cells/DOF, convergence and solved results.
 
+Pure `configure_tetrahedral_mesh` batches, optionally combined with
+`configure_fd_linear_solver/configure_fd_frequency/configure_fd_parallelization`,
+now check messages and save without a full Rebuild. Require the actual worker's
+`mesh-settings-no-rebuild-v1` capability; the earlier solver-settings capability
+does not cover mesh batches. Mixed geometry calls still rebuild: keep them separate.
+No-rebuild is not a guarantee of native result retention; archive and verify required IDs.
+
+For contact-edge quality, distinguish local size from density transition and
+active-mesher quality optimization. The local CST Mesh Object help documents
+DelaunayOptimizationLevel (0..5) and DelaunayPropagationFactor for Delaunay;
+VolumeOptimization and DensityTransitions (0..1) are Advancing Front controls.
+These legacy commands do not establish the active modern HF Tet MeshSettings
+group's keys or effectiveness. Do not switch mesher or invent modern keys to
+force acceptance. Current typed API has no verified active-group quality setter;
+this remains a concrete capability gap, separate from the repaired no-Rebuild route.
+
 The current global tetrahedral density/material setters still use legacy `Mesh`
 commands. Their receipt identifies `global_controls_backend="legacy_mesh"` and
 warns that effectiveness on a modern active HF Tet group is unverified. Global
