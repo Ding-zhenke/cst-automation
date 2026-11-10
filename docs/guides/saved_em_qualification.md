@@ -58,10 +58,43 @@ Block.ExtractStateSpaceModel，核对设置 getter 后导出 ABCD 与日志；�
 接口不会猜测 ABCD 方程、参考阻抗或独立 DC。文件更新还检查完整 v1 S/RI 矩阵、
 DC 端点、频段与参考阻抗，更新后和 HB 前读取真实文件引用与端口顺序。
 
-**本版尚不能直接覆盖已有内嵌 Touchstone、临时低频文件拟合和端口重排的工程链。**
-仅支持同工程内置 EM 块拟合、同顺序、单文件且不缓存的 Touchstone file 块更新。
-已有 `TOUCHSTONE block` 的 SetFile 曾被工程使用，不等于 GetFile/GetFilePath
-能读出有效内嵌载荷；必须建立有效数据读回后再扩展。不关闭缓存探路，不重建/替换
-原拓扑，不隐式改变端口顺序。顺序不同需要显式双射及矩阵两维同步重排的证据。
+## 实际低频拟合与已有内嵌块
 
-仅当这两类接口的原生条件满足时才能在工程调用；不能为赶进度用裸 history 绕过。
+新增 `prepare_hb_embedded_network`，需要 worker 能力 `embedded-hb-network-v1`。
+它只进行拟合与内嵌输入更新，不启动 EM/HB；新组合入口尚待所属工程实机验收。
+已有 `fit_em_network/update_hb_network` 的普通文件块限制不变。
+
+通过所属会话 submit 提供以下字段（精确结构见公共协议）：
+
+- 身份：`project_id/em_job_id/run_id`，当前成功 EM 或独立资格认证的正 Run ID。
+- 来源：`matrix_path/matrix_sha256`，NPZ 恰含 `S/ports` 及 `frequency_hz` 或 `frequency_GHz` 之一。完整正频率矩阵，维度为频率×端口×端口；不能仅提供低频子集。
+- 映射：`physical_port_ids` 与 NPZ ports 完全一致，`native_reference_ohms` 为逐端口原生参考，`reference_ohm` 为归一化共同阻抗。原生阻抗是调用方已审阅输入，本接口不认证独立阻抗 getter。
+- 采样：`low_frequencies_hz/frequency_atol_hz`。至少三个互异实际样本；逐端口核对最终网格后的原生 Calculation/Accuracy，而非仅匹配插值输出行。目前要求英文 adaptive mesh / interpolative broadband 日志的明确阶段边界。
+- 目标：已有 `block_name`、有效内嵌文件 `expected_payload_sha256`、同 NPZ 目录的全新 `output_path`（`.sNp`）。派生的 `_lf.sNp` 也不能已存在。
+- 设置：`settings` 恰含 `accuracy_abs/maximum_poles/enhance_dc/passivate`。
+- 门槛：`limits` 恰含 `fit_max_error/dc_solve_residual/dc_max_singular/dc_reciprocity_error/roundtrip_error/native_matrix_error/native_sample_residual`。由工程确定，不把其他模型的数值当默认值。
+
+输入完整复数矩阵与同 Run ID 的实际保存矩阵按真实参考阻抗转换后逐项比对。
+临时块使用实际低频行，显式选择 BUILT-IN、Max、固定归一化参考和极点/DC/无源选项。
+导出 ABCD 与日志后核对散射状态方程、端口、参考阻抗和维度，独立计算低频重构残差、
+`S(0)=D-C solve(A,B)`、线性残差、DC 最大奇异值和互易误差。
+仅在所有门槛通过后生成零频行；原正频率矩阵保持不变并进行全文件读回比较。
+这是拟合的 DC 近似，不是独立零频 EM 求解；低频重构不是留出集验证。
+
+目标必须是已有 `TOUCHSTONE block`、单文件、顺序引脚 1..N，`GetFile` 指向本工程
+`Model/DS/Block` 内实际文件。只调用目标的 SetFile，不删除原块、不重接线；不调用
+该类型不支持的 IsCachingFiles。物理端口按矩阵顺序映射到 1..N，不从其他块的
+显示引脚推断。不进行隐式矩阵重排。
+
+临时块删除后以及目标保存后，对比适配器可读回的块、接线、外部端口、探针方向、
+任务身份、单位和参数，并检查原目标引脚和有效内嵌载荷摘要；不声称检查了适配器
+未枚举的所有任务属性或探针绑定。现有 HB 原生源/负载断言仍独立执行。
+
+成功回执包含 `artifacts/metrics/source/after/topology`。将其全部 artifacts 加入
+当前 EM 的数值报告后重新 `accept_workflow_evidence`，再提交 HB。准备操作会清除
+先前报告，保留 EM generation，增加 HB generation；HB 前重查来源、文件摘要和
+原生有效载荷/拓扑。原有工程数值门槛与源/负载断言继续生效。
+
+部分失败保留任务和产物，按原会话机制进入现场核对，不自动清理未知状态、重试或
+回滚。安装不会升级正在运行的 worker；不得为升级而中断仿真。当前维护只做离线
+验证，真实拟合/内嵌更新必须由所属工程在空闲且授权范围内验收。

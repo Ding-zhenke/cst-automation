@@ -19,6 +19,12 @@ def validate(operation, params):
         validate_options(params)
         return
     identifier(params.get('project_id'))
+    if operation == 'prepare_hb_embedded_network':
+        from cst_automation.embedded_network import validate as validate_embedded
+        try:
+            validate_embedded(params)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'qualify_saved_em':
         from cst_automation.em_qualification import validate as validate_qualification
         try:

@@ -45,7 +45,7 @@ def preflight(folder,state,p,job=None):
     return original
 
 
-def saved_curves(path,p,values):
+def saved_curves(path,p,values, *, consume=None):
     """Only the saved-results SDK, never setup/DesignEnvironment/model3d."""
     from cst_solver import Result
     from cst_solver.circuit.results import quantity_values,axis_unit
@@ -82,6 +82,7 @@ def saved_curves(path,p,values):
             if count>2_000_000:raise ValueError('Matrix exceeds bounded qualification size')
             if grid is not None and xs!=grid:raise ValueError('S-matrix grids differ')
             grid=xs
+            if consume is not None: consume(row, col, xs, ys)
             matrix_hash.update(json.dumps([tree,xs,[[v.real,v.imag] for v in ys]],allow_nan=False).encode())
     return {'run_id':p['run_id'],'port_ids':p['port_ids'],'samples':len(grid),'matrix_sha256':matrix_hash.hexdigest(),
             'fmin_hz':grid[0],'fmax_hz':grid[-1],'parameters':stored}

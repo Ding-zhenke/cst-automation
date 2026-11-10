@@ -28,7 +28,7 @@ def reject_unowned_route(path):
 
 
 def protected(operation, params):
-    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em') or (
+    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'prepare_hb_embedded_network') or (
         operation == 'circuit' and params.get('kind', 'build') in ('solve', 'study'))
 
 
@@ -174,6 +174,9 @@ def preflight(folder, state, operation, params, *, job=None):
                 raise ValueError('expressions must map value keys to description strings')
         except (ValueError, TypeError) as exc:
             reject('parameter_invalid', str(exc))
+    if operation == 'prepare_hb_embedded_network':
+        from .embedded_network import preflight as embedded_preflight
+        embedded_preflight(folder, state, params)
     if operation == 'qualify_saved_em':
         from .em_qualification import preflight as qualify_preflight
         qualify_preflight(folder, state, params, job)

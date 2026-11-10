@@ -1,5 +1,52 @@
 # cst-automation 与领域包的公共接口
 
+## LF/DC fitting and embedded Touchstone handoff
+
+`prepare_hb_embedded_network` (worker capability `embedded-hb-network-v1`) is an
+explicit owning-session operation; it never starts EM/HB. It requires project_id,
+em_job_id, run_id, matrix_path/matrix_sha256, physical_port_ids,
+native_reference_ohms, reference_ohm, low_frequencies_hz, frequency_atol_hz,
+block_name, expected_payload_sha256, output_path, settings, and limits.
+The matrix NPZ contains S, ports, and exactly one of frequency_hz/frequency_GHz.
+Each LF point must have final-mesh Calculation/Accuracy records for every physical
+port below native_sample_residual; interpolated curve rows do not count as solves.
+This initial adapter requires the English adaptive-mesh/broadband log boundaries.
+Positive-frequency rows are compared against the same saved native EM Run ID after
+real-reference power-wave renormalization. Native reference impedances are explicit
+reviewed inputs; this operation does not certify their independent port getter audit.
+The new output must reside beside matrix_path; output and its derived _lf file
+must not exist. Settings: accuracy_abs, maximum_poles, enhance_dc, passivate. Limits: fit_max_error,
+dc_solve_residual, dc_max_singular, dc_reciprocity_error, roundtrip_error,
+native_matrix_error, native_sample_residual. Frequency units are Hz except the documented native MOR fmax,
+which is converted using the current schematic frequency unit getter.
+
+A unique temporary TouchstoneProjectInternal block receives only matched actual LF
+samples. MOR uses manual pole selection false, explicit maximum poles, DC/passivity
+flags and Built-in method. Its exported scattering-form ABCD log, reference impedances,
+ordered port labels and achieved error are checked. The code independently evaluates
+LF residuals and D-C solve(A,B), DC linear residual/passivity/reciprocity, then writes
+only the fitted zero row before unchanged positive-frequency normalized data.
+The adapter-observable topology, probes, task identities and non-target blocks
+are compared before and
+after temporary block removal and target SetFile; the target is never deleted.
+
+Only an existing exact native `TOUCHSTONE block` with sequential pins 1..N is accepted.
+GetFile must resolve to a single regular payload inside this project's Model/DS/Block.
+The original payload hash is checked before mutation; after save, the effective payload
+must match the new file byte-for-byte and the observed circuit topology must still match.
+IsCachingFiles is not called for this block type. Physical port IDs are retained in the
+receipt and map positionally to the sequential target pins. The operation does not
+reorder the supplied physical matrix or infer ordering from another block's UI pins.
+
+The current EM generation/qualification is preserved. Failures fence the session and
+retain failure receipts and generated artifacts; no automatic retry or rollback. Successful receipts bind
+all source, LF, ABCD, DC-file and payload hashes and observed topology. HB still requires accepted
+analysis evidence covering these artifacts, plus the existing native source/load checks;
+HB execution rechecks embedded payload and topology. A failed/unqualified EM, changed
+source, missing LF sample, duplicate temp/output artifact, wrong mapping or numerical
+failure blocks the handoff. Installation does not upgrade a live worker. Offline tests
+and historic native evidence are distinct from live acceptance of this new operation.
+
 ## Saved EM qualification after a contradictory SDK abort
 
 `qualify_saved_em` is an explicitly registered session operation. It reads saved
@@ -54,9 +101,9 @@ and metric mor_fit_max_abs_error must be nonnegative and within max_fit_error. T
 analysis is a trusted input, not an independent implementation of ABCD evaluation.
 The file must be a full-matrix Touchstone v1 S/RI file with explicit real reference
 impedance, ordered finite samples from DC through fmax_hz and the expected port count.
-Only a single-file uncached Touchstone file block is supported. Embedded
-`TOUCHSTONE block` updates remain unsupported because GetFile/GetFilePath do not
-certify the effective embedded/cache payload; no cache-disable fallback is used. The original file
+This older operation only supports a single-file uncached Touchstone file block.
+Existing embedded `TOUCHSTONE block` inputs instead use the separately guarded
+`prepare_hb_embedded_network` operation above; no cache-disable fallback is used. The original file
 hash, type and ordered native ports are checked before SetFile; path, digest, ports
 and cache state are rechecked afterwards and immediately before HB. The source/load
 assertions in the bound HB specification remain mandatory. Partial failures are not

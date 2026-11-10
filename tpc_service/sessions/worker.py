@@ -203,7 +203,8 @@ def run(folder):
             from cst_automation.port_replacement import CAPABILITY as PORT_CAPABILITY
             from cst_automation.em_network import CAPABILITY as NETWORK_CAPABILITY
             from cst_automation.em_qualification import CAPABILITY as QUALIFICATION_CAPABILITY
-            state['worker_capabilities'] = [QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, PORT_CAPABILITY]
+            from cst_automation.embedded_network import CAPABILITY as EMBEDDED_CAPABILITY
+            state['worker_capabilities'] = [EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, PORT_CAPABILITY]
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also

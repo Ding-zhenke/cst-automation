@@ -62,6 +62,9 @@ def check_hb(folder,project,app=None):
         reject('network_update_required','Current fitted network update required before HB')
     job=read(Path(folder)/'jobs'/(identifier(update['job_id'])+'.json'))
     if not job or job.get('status')!='succeeded': reject('network_update_required','Network update job is not successful')
+    if update.get('kind') == 'embedded':
+        from .embedded_network import check_hb as check_embedded
+        return check_embedded(folder,project,update,app)
     p=update['params']
     preflight(folder,{'projects':{project['project_id']:project}},'update_hb_network',p)
     if app is not None:

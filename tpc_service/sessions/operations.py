@@ -205,6 +205,9 @@ def _execute_operation(runtime, job):
     mark_stage(runtime, 'project.acquire')
     app, record = runtime.project(params['project_id'])
     contract = record.get('workflow')
+    if operation == 'prepare_hb_embedded_network':
+        from .embedded_network import execute as execute_embedded
+        return execute_embedded(runtime, job, app)
     if operation in ('fit_em_network', 'update_hb_network'):
         from .em_network import execute as execute_network
         return execute_network(runtime, job, app)

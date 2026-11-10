@@ -14,8 +14,11 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 已保存 EM 与 SDK abort 矛盾时，先读[资格核验和网络交接](../../docs/guides/saved_em_qualification.md)。
 使用独立资格回执，不改失败任务为成功，不自动解除现场保护或重算。
-`fit_em_network/update_hb_network` 目前只支持内置同工程 EM → 同端口顺序的
-非缓存文件块；内嵌 Touchstone、临时低频块拟合与端口重排仍有明确缺口，不绕过。
+`fit_em_network/update_hb_network` 用于内置同工程 EM → 同端口顺序的非缓存文件块。
+实际低频拟合并原位更新已有内嵌块用 `prepare_hb_embedded_network`，按上述指南提供
+完整矩阵、物理端口顺序、原生阻抗和数值门槛；接口独立核对最终网格的真实低频
+激励记录、DC 拟合与保存后的有效载荷。内嵌顺序为显式物理矩阵 → 顺序引脚，不能
+沿用另一个 EM 块的显示顺序或绕过检查。新操作尚待所属工程实机验收。
 
 实际 Codex 操作先使用[对话持久会话](../cst-sessions/SKILL.md)，配置/求解/在线读回均借用同一会话。
 
