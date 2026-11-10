@@ -1,5 +1,16 @@
 # cst-automation 与领域包的公共接口
 
+## ADS 2025 database compatibility helpers
+
+`cst_automation.ads_compat.numbered_pin_point(instance, number)` selects the
+unique numbered instance terminal and its unique pin's snap point. Missing or
+ambiguous terminals and pins raise `ValueError`. `set_repeated_values(parameter,
+values)` grows the repeated parameter with `repeats.clone()` before assigning
+the values; it rejects empty input and does not shrink existing repeats. These
+helpers accept caller-provided ADS objects and never import ADS or start a solver.
+They have offline tests; the equivalent underlying operations were observed in
+ADS 2025 Update 2 / DE API 620, not independently validated in other releases.
+
 ## 独立 DS 网络瞬态提交（开发中）
 
 未绑定工作流的所属会话可以提交 `circuit`、`kind=solve`、

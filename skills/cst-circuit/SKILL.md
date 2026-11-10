@@ -39,6 +39,7 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 ## HB 验证的默认求解器
 
 - 常规 HB 验证和扫频默认用 Keysight ADS。需要 CST 的三维 EM 网络时，使用已验收的 CST 结果并导出 Touchstone，在 ADS 中保留匹配的端口映射、参考阻抗、偏置、泵浦和探测条件。分别记录 ADS 双音 HB 与泵浦小信号分析的工况和证据。
+- ADS 版本、2025 数据库兼容、双音谱线和日志证据按 [ADS HB 操作与证据](references/ads-hb.md) 执行；社区技能的 2026 示例不能直接视为 2025 兼容。
 - CST Design Studio HB 只用于交叉核对或定位差异，并且必须等用户明确要求启动 CST HB 后才提交。用户说“验证 HB”“核对结果”或要求配置 CST 任务，本身不授权启动 CST HB。可直接读取已有 CST 结果；使用 CST 做一次新的核对时，按用户指定范围和本技能的原生任务放行门槛执行。
 
 ## 选择入口
