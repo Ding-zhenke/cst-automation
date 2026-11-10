@@ -63,10 +63,12 @@ class SessionManager:
 
     def status(self, session_id, credential):
         folder = self._folder(session_id)
-        with lock(folder / 'state.lock'):
-            state = self._state(folder, credential)
-            public = {k: v for k, v in state.items() if k != 'credential_hash'}
-            public['jobs'] = [read(p) for p in sorted((folder / 'jobs').glob('*.json'))]
+        state = self._state(folder, credential)
+        public = {k: v for k, v in state.items() if k != 'credential_hash'}
+        # State and journals are atomically replaced. A long history scan must not hold
+        # the state lock against a just-launched worker. The state and jobs are
+        # consequently observations at different times, not one snapshot.
+        public['jobs'] = [read(p) for p in sorted((folder / 'jobs').glob('*.json'))]
         return public
 
     def job(self, session_id, credential, job_id):

@@ -47,6 +47,66 @@ def test_binding_is_durable_and_scoped(tmp_path):
     assert not list(tmp_path.rglob('worker.log'))
 
 
+def test_resume_status_does_not_hold_state_lock_during_history_read(tmp_path, monkeypatch):
+    import threading
+    import tpc_service.sessions.manager as manager_module
+    from tpc_service.sessions.store import lock, read, write
+
+    m = manager(tmp_path)
+    ref = m.ensure('resume-lock-test', 'resume-lock-test')
+    folder = tmp_path / ref['session_id']
+    state_path = folder / 'session.json'
+    state = read(state_path)
+    state.update(status='needs_reconcile', uncertain_jobs=['job-old'])
+    write(state_path, state)
+    journal = folder / 'jobs' / 'job-old.json'
+    receipt = {'job_id': 'job-old', 'status': 'needs_reconcile', 'error': {'code': 'original'}}
+    write(journal, receipt)
+    entered, release = threading.Event(), threading.Event()
+    original_read = manager_module.read
+
+    def slow_read(path, *args, **kwargs):
+        if Path(path) == journal:
+            entered.set()
+            assert release.wait(5)
+        return original_read(path, *args, **kwargs)
+
+    monkeypatch.setattr(manager_module, 'read', slow_read)
+    monkeypatch.setattr(m, '_launch', lambda *args, **kwargs: None)
+    result = []
+    thread = threading.Thread(target=lambda: result.append(m.resume(ref['session_id'], ref['credential'])))
+    thread.start()
+    try:
+        assert entered.wait(5)
+        with lock(folder / 'state.lock', blocking=False):
+            pass
+    finally:
+        release.set()
+        thread.join(5)
+    assert not thread.is_alive()
+    assert result[0]['jobs'] == [receipt]
+    assert result[0]['status'] == 'needs_reconcile'
+    assert read(state_path) == state
+    assert read(journal) == receipt
+
+
+def test_status_can_read_atomic_state_during_worker_audit(tmp_path):
+    import threading
+    from tpc_service.sessions.store import lock
+
+    m = manager(tmp_path)
+    ref = m.ensure('status-lock-test', 'status-lock-test')
+    result = []
+    with lock(tmp_path / ref['session_id'] / 'state.lock'):
+        thread = threading.Thread(target=lambda: result.append(m.status(ref['session_id'], ref['credential'])))
+        thread.start()
+        thread.join(2)
+        completed_while_locked = not thread.is_alive()
+    thread.join(5)
+    assert completed_while_locked
+    assert result[0]['status'] == 'allocated'
+
+
 def test_two_sessions_reuse_apps_and_do_not_share_projects(tmp_path):
     m = manager(tmp_path)
     bindings = [m.ensure('a', 'a'), m.ensure('b', 'b')]

@@ -1,5 +1,15 @@
 # cst-automation 与领域包的公共接口
 
+## Session status history snapshot
+
+`SessionManager.status` and `resume` retain the full `jobs` list. The session
+state is authenticated from an atomically published record; history filenames and
+atomically published individual journals are read without `state.lock`. Thus the
+response is not a single point-in-time snapshot: jobs can change or arrive while
+it is assembled. Read the specific job again when making a recovery decision;
+status itself neither changes a fence nor certifies worker startup or a solve.
+Malformed or unreadable journals still raise rather than being silently omitted.
+
 ## ADS 2025 database compatibility helpers
 
 `cst_automation.ads_compat.numbered_pin_point(instance, number)` selects the
