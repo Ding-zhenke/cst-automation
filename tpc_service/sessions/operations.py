@@ -25,6 +25,9 @@ def _execute_operation(runtime, job):
     """Native dispatch implementation; callers must use the guarded execute entry."""
     from . import workflow
     operation, params = job['operation'], job['params']
+    if operation == 'qualify_saved_em':
+        from .em_qualification import execute as qualify_saved
+        return qualify_saved(runtime, job)
     if operation == 'accept_workflow_evidence':
         state = runtime.state()
         project = state['projects'][params['project_id']]
@@ -202,6 +205,12 @@ def _execute_operation(runtime, job):
     mark_stage(runtime, 'project.acquire')
     app, record = runtime.project(params['project_id'])
     contract = record.get('workflow')
+    if operation in ('fit_em_network', 'update_hb_network'):
+        from .em_network import execute as execute_network
+        return execute_network(runtime, job, app)
+    if contract and operation == 'circuit' and params.get('kind') == 'solve':
+        from .em_network import check_hb
+        check_hb(runtime.folder, record, app)
     if contract and (operation == 'solve' or (operation == 'circuit' and params.get('kind') == 'solve')):
         workflow.live_checks(app, contract, 'em' if operation == 'solve' else 'hb')
     if contract:

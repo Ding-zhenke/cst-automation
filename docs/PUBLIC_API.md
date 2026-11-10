@@ -1,5 +1,73 @@
 # cst-automation 与领域包的公共接口
 
+## Saved EM qualification after a contradictory SDK abort
+
+`qualify_saved_em` is an explicitly registered session operation. It reads saved
+3D results through the results SDK only; it never acquires a CST project/controller,
+saves, rebuilds, solves, clears a fence, or rewrites the source failed job. It requires
+normal human-reviewed idle reconciliation first, a ready session without other active
+jobs, unchanged workflow revision/generation, and the exact saved project digest.
+Only the narrowly identified run_solver/Aborted by user exception without monitor
+failure is eligible. A timestamped CST 2026 English Model.log must establish one
+same-window native start, mesh accuracy stop, broadband convergence, postprocess end,
+and positive Run ID, without an abort/error or another run. The saved native run's
+parameter combination and every ordered S-matrix entry are read; finite values,
+frequency grid/coverage and required samples are checked. Requested mesh delta and
+linear residual limits are independently parsed and checked. Source files and project
+hashes must remain stable throughout this read.
+
+Success creates a separate immutable qualification job receipt and an EM receipt
+pointing to it. The original error remains; qualification is not SDK success or an
+independent DC solve. Downstream evidence and network operations explicitly recognize
+this receipt, while ordinary failed solves remain blocked. Unsupported log formats,
+missing metadata, changed inputs, active/unresolved sessions or locked native data
+fail closed and do not trigger a rerun. Native execution acceptance is not inferred
+from a caller's boolean verification report.
+
+## Guarded EM network fitting and HB file update
+
+Session operations `fit_em_network` and `update_hb_network` (capability
+`em-network-input-v1`) extend the owning workflow without rebinding its specification
+or discarding a completed EM generation. Both require the current successful EM job.
+They never start EM or HB and never create/delete/rename blocks or change connections.
+Once fitting begins, HB requires a matching successful network-update receipt. EM
+changes clear fitting/update evidence; subsequent circuit edits clear update evidence.
+
+`fit_em_network` takes project_id/em_job_id/block_name/expected_type/expected_ports,
+settings, and export_paths (A/B/C/D/log). Only intrinsic `CSTMWS`/`CST Microwave Studio` types with an empty/self native file
+reference are supported; external blocks are refused before any setting write.
+Numeric MOR settings specify fmax in project
+frequency units, accuracy_abs, enhance_dc, passivate, method (BUILT-IN/IDEM), error_norm
+(Max/L2), natural_impedances and reference_ohm. It checks current native EM assertions,
+block type/ordered ports, CanUseMOR, all configuration getters before setters, then
+readback, and calls documented Block.ExtractStateSpaceModel(fmax, ""). Exports must be
+new files in the owning project's Export/ABCD directory with the block-name prefix;
+any existing block-prefix files are refused rather than overwritten. Filenames/extensions must come
+from the target CST version's export convention. The receipt hashes nonempty exports;
+it does not certify the numerical fit, DC value or ABCD representation.
+
+`update_hb_network` takes project_id/em_job_id/fit_job_id/block_name/expected_type,
+expected_ports/expected_file_sha256/path/sha256/reference_ohm/fmax_hz/max_fit_error.
+The source and target ordered port names must match exactly; permutations are rejected.
+The accepted EM analysis report must include all fitting exports and the new file,
+and metric mor_fit_max_abs_error must be nonnegative and within max_fit_error. The
+analysis is a trusted input, not an independent implementation of ABCD evaluation.
+The file must be a full-matrix Touchstone v1 S/RI file with explicit real reference
+impedance, ordered finite samples from DC through fmax_hz and the expected port count.
+Only a single-file uncached Touchstone file block is supported. Embedded
+`TOUCHSTONE block` updates remain unsupported because GetFile/GetFilePath do not
+certify the effective embedded/cache payload; no cache-disable fallback is used. The original file
+hash, type and ordered native ports are checked before SetFile; path, digest, ports
+and cache state are rechecked afterwards and immediately before HB. The source/load
+assertions in the bound HB specification remain mandatory. Partial failures are not
+retried, and no rollback or raw-history fallback is provided.
+
+These are typed native/API contracts with offline tests. Native Python getter binding,
+actual export filenames/metadata and numerical ABCD-to-Touchstone conversion still need
+engineering verification. Installing this version does not upgrade a running worker;
+wait for the owning session to be idle before a normal worker upgrade. The operations
+are explicitly exposed through existing submit_cst_session_operation and session CLI submit.
+
 ## Exact-ID waveguide port replacement
 
 `app.replace_port_with_waveguide(id_val, settings, *, expected_type, preserve_ports)`

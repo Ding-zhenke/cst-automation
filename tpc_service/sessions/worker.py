@@ -154,6 +154,9 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
             and not monitor_failure):
         evidence.update(decision=prior, reason='workflow_rejected_before_native_access')
         return
+    if job.get('operation') == 'qualify_saved_em' and not monitor_failure:
+        evidence.update(decision=prior, reason='read_only_qualification_preserved_state')
+        return
     if (job.get('operation') == 'inspect' and job.get('params', {}).get('read_only_review') is True
             and not monitor_failure):
         state['last_read_review_error'] = error
@@ -198,7 +201,9 @@ def run(folder):
             from .workflow import CAPABILITY
             from .model_api import SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY
             from cst_automation.port_replacement import CAPABILITY as PORT_CAPABILITY
-            state['worker_capabilities'] = [CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, PORT_CAPABILITY]
+            from cst_automation.em_network import CAPABILITY as NETWORK_CAPABILITY
+            from cst_automation.em_qualification import CAPABILITY as QUALIFICATION_CAPABILITY
+            state['worker_capabilities'] = [QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, PORT_CAPABILITY]
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also

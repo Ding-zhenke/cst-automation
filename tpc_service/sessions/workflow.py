@@ -28,7 +28,7 @@ def reject_unowned_route(path):
 
 
 def protected(operation, params):
-    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence') or (
+    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em') or (
         operation == 'circuit' and params.get('kind', 'build') in ('solve', 'study'))
 
 
@@ -101,7 +101,8 @@ def evidence_report(folder, project, params):
     if not receipt or receipt['job_id'] != params.get('em_job_id') or receipt['em_generation'] != workflow['em_generation']:
         reject('evidence_required', 'Current successful EM receipt required')
     job = read(Path(folder) / 'jobs' / (identifier(params['em_job_id']) + '.json'))
-    if not job or job['status'] != 'succeeded' or job['operation'] != 'solve' or job['params']['project_id'] != project['project_id']:
+    from .em_qualification import qualified_source
+    if not job or (job['status'] != 'succeeded' and not qualified_source(folder, project, job)) or job['operation'] != 'solve' or job['params']['project_id'] != project['project_id']:
         reject('evidence_invalid', 'EM source job is not a successful solve of this project')
     path = Path(params.get('report_path', ''))
     if not path.is_absolute():
@@ -173,6 +174,12 @@ def preflight(folder, state, operation, params, *, job=None):
                 raise ValueError('expressions must map value keys to description strings')
         except (ValueError, TypeError) as exc:
             reject('parameter_invalid', str(exc))
+    if operation == 'qualify_saved_em':
+        from .em_qualification import preflight as qualify_preflight
+        qualify_preflight(folder, state, params, job)
+    if operation in ('fit_em_network', 'update_hb_network'):
+        from .em_network import preflight as network_preflight
+        network_preflight(folder, state, operation, params)
     if operation == 'accept_workflow_evidence':
         evidence_report(folder, project, params)
     if operation == 'circuit' and params.get('kind') == 'solve':
@@ -189,6 +196,8 @@ def preflight(folder, state, operation, params, *, job=None):
                 or item['run_id'] < 0 for item in results)):
             reject('hb_request_mismatch', 'Explicit result tree paths and nonnegative integer run IDs required')
         check_evidence(folder, project)
+        from .em_network import check_hb
+        check_hb(folder, project)
     return expected
 
 
@@ -236,6 +245,10 @@ def invalidate(runtime, job):
     if operation == 'set_parameters':
         affects_em = any(workflow['spec']['parameters'][n]['affects'] == 'em' for n in params['values'])
         workflow['values'].update(params['values'])
+    if operation == 'circuit' or affects_em:
+        workflow['network_update'] = None
+    if affects_em:
+        workflow['network_fit'] = None
     workflow['hb_generation'] += 1
     if affects_em:
         workflow['em_generation'] += 1

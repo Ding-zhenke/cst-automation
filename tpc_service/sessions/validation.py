@@ -19,6 +19,18 @@ def validate(operation, params):
         validate_options(params)
         return
     identifier(params.get('project_id'))
+    if operation == 'qualify_saved_em':
+        from cst_automation.em_qualification import validate as validate_qualification
+        try:
+            validate_qualification(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation in ('fit_em_network', 'update_hb_network'):
+        from cst_automation.em_network import validate as validate_network
+        try:
+            validate_network(operation, params)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'accept_workflow_evidence':
         require(set(params) == {'project_id', 'em_job_id', 'report_path'}, 'Exact evidence arguments required')
         identifier(params.get('em_job_id'))

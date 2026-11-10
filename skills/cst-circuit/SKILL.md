@@ -12,6 +12,11 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 先绑定规格，按回执依次推进，不能靠助手自觉调用可选检查。数值报告来源分析和
 未声明的工程判断仍须实际完成；下述低层 API 不得用来绕过受保护工程的会话门槛。
 
+已保存 EM 与 SDK abort 矛盾时，先读[资格核验和网络交接](../../docs/guides/saved_em_qualification.md)。
+使用独立资格回执，不改失败任务为成功，不自动解除现场保护或重算。
+`fit_em_network/update_hb_network` 目前只支持内置同工程 EM → 同端口顺序的
+非缓存文件块；内嵌 Touchstone、临时低频块拟合与端口重排仍有明确缺口，不绕过。
+
 实际 Codex 操作先使用[对话持久会话](../cst-sessions/SKILL.md)，配置/求解/在线读回均借用同一会话。
 
 多轮 EM→HB 工作先恢复[要求与证据清单](../cst-sessions/references/workflow-checkpoint.md)，
