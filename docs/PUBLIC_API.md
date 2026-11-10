@@ -1,5 +1,14 @@
 # cst-automation 与领域包的公共接口
 
+## 独立 DS 网络瞬态提交（开发中）
+
+未绑定工作流的所属会话可以提交 `circuit`、`kind=solve`、
+`settings={operation: "run_network_transient", task_name, expected_results}`；
+仅当实际原生任务是 `transient` 且 `circuit simulator` 为 `cst`、并且没有子任务时
+才委托既有 `run_checked(mode="network", reuse="never")`。绑定了 EM→HB 工作流或
+存在保护标记的工程仍不得使用该入口绕过保护。此入口尚不支持 MOR 强制命中或
+独立原生取消/截止，携带这些选项会在启动前拒绝；原生工程实机验证待完成。
+
 ## LF/DC fitting and embedded Touchstone handoff
 
 `prepare_hb_embedded_network` (worker capability `embedded-hb-network-v1`) is an

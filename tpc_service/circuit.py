@@ -9,6 +9,19 @@ from cst_solver.circuit.adapter import CircuitError
 from tpc_service.backends.base import ok_result, fail_result, artifact
 
 
+def validate_network_transient(adapter, name):
+    """Reject anything except an independently selected native transient leaf."""
+    task = adapter.task(name)
+    if (task.get('name') != name or task.get('type', '').lower() != 'transient'
+            or task.get('properties', {}).get('circuit simulator', '').lower() != 'cst'):
+        raise CircuitError('circuit_mode_unsupported', 'Native network transient task required')
+    tasks = adapter.inspect()['tasks']
+    names = [row['name'] for row in tasks]
+    if names.count(name) != 1 or any(n.startswith(name + '\\') for n in names):
+        raise CircuitError('circuit_topology_invalid', 'Target must be a unique task with no children')
+    return task
+
+
 def contained(root, path):
     root = Path(root).resolve()
     path = (root / Path(path)).resolve()
@@ -35,7 +48,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             return setup(path)
 
     allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "package"},
-               "solve": {"run_task"}, "study": {"parameter_sequence", "run_parameter_study"}}
+               "solve": {"run_task", "run_network_transient"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
     def handle(*, project, params, job, backend):
         app = None
@@ -124,6 +137,13 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     **{key: params[key] for key in ('result_name', 'template_name', 'group', 'result_type', 'settings')})
             if operation in ("read_results", "package"):
                 contained(service.workdir, params["destination"])
+            if operation == 'run_network_transient':
+                if not borrowed_project:
+                    raise CircuitError('circuit_unavailable', 'Standalone transient requires its owning session')
+                if (not isinstance(params.get('task_name'), str) or not params['task_name']
+                    or not isinstance(params.get('expected_results'), list) or not params['expected_results']
+                    or set(params) - {'operation', 'task_name', 'expected_results', 'note'}):
+                    raise CircuitError('circuit_spec_invalid', 'Explicit transient task/results required; MOR and cancellation are unsupported')
             if operation in ("run_task", "parameter_sequence"):
                 if not isinstance(params.get("task_name"), str) or not params["task_name"] or params.get("mode") not in ("network", "transient_cosim"):
                     raise CircuitError("circuit_spec_invalid", "Explicit task_name and valid mode required")
@@ -245,6 +265,11 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     if result["status"] != "succeeded":
                         return _outcome(result, reports)
                 return ok_result(saved=True, result_summary={"points": reports})
+            if operation == 'run_network_transient':
+                validate_network_transient(api.adapter, params['task_name'])
+                result = api.run_checked(params['task_name'], mode='network', expected_results=params['expected_results'],
+                                         reuse='never', note=params.get('note', ''))
+                return _outcome(result)
             result = api.run_checked(params["task_name"], mode=params["mode"], expected_results=params["expected_results"],
                                      reuse=params.get("reuse", "never"), note=params.get("note", ""))
             return _outcome(result)

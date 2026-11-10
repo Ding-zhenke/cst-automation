@@ -38,9 +38,10 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 ## 选择入口
 
-代码优先：配置/读回用原生 Python/API，必要时使用有依据的 VBA；日志、数据和
-API 可完成的检查不走 computer use。只有缺少接口、需要处理实际对话框或核对
-实际显示时才集中使用界面操作，避免反复截图和轮询。
+通用电路设置、读回和任务提交均使用原生 Python/API，必要时使用有依据的 VBA。
+缺少能力时报告具体缺失的接口和未完成的设置，不把 Computer Use 作为回退来
+配置、运行或绕过任务门槛。真实弹窗的诊断按所属会话规则处理，不把处理弹窗
+等同于 API 已支持该功能。
 
 HB 基频/阶数、原生 Parameter Sweep 序列、指定运行的谱线、Results 曲线写入，
 以及首次注册、已绑定模板更新，使用 [原生 HB 与后处理接口](../../docs/guides/native_hb_postprocessing.md)。
@@ -144,6 +145,10 @@ HB 或其父扫描运行前，执行 [HB 数据覆盖与停止门槛](references
 
 - 在已保存的工作副本上执行明确任务，使用 `run_checked(task_name, mode=..., expected_results=..., reuse="never")`。每个预期结果包含真实 `tree_path` 和整数 `run_id`，从读回取得，不假定 run 0 永远代表本轮。
 - `transient_cosim` 要求实际 transient 任务的 `circuit simulator` 为 `cosimulation`，由运行契约检查目标任务和三维侧证据。不要改用裸 `Update` 绕过失败。
+- 普通 DS 网络瞬态与 EM→HB 工作流不同；未绑定工作流的会话可使用 `circuit/solve/run_network_transient`，显式传 `task_name` 和 `expected_results`。运行前原生核对 transient、cst 网络模式和无子任务；已绑定工作流或存在保护标记的工程拒绝独立入口。该入口尚不支持强制 MOR 复用或原生取消；不能满足用户要求时不提交。不把 `mode=network` 当作纯瞬态证明，也不改用裸 SDK 绕过保护。
+- `reuse='verified'` 是既有结果缓存契约，不是要求复用 MOR；当前无法证实时不得声称 MOR 命中，要求必须复用而无法在启动前可靠保证时，不提交可能冷启动的求解。MOR 文件存在、修改时间或单次耗时均不足以证明复用。
+- 用户要求 120 秒等可取消截止时，先确认独立控制路径能针对所属任务发出原生取消并读回停止状态；当前库未证实该能力时明确报告未实现，不把 Python 等待超时、线程中断或强杀进程当作 CST 停机。
+- 文件引用先用 `inspect_dependencies` 核对实际路径及摘要；缺失、迁移或原生更新不可验证时报告具体依赖及状态，不借 Update File References 对话框冒充 API 完成。
 - 读取电路结果用 `CircuitResult` 的 schematic 域，先列树路径与 run ID，再读取/导出。保留单位、参数、摘要、工程路径；幅值约定、电流方向或 FFT 窗口未知时保持 unknown。
 - 常用瞬态设置优先使用 `configure_transient_task(task_name, settings, create=False)`，显式指定 mode、带 value/unit 的 duration；sampling、integration、max_frequency、accuracy 按指南提供。接口转换到已有工程单位，先设置区间、最后选采样方式；不自动求解。
 - integration 支持 stepping=automatic/adaptive/fixed、method=adams/gear、整数 order=1..4。adaptive 的 minimum_time_step 不得超过 time_step，automatic 不接收显式步长。普通网络瞬态显式算法建议同时设 auto_solver=False；真实联合的算法和时钟仍须运行证据，不用 DS 请求选项取代 EM 时间控制。

@@ -138,10 +138,26 @@ def check_evidence(folder, project):
 def preflight(folder, state, operation, params, *, job=None):
     project = state['projects'].get(params.get('project_id'))
     workflow = project.get('workflow') if project else None
+    standalone_transient = (operation == 'circuit' and params.get('kind') == 'solve'
+        and params.get('settings', {}).get('operation') == 'run_network_transient')
+    if standalone_transient:
+        settings = params['settings']
+        from cst_solver.circuit.results import task_result_path
+        if (set(settings) - {'operation', 'task_name', 'expected_results', 'note'}
+                or not isinstance(settings.get('task_name'), str) or not settings['task_name']
+                or not isinstance(settings.get('note', ''), str)
+                or not isinstance(settings.get('expected_results'), list) or not settings['expected_results']
+                or any(not isinstance(row, dict) or not isinstance(row.get('tree_path'), str)
+                       or not task_result_path(row['tree_path'], settings['task_name'])
+                       or type(row.get('run_id')) is not int or row['run_id'] < 0
+                       for row in settings['expected_results'])):
+            reject('transient_request_invalid', 'Explicit task/results required; MOR reuse and cancellation are unsupported')
+    if standalone_transient and workflow:
+        reject('route_unsupported', 'Standalone transient cannot bypass an existing protected workflow')
     if not workflow:
         if project and marker(project['path']).exists():
             reject('owner_mismatch', 'Protected project has no matching session contract')
-        if protected(operation, params) and state['backend'] == 'cst':
+        if protected(operation, params) and not standalone_transient and state['backend'] == 'cst':
             reject('required', 'Bind an engineering specification before parameter/EM/HB execution')
         return None
     relevant = protected(operation, params) or mutates(operation, params)
