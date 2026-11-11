@@ -51,6 +51,45 @@ def api_and_tasks():
     return CircuitAPI(None, adapter=SimpleNamespace(schematic=SimpleNamespace(SimulationTask=tasks))), tasks
 
 
+@pytest.mark.parametrize('effective_only', [False, True])
+def test_parent_cascading_disable_writes_descendants_first_and_records_steps(effective_only):
+    class CascadingTasks(Tasks):
+        def GetProperty(self, key):
+            if effective_only and any(self.name.startswith(name + '\\') and row[1] == 'False'
+                                      for name, row in self.rows.items()):
+                return 'False'
+            return super().GetProperty(key)
+        def SetProperty(self, key, value):
+            super().SetProperty(key, value)
+            for name in self.rows:
+                if not effective_only and name.startswith(self.name + '\\'):
+                    self.rows[name][1] = value
+    tasks = CascadingTasks()
+    api = CircuitAPI(None, adapter=SimpleNamespace(schematic=SimpleNamespace(SimulationTask=tasks)))
+    out = invoke(api)
+    assert tasks.writes == ['Scan\\HB', 'Scan']
+    assert out['execution_order'] == ['Scan\\HB', 'Scan']
+    assert out['observations'][-1]['targets'] == out['after']
+    assert [row['enabled'] for row in out['after']] == [False, False]
+    assert tasks.rows['Scan\\HB'][1] == 'False'
+
+
+def test_unexplained_sibling_change_is_rejected_and_recorded_before_further_writes():
+    api, tasks = api_and_tasks()
+    original = tasks.SetProperty
+    def changing_setter(key, value):
+        original(key, value)
+        tasks.rows['Other'][1] = 'False'
+    tasks.SetProperty = changing_setter
+    options = request()
+    options['tasks'].append({'task_name': 'Other', 'expected_type': 'spectral lines', 'expected_enabled': True})
+    with pytest.raises(CircuitError) as exc:
+        invoke(api, options)
+    assert tasks.writes == ['Scan\\HB']
+    assert exc.value.details['observations'][-1]['targets'][-1]['enabled'] is False
+    assert exc.value.code == 'circuit_build_partial'
+
+
 def invoke(api, options=None):
     data = dict(options or request())
     data.pop('operation')
@@ -60,7 +99,7 @@ def invoke(api, options=None):
 def test_disable_exact_targets_reports_native_before_after_without_execution():
     api, tasks = api_and_tasks()
     out = invoke(api)
-    assert tasks.writes == ['Scan', 'Scan\\HB']
+    assert tasks.writes == ['Scan\\HB', 'Scan']
     assert tasks.rows['Other'] == ['spectral lines', 'True']
     assert [r['enabled'] for r in out['before']] == [True, True]
     assert [r['enabled'] for r in out['after']] == [False, False]
@@ -135,7 +174,7 @@ def test_managed_handler_disables_and_saves_but_does_not_execute(tmp_path):
     out = call(request())
     assert out['ok'] and out['saved']
     assert calls == ['factory', 'save', 'release']
-    assert tasks.writes == ['Scan', 'Scan\\HB']
+    assert tasks.writes == ['Scan\\HB', 'Scan']
 
 
 def test_standalone_route_rejects_before_creating_app(tmp_path):
@@ -171,19 +210,20 @@ def test_save_failure_retains_native_changes_and_does_not_retry(tmp_path):
     assert not out['ok'] and not out['saved']
     report = out['result_summary']['partial_build']
     assert report['stage'] == 'save' and report['after'][0]['enabled'] is False
-    assert report['attempted'] == ['Scan', 'Scan\\HB']
+    assert report['attempted'] == ['Scan\\HB', 'Scan']
     assert report['save_error'] == 'Synthetic save failure'
     assert len(list(tmp_path.rglob('circuit_failures/*.json'))) == 1
     assert calls == ['factory', 'save', 'release']
 
 
-def test_execution_rejects_old_worker_before_native_access(tmp_path):
+@pytest.mark.parametrize('capabilities', [[], ['disable-native-tasks-v1']])
+def test_execution_rejects_old_worker_before_native_access(tmp_path, capabilities):
     from tpc_service.sessions.operations import execute
     from tpc_service.errors import ServiceError
     class Runtime:
         folder = tmp_path
         def state(self):
-            return {'projects': {}, 'worker_capabilities': []}
+            return {'projects': {}, 'worker_capabilities': capabilities}
         def project(self, name):
             pytest.fail('Native project access before capability rejection')
     with pytest.raises(ServiceError) as exc:

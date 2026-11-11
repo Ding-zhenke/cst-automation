@@ -11,10 +11,11 @@ def settings():
         'confirm_idle': True, 'review_note': 'Reviewed native idle'}
 
 
-def test_old_worker_refused_before_job_or_launch(setup):
+@pytest.mark.parametrize('capabilities', [[], ['disable-native-tasks-v1']])
+def test_old_worker_refused_before_job_or_launch(setup, capabilities):
     manager, ref, folder, path, launches = setup
     state = read(folder / 'session.json')
-    state.update(worker={'pid': 123}, worker_capabilities=[])
+    state.update(worker={'pid': 123}, worker_capabilities=capabilities)
     write(folder / 'session.json', state)
     with pytest.raises(ServiceError) as exc:
         submit(setup, 'circuit', {'kind': 'build', 'settings': settings()})
@@ -29,7 +30,7 @@ def test_bound_disable_keeps_generation_digest_and_owner_guards(setup, change, c
     bind(setup)
     job = submit(setup, 'circuit', {'kind': 'build', 'settings': settings()})
     state = read(setup[2] / 'session.json')
-    state['worker_capabilities'] = ['disable-native-tasks-v1']
+    state['worker_capabilities'] = ['disable-native-tasks-v2']
     if change == 'generation':
         state['projects']['p']['workflow']['hb_generation'] += 1
     elif change == 'digest':

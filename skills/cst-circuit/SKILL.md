@@ -49,6 +49,9 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 提供完整任务名、预期类型、原生启用状态及当前空闲审阅。只配置保存，不 Update，
 不以裸宏绕过工作流；禁用不是中止运行序列。旧 worker 缺能力时由所属会话处理，
 不为新接口打断当前任务或擅自交接。
+父子一起禁用要求 `disable-native-tasks-v2`：全目标初检后按子到父写入，记录每步
+全目标读回；父先禁用后子的 enabled 变化不能直接判为外部竞争，也不能直接放行。
+旧部分失败仍保留，所属会话先核对现场并定向解决，不重放旧请求。
 
 通用电路设置、读回和任务提交均使用原生 Python/API，必要时使用有依据的 VBA。
 缺少能力时报告具体缺失的接口和未完成的设置，不把 Computer Use 作为回退来

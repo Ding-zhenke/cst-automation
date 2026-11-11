@@ -1,6 +1,6 @@
 """Pure request contract for disabling existing DS tasks; never loads CST."""
 
-CAPABILITY = 'disable-native-tasks-v1'
+CAPABILITY = 'disable-native-tasks-v2'
 OPERATION = 'disable_tasks'
 
 

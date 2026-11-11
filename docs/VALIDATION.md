@@ -1,5 +1,21 @@
 # 验证记录
 
+## 2026-11-11：禁用任务的父子联动修复（0.3.51，离线）
+
+- 所属会话报告：v1 初检父/子均 enabled=true，父写 False 后子的 enabled 已 false，
+  被旧逐项预期检查拒绝；保留失败及已保存审计。后续所属会话独立核对父、HB 子和
+  绘图子均 false、几何未变，再定向解决；未重放或把原失败改为成功。维护端未读现场。
+- 官方 Simulation Task Overview 的 Sequence 小节明确禁用 sequence 同时禁用子任务；
+  Parameter Sweep 小节和 enabled getter 没有明确独立位/继承有效值语义。不能把这次
+  先后变化归因外部竞争，也不能据此认定全部原生内部实现。
+- 修复为全目标初检、子到父写入、每步前后全目标读回，仅接受该步目标的预期变化；
+  未解释变化仍拒绝，记录 execution_order/observations。新能力 disable-native-tasks-v2
+  拒绝仅有 v1 的旧 worker，不自动升级。父的未列出后代可能受原生传播影响，未认证。
+- 33 项专项离线测试通过，包括向下传播、仅有效状态继承、异常兄弟状态变化和 v1
+  提交/执行拒绝。完整回归 **2043 passed、2 deselected、9 warnings**（48.16 s），
+  日志 work/pytest-disable-v2-full.log；独立只读代码复核通过。无新 CST 夹具、主工程操作
+  或 worker 交接；当前现场无需再次交接，修复不追认旧任务成功。
+
 ## 2026-11-11：托管禁用已有 HB 任务（0.3.50，离线）
 
 - 新增所属会话 circuit/build/disable_tasks 及 disable-native-tasks-v1 能力检查；

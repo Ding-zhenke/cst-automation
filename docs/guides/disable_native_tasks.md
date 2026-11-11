@@ -27,13 +27,19 @@
 名称包含实际父级，不加结果树的 Tasks 前缀。不猜子任务名，expected_enabled
 来自本次读回；原来已经禁用的任务填 false，接口不会再次写入该任务。1..32 个
 不重复目标全部通过 DoesExist、GetTypeForTask 和 GetProperty(enabled) 检查后
-才开始修改。仅 SetProperty(enabled, False)，逐一重读存在性、类型及状态；
+才开始修改。0.3.51 起按路径深度从子到父执行，不按请求数组的父优先顺序写入。
+每步写入前后读全部列出目标，对比前一步已核验状态；只允许本步目标由 true
+变 false，无法解释的其他变化仍失败并保留 observations，不假定是继承或竞争。
+execution_order 记录实际顺序；before/after 仍按请求顺序。仅 SetProperty(enabled, False)，逐一重读存在性、类型及状态；
 无 Create/Delete/Update/UpdateResults/ParameterSweep.Start/模板求值。
+父禁用可能影响未列出的后代；此接口只比较列出的目标，不宣称其他子任务状态不变。
+需要独立审计某个后代时，由所属会话另行核对，不能把请求列表当作传播范围限制。
 
 Python facade 为 `app.circuit.disable_tasks(tasks, confirm_idle=True, review_note=...)`，
 不自动保存。受保护工程必须走会话路由；会话复用原工程并保存，保留前后读回。
 普通临时 RunService 拒绝此操作，不创建 DE；MCP 沿既有会话提交工具显式注册，
-没有新增独立电路工具。旧 worker 缺 `disable-native-tasks-v1` 时拒绝请求；安装
+没有新增独立电路工具。旧 worker 缺 `disable-native-tasks-v2` 时拒绝请求（只有 v1
+同样拒绝）；安装
 插件不更新正在运行的 worker，不自行交接或重新打开主工程。
 
 原有工作流归属、摘要、输入代次和失败保护仍生效；配置使 HB 设置证据失效，
@@ -48,4 +54,9 @@ saved_reopen_verified、result_retention_verified 均为 false。接口不请求
 官方依据：CST 2026 本机帮助
 `Online Help/mergedProjects/VBA_DES/special_vbacommands/simulationtaskobject.htm`，
 All tasks 的 enabled 属性，以及 Name/DoesExist/GetTypeForTask/GetProperty。
+`Online Help/mergedProjects/DES/analysis/simulation/simulation_task_overview.htm`
+的 Simulation Task Sequence 明确说明禁用 sequence 同时禁用子任务；Parameter
+Sweep 小节只明确其执行子任务，未明确说明 enabled getter 返回独立位或继承后的
+有效状态。子优先方案兼容“向下传播”和“有效状态继承”两种离线模拟，不把模拟
+当作该版本原生内部实现证据。父已禁用时读到子 false 也不能证明其独立 enable 位。
 本次仅离线验证，不接触主 DE，不执行新实机试验。

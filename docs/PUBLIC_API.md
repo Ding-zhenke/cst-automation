@@ -1468,13 +1468,19 @@ Session `circuit`, `kind=build`, `settings.operation=disable_tasks` accepts exac
 its complete `task_name`, `expected_type` (`parameter sweep` or `spectral lines`),
 and boolean `expected_enabled`. `confirm_idle` must be true and is an owning
 caller's DS/EM/postprocessing idle assertion, not an independent native idle getter.
-The worker capability is `disable-native-tasks-v1`; absent support rejects before
+The worker capability is `disable-native-tasks-v2`; absent support rejects before
 native access. Existing workflow ownership, stale-generation and digest checks
 remain active; circuit mutation invalidates dependent HB evidence.
 
 `app.circuit.disable_tasks(tasks, *, confirm_idle, review_note)` preflights every
 existing task with DoesExist/GetTypeForTask/GetProperty(enabled) before any write.
-It only sets enabled=False, reselects and reads back every target. It never creates,
+It only sets enabled=False, reselects and reads back every target. Targets are
+written deepest-first so a selected parent is never disabled ahead of its selected
+descendants. Each step compares complete target observations with the preceding
+verified state; only that step's target may change true to false. Unexplained changes
+still fail, rather than attributing them to inheritance or concurrency. Receipts
+include execution_order and observations. Initial request/before order is preserved.
+It never creates,
 deletes, Updates, evaluates templates or runs solvers. The facade does not save;
 the session route saves using its existing handler and retains partial failure
 audit. Reports distinguish before/after settings from solver/reopen/result retention
