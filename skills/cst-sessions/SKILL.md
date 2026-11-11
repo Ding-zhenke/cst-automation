@@ -127,6 +127,9 @@ scene makes the existing authorization insufficient.
   The archive backup excludes only its root Model.lok, recording metadata and
   explicitly uncopied content. Continue an empty uncommitted backup only through
   the same reviewing transaction; never delete a partial snapshot to retry.
+  For the exact pre-close companion-difference refusal after worker exit, use the
+  guide's explicit full-hash SimProps drift review. It preserves Temp deltas and
+  the original backup/token; other content changes or any close intent refuse.
 - Keep the working project and its DE while the approved task is active, including replies and
   disconnects. Once modeling is complete and the formal CST plus paired data are verified, use
   session `close_project` to save, close and retire this task's process projects, then delete their

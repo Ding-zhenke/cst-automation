@@ -69,7 +69,13 @@ def register_session_tools(root, *, backend='cst', replace=False):
     def finish_archive_recovery(a):
         return tool_payload({'recovery': manager.finish_model3d_archive_recovery(a['session_id'], a['credential'])})
 
+    def review_archive_drift(a):
+        return tool_payload({'recovery': manager.review_model3d_archive_drift(
+            a['session_id'], a['credential'], **a['review'])})
+
     entries = [
+        ('review_cst_model3d_archive_drift', 'Explicit full-hash preclose Temp drift review; retain deltas and same frozen transaction.',
+         dict(identity, review={'type': 'object'}), list(identity)+['review'], review_archive_drift, False),
         ('begin_cst_model3d_archive_recovery', 'Freeze a fenced failed 3D project for reviewed archive restore and fresh-handle handoff.',
          dict(identity, review={'type': 'object'}), list(identity)+['review'], begin_archive_recovery, False),
         ('finish_cst_model3d_archive_recovery', 'Advance explicit archive recovery; ambiguous mutation remains frozen without replay.',

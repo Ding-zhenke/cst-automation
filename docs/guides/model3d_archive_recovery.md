@@ -107,3 +107,42 @@ recover 接口核对整个失败进程树退出后恢复；不放宽其限制。
 
 尚未现场证明：隔离后原生重开是否自行生成本版本的历史 JSON、完整外部依赖、
 原生句柄交接及矩阵保留。缺项会拒绝而不是从旧文件制造证明。
+
+## 退出后、关闭前的精确 SimProps 差异复核（0.3.64）
+
+仅适用于 phase=recovery_mutation_claimed、最后错误精确为
+`Failed companion changed since its verified backup`，且尚无 close_intent、隔离目录、
+恢复暂存或重开回执的同一事务。此错误在 0.3.63 及之前的恢复函数中发生于第一次
+native 观察及 close 之前，不能推广成任何 mutation_claimed 都可重试。
+
+所属会话先确认原 worker 已 stop_ack 正常退出，原 DE/标签仍在，原 SDK 已返回，
+当前 `.cst` 和成功源摘要不变。调用：
+
+```python
+receipt = manager.review_model3d_archive_drift(
+    session_id, credential,
+    expected_token=original_transaction_token,
+    review_note=reviewed_preclose_failure_and_temp_drift_basis,
+    confirm_preclose=True,
+)
+# On success the SAME token is stop_requested; continue its original finish.
+receipt = manager.finish_model3d_archive_recovery(session_id, credential)
+```
+
+CLI 为 `review-model3d-archive-drift --review-file ABS.json`，JSON 就是上例三个关键字
+字段；MCP 为 `review_cst_model3d_archive_drift`（review 对象）。不重新 begin、不手改
+会话、不删除或覆盖旧 before/ 与 manifest。
+
+接口重新核对完整原备份并读取**全部**当前文件 SHA256，原生参数/端口和单标签状态
+也须与退出前相同。仅允许精确 `Temp/DataStore/SimProps/registry.db` 或其同目录下
+标准小写 UUID 文件的新增、修改、删除；不开放整个 Temp 树、任意扩展名或子目录。
+模型、结果及未知文件只要内容变化就拒绝。mtime 等元数据变化且 SHA 相同不算内容变化。
+
+每次复核生成独立 `preclose-drift/<audit-id>/report.json`，保存完整当前清单、全部
+差异、原 manifest 摘要和变动文件副本；旧内容仍在原 before/ 中。复制后再次完整
+哈希核对，变化不稳定则拒绝。成功只让原事务回 stop_requested，并不执行关闭或恢复。
+
+下一次 finish 在原生观察后、close 前再做一次完整内容比较和新的临时增量保留。
+确认源/目标/进程身份仍一致后，先持久记录 close_intent，再调用 close；有这个标记
+之后不可使用本接口。关闭后的原 companion 仍整体隔离保留，不拿临时变化当模型或
+数值验收，也不把差异筛查报告当“成功恢复”。

@@ -248,15 +248,35 @@ def _restore(folder, state):
     evidence = _plain(data['evidence_dir'])
     require(file_digest(evidence / 'before' / 'project.cst') == review['current_digest'], 'Failed archive missing')
     manifest = read(evidence / 'before_manifest.json') or {}
+    drift_reviewed = bool(data.get('preclose_drift_reviews'))
     require(manifest.get('project') == review['current_digest']
             and _manifest(evidence / 'before' / 'companion') == manifest.get('companion')
-            and _manifest(target.with_suffix(''), exclude_native_lock=True) == manifest.get('companion'),
+            and (drift_reviewed or _manifest(target.with_suffix(''), exclude_native_lock=True) == manifest.get('companion')),
             'Failed companion changed since its verified backup')
+    if drift_reviewed:
+        from .archive_drift import verify_approval
+        verify_approval(state)
     proof, app, handle = _observe(folder, state)
     require(proof == data['pre_exit_scene'], 'Scene changed across old worker exit')
     pair = target.with_suffix('')
     quarantine = _plain(target.parent / (target.stem + '.failed-' + record['token']))
     require(quarantine.parent == target.parent and not quarantine.exists(), 'Exact unused companion quarantine required')
+    audit = None
+    if drift_reviewed:
+        from .archive_drift import capture_delta
+        audit = capture_delta(state, purpose='immediately_before_close')
+    require(file_digest(target) == review['current_digest'] and file_digest(source) == review['source_digest'],
+            'Source or target changed before close')
+    require(alive(state['environment']) and not alive(record['old_worker']), 'Original DE/worker state changed before close')
+    with lock(folder / 'state.lock'):
+        current = read(folder / 'session.json')
+        active = current.get('worker_upgrade') or {}
+        require(active.get('token') == record['token'] and active.get('phase') == 'recovery_mutation_claimed'
+                and not active['archive_recovery'].get('close_intent'), 'Close was already claimed or state changed')
+        if audit:
+            active['archive_recovery'].setdefault('preclose_drift_checks', []).append(audit)
+        active['archive_recovery']['close_intent'] = True
+        write(folder / 'session.json', current)
     # Both the pre-close copy and the complete post-close companion tree are kept.
     handle.close()
     require(alive(state['environment']) and not app.project.list_open_projects(), 'Target closure is unverified')

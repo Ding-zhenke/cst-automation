@@ -2,6 +2,20 @@
 
 ## Fenced 3D archive recovery
 
+`review_model3d_archive_drift(session_id, credential, *, expected_token,
+review_note, confirm_preclose=True)` is an explicit controller review for the
+exact pre-close `Failed companion changed since its verified backup` refusal.
+It requires the original stopped worker/DE/tab, unchanged .cst/source digests,
+intact full backup, no close intent or restore artifacts, and full native review.
+Only exact `Temp/DataStore/SimProps/registry.db` or canonical UUID leaf changes
+may be retained as audited temporary drift; every other content change refuses.
+Full manifests and changed-file copies are kept under a new append-only audit
+directory. It restores only the same transaction's stop_requested phase; it
+does not close, copy over the project, restart a worker, or clear the fence.
+The next finish repeats full content comparison and preserves a fresh Temp delta
+after native observations and before recording close intent. Post-close companion
+is still preserved whole. Metadata-only differences do not count as content drift.
+
 Recovery backup excludes only the owned CST companion root's exact `Model.lok`
 temporary lock. Its stat metadata and explicit content-not-backed-up reason are
 recorded separately; no other name, nested lock, or PermissionError is ignored.

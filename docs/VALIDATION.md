@@ -1,5 +1,21 @@
 # 验证记录
 
+## 2026-11-12：明确关闭前的 SimProps 差异复核（0.3.64）
+
+- 所属会话报告已完整备份并正常退出旧 worker，原 DE 仍在；恢复在首个 companion
+  摘要比较拒绝，尚未 native observe/close。维护只读其 metadata-filtered 差异报告：
+  多个模型/结果文件仅 mtime 变化且 SHA 相同，实际内容变化位于 SimProps registry
+  与 UUID 文件。该诊断不是全文件未变证明，不能直接作为续接放行。
+- 新增显式 controller/CLI/MCP review_model3d_archive_drift：只接受精确事务与已知
+  关闭前拒绝，完整核对旧备份、源/目标、原 worker 退出、原 DE/标签/参数/端口；
+  完整比较所有文件 SHA，只允许精确 SimProps registry.db 或标准 UUID 叶文件变化。
+  追加完整清单/差异/新内容副本，保留旧清单及旧文件，成功只退回同 token stop_requested。
+- 下一次 finish 在 native 观察后重新全量比较并保留最新临时增量，关闭意图先持久化；
+  模型、结果、未知 Temp、关闭后失败或结果不明均不得借此重放。根 Model.lok 例外保持原范围。
+- 全库离线回归 **2336 passed、2 deselected、9 warnings**（64.27 s），日志
+  `work/pytest-preclose-drift-full.log`；相关 112 项通过、技能及打包校验通过、独立审查通过。
+  维护未操作实际 DE、工程或恢复事务；此版原生差异续接/归档重开仍未验收。
+
 ## 2026-11-12：归档备份根部 Model.lok 与空目录续接（0.3.63）
 
 - 所属会话报告：原生标签打开时 paired 根部 Model.lok 排他锁导致备份前读取失败，

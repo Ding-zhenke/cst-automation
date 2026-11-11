@@ -170,6 +170,9 @@ def test_restore_quarantines_all_failed_files_and_never_saves_or_retries(recover
     state = read(folder / 'session.json'); record = state['worker_upgrade']
     proof = {'parameters': {}, 'ports': {}}
     record['archive_recovery']['pre_exit_scene'] = proof
+    record['phase'] = 'recovery_mutation_claimed'
+    write(folder / 'session.json', state)
+    live.remove(11)
     mod._backup(target, Path(record['archive_recovery']['evidence_dir']))
     calls = []; tabs = [str(target)]
     def close():
