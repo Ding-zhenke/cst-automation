@@ -7,6 +7,13 @@ description: Read, export, and analyze CST result trees, fields, far fields, or 
 
 # CST results
 
+For low-quality mesh warnings, preserve the original bad-element files together
+with their mesh and material mapping before another pass replaces them. Read
+[warning snapshots and attribution](../../docs/guides/reusable_operations.md#告警网格快照与归因).
+Only assign materials/locations after independently matching native IDs and
+reconstructed quality; a final mesh cannot silently replace the warning's mesh.
+Keep capture stability, mapping validity and solver/convergence claims separate.
+
 For immutable diagnostics, read the [freeze/read contract](../../docs/guides/reusable_operations.md#冻结读取及有效网格输入).
 Use official `cst.results.ProjectFile(frozen_path, allow_interactive=False)` on the
 verified frozen package; current `cst_solver.Result` defaults to interactive reads.

@@ -53,6 +53,14 @@ do not automatically stop a live solve or relax numerical acceptance.
 
 ## Separate the controls
 
+When quality warnings appear, preserve the warning's raw mesh generation before
+the next pass overwrites it. Follow [warning snapshots and attribution](../../docs/guides/reusable_operations.md#告警网格快照与归因):
+passive file copies with before/copy/after hashes, then independent element-ID and
+quality reconstruction. Valid ID ranges or proximity alone do not establish the
+material responsible. Poor elements may lie in background air/substrate far from
+the suspected contact; locate first, then propose bounded refinement. Do not change
+ports or other protected geometry to diagnose mesh quality without authorization.
+
 Reuse `cst_solver.mesh_input.read_saved_options(path)` for the bounded saved
 mesher-input decoder instead of rewriting project-specific readers. Read the
 [scope and run-binding rules](../../docs/guides/reusable_operations.md#冻结读取及有效网格输入).
