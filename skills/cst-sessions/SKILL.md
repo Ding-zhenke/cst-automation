@@ -56,15 +56,19 @@ scene makes the existing authorization insufficient.
 - Cooperative worker upgrade requires `cooperative-worker-upgrade-v1`, an idle unfenced session,
   and, for native sessions, a verified absent DE. Freeze first through the documented begin/finish
   API and retain the frozen state until the replacement advertises the requested capabilities.
-  Legacy workers cannot respond to this protocol; live-DE preservation is not yet validated.
+  Legacy workers cannot respond to this protocol; ordinary upgrade does not preserve a live DE.
   Do not force-stop a worker, close a DE, or represent fake tests as native upgrade evidence.
 - For an explicitly approved preserved-DE native handoff trial, use the separate
   [native worker handoff](../../docs/guides/native_worker_handoff.md) protocol.
   Read its entire procedure before use. It freezes, verifies, cooperatively exits,
   verifies the exact original DE and repeats native checks on the replacement's SDK
   thread before a fresh token-bound release. No create/reopen/force-stop fallback.
-  Native survival and deployed-worker compatibility remain unverified until the
-  owning session accepts them; do not infer approval from installing new code.
+  The owning session reported native acceptance of a 0.3.44 independent small project,
+  including failed-launch recovery and client interruption continuation, with unchanged
+  DE/tab/test parameter and synthetic three-point stored curve. No EM was computed:
+  this does not certify physical results, real EM/HB preservation, all SDK/worker versions
+  or the main engineering project. Preserve target-specific review and authorization;
+  do not infer approval from installing new code. See the guide and VALIDATION record.
   Windows launcher/actual-worker PID differences require the protocol's nonce and
   parent-identity admission, never a relaxed identity comparison. A consumed launch
   that failed before admission uses only the guide's explicit reviewed recovery;

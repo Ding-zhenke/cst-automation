@@ -1,6 +1,10 @@
 # cst-automation 与领域包的公共接口
 
-## Explicit preserved-DE worker handoff (native acceptance pending)
+## Explicit preserved-DE worker handoff (limited native acceptance)
+
+The owning session reports 0.3.44 acceptance on an independent small project with
+synthetic stored data, including failed-launch recovery and client interruption.
+No EM computation or physical-result certification; see VALIDATION.md for scope.
 
 Startup separates the Popen launcher from the actual Python worker. A one-use
 inherited nonce, exact live launcher/parent identity and expected interpreter image

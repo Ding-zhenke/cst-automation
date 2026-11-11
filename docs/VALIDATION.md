@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-11：独立小工程原生交接与恢复验收（所属会话回报）
+
+- 所属工程会话报告已完成 0.3.44 原生验收；维护端本次仅接收回报并更新文档，未独立打开私有回执或访问 CST。原始审计保存在所属会话私有 work 目录的 native_handoff_validation/{verified.json,recovery_receipt.json,latest_handoff.json}，不随公共插件发布。
+- 在确认失败启动器完整进程树无存活后，显式 recover 保留失败尝试并旋转 token，随后 finish 从 stop_requested、starting、release_requested 推进至 complete；覆盖客户端中断后的接续。
+- 独立小工程原 DE 身份、原标签、测试参数值和三点存储曲线前后逐项一致，新 worker 已加载 HF controls 能力。曲线明确标为 synthetic/not-EM；没有执行电磁计算，不认证物理结果、网格收敛、真实 EM/HB 结果或所有 SDK/旧 worker 版本兼容性。
+- 没有强杀、create/reopen fallback 或 Computer Use。之后 close_project 回执 saved/tab_closed/retired 均为 true，environment_closed=false；该清理与交接完成分开记录。
+- 主工程未执行保留活 DE 交接：所属会话确认其旧 DE/worker 已退出，按原 reference 普通恢复。主线正在运行的求解不计入本项验收，也未被维护端访问或干预。
+
 ## 2026-11-11：Windows venv worker 身份交接修复
 
 - 所属工程会话报告：独立小工程旧 worker 正常退出且原 DE/标签/参数/存储曲线保留，新 worker 被启动器身份比较拒绝。维护端通过源码定位 Popen 启动器与实际 Python 子进程身份混用；未访问该工程或 DE。
