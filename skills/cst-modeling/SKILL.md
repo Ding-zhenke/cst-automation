@@ -82,6 +82,8 @@ API。不得为“一次性提交”改写整台设备。会话未路由已有�
 替换已有端口使用 `replace_port_with_waveguide`，明确目标编号、原类型和保留端口；
 提交前读 [端口替换限制](references/model-operations.md)。必须使用具备
 `port-replacement-readback-v1` 的 worker；不能重启正在求解的 worker 来升级。
+离散 edge→face 的备用路线使用显式 `create_discrete_face_port` 与有序拾取边；先读
+同一引用中的面端口说明，记录并核对原属性，不能把创建默认值误当成自动保持。
 
 阻抗要求拆成四项：EM 端口参考阻抗、电路源/负载阻抗、传输线几何阻抗、导出矩阵
 归一化阻抗。设置端口数值不会改线宽；重归一化数据也不会改变实际匹配。基板厚度/

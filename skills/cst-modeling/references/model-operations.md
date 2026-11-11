@@ -78,6 +78,24 @@ GHz/mm，色散频率参数应按它转换，不能直接按当前工程单位�
 负载，不是传播模式端口。Floquet/cable、源和场源也有已有 API，但仅在需求匹配、
 当前版本支持、会话路由明确时使用；不为补能力列表给普通两端口器件添加无关激励。
 
+`create_discrete_face_port(r0,id_val,*,label,monitor,invert_direction,p1,p2)`
+通过已有两条有序拾取边创建线性面端口。先 `pick_clear`，再两次 `set_edge` 或
+实际棱边拾取，最后创建；`p1/p2` 是 picked=True 的参考坐标，不是自由空间端点，
+CenterEdge=True。省略时参考坐标为零、标签为空、monitor=True、invert_direction=False；
+转换已有端口必须显式传入审阅过的原属性，不能把这些默认值当成“保留”。
+fold 仅接受空值，官方 FacePort 对象无已核实的 Folder 命令。
+
+会话需 `picked-face-port-controls-v1`；旧 worker 在入队前拒绝，不为加载更新中断求解。
+这是创建入口，不是带前后读回的自动转换事务。官方 edge→face 宏可作为同编号 Create
+及 Pick.AddEdge 的命令依据，但其遍历全部端口、固定 Monitor=False/InvertDirection=False
+不能直接用于保留其他端口的任务。单端口转换先记录原编号、标签、阻抗、监视和有向端点，
+核对两边对应顺序；之后核对目标类型/属性/端点及其他全部端口不变。原生读回缺失时
+保持未验证，不从 API 返回、默认坐标或 history 文本推断方向保持。转换属于拓扑修改，
+先保留所需结果，重新验收 EM；接口可用不表示已批准主工程转换。
+0.3.48 独立夹具已观察到同编号转换及原生保存缓存的目标属性/其他端口保持；
+同编号覆盖会触发 WARNING，任务仍为 failed/review_required。不得屏蔽该警告或
+将保存缓存证据扩大为几何、重开、网格或求解通过；具体边界见 docs/VALIDATION.md。
+
 已有离散/波导端口改成同编号波导端口，用 `replace_port_with_waveguide(id_val,
 settings, expected_type=..., preserve_ports=...)`。必须给全部数值坐标范围、朝向、
 模式数及布尔 port_on_bound；此版本不接受符号坐标。保留端口用编号字符串→类型映射。

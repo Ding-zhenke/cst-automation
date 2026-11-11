@@ -137,6 +137,11 @@ class SessionManager:
             from .model_api import settings_only, settings_capability
             from .model_api import uses_hf_tet_adaptation_controls, HF_TET_ADAPTATION_CAPABILITY
             from .model_api import uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
+            from cst_automation.discrete_face_port import CAPABILITY as FACE_CAPABILITY, METHOD as FACE_METHOD
+            if (operation == 'model_api' and any(c['method'] == FACE_METHOD for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and FACE_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Picked face ports require a compatible idle worker')
             if (operation == 'model_api' and uses_hf_tet_order_controls(params['calls'])
                     and state.get('worker') and alive(state['worker'])
                     and HF_TET_ORDER_CAPABILITY not in state.get('worker_capabilities', [])):

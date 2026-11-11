@@ -1,5 +1,27 @@
 # cst-automation 与领域包的公共接口
 
+## Picked discrete face-port creator
+
+`create_discrete_face_port(r0, id_val, fold='', invert_direction=False, *,
+label='', monitor=True, p1=(0,0,0), p2=(0,0,0))` creates a linear S-parameter
+face port from two previously picked edges. The legacy `discrete_port` alias
+has the same options. SetP1/SetP2 always use picked=True: coordinates are
+references, not free-space endpoints. CenterEdge=True; global coordinates,
+no projection. Label, monitor and direction are explicit creation settings,
+not automatic preservation of an existing port. Empty fold is accepted for
+compatibility; nonempty folders are refused (no documented FacePort.Folder).
+String expressions are retained; control characters and VBA quotes are refused
+in expressions. Labels are escaped as VBA strings.
+
+The explicit session model_api route validates the entire batch before native
+access and requires `picked-face-port-controls-v1` on a live worker at submission
+and execution. Installing a new plugin does not update an existing worker.
+Do not upgrade a busy worker. This is a creator, not an audited replacement
+transaction: same-ID edge-to-face use requires separately recorded original
+properties, ordered edge picks, and native verification of target and all other
+ports. It rebuilds geometry and invalidates prior EM evidence. No main-model
+conversion or numerical convergence is implied by this API coverage.
+
 ## Existing schematic net attachment (development)
 
 The bounded native adapter may attach an unconnected external-port endpoint to

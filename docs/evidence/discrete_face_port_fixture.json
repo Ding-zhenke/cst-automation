@@ -1,0 +1,43 @@
+{
+  "native_executed": true,
+  "solver_executed": false,
+  "ui_used": false,
+  "target_kind_before": "DISCRETEEDGE",
+  "target_kind_after": "DISCRETEFACE",
+  "port_number": 3,
+  "label": "fixture-P3",
+  "impedance_ohm": 75,
+  "monitor": true,
+  "invert_direction": false,
+  "directed_endpoints_mm": [
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1
+    ]
+  ],
+  "preserved_other_port_ids": [
+    1,
+    2
+  ],
+  "native_cache_target_metadata_equal": true,
+  "native_cache_other_port_sections_byte_equal": true,
+  "native_cache_all_dpt_bytes_equal": true,
+  "evidence_level": "CST-generated ModelCache after returned rebuild/save, matching project save digest; not online getters or reopen",
+  "job_status": "failed",
+  "error_code": "session_geometry_unverified",
+  "native_warning": "Port with number 3 (fixture-P3) already exists and has been overwritten by a new one with the same number (fixture-P3) in history step 11!",
+  "geometry_acceptance": false,
+  "em_acceptance": false,
+  "files": {
+    "before.mif": "88831b01d00a4f294c19361f5cd496822e9c58143b42e0d7563a1828a0cf1dd3",
+    "before.dpt": "f33c1942a7f677ad3d44f0d20dbdc17ef3f73e30eac1c24bc372f6dcea8cabda",
+    "after.mif": "76a20d87ce2d5abfd90281c315492a674e1f84b8d27c0f1fd1cb38c8cea6e44f",
+    "after.dpt": "f33c1942a7f677ad3d44f0d20dbdc17ef3f73e30eac1c24bc372f6dcea8cabda"
+  }
+}

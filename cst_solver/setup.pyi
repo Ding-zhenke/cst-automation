@@ -429,10 +429,16 @@ class _PortMixin:
     #     invertdrection 仍可通过 **legacy_kwargs 传入，已废弃
     def discrete_port(self, r0: Union[float, str], id_val: Union[int, str],
                       fold: str = '', invert_direction: bool = False,
+                      *, label: str = '', monitor: bool = True,
+                      p1: Sequence[Union[float, str]] = (0, 0, 0),
+                      p2: Sequence[Union[float, str]] = (0, 0, 0),
                       **legacy_kwargs) -> None: ...
     def create_discrete_face_port(self, r0: Union[float, str],
                                   id_val: Union[int, str], fold: str = '',
                                   invert_direction: bool = False,
+                                  *, label: str = '', monitor: bool = True,
+                                  p1: Sequence[Union[float, str]] = (0, 0, 0),
+                                  p2: Sequence[Union[float, str]] = (0, 0, 0),
                                   **legacy_kwargs) -> None: ...
     def create_discrete_port(self, id_val: Union[int, str], p1: list, p2: list,
                              impedance: Union[float, str] = 50,

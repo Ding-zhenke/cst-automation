@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-11：picked face-port typed 入口与独立夹具（0.3.48）
+
+- 注册 create_discrete_face_port，会话整批预检标签、监视、方向、参考点及阻抗；新增 picked-face-port-controls-v1 提交/执行能力门槛。原别名保留，SetP1/SetP2 显式 picked=True，非空 fold 拒绝。官方依据为本机 CST 2026 DiscreteFacePort 帮助及单端口部分的 edge→face 官方宏；未执行宏的全端口循环。
+- 17 项专项离线回归通过；包含 MCP 错误请求在 worker 启动前拒绝、旧 worker 入队前拒绝、执行前再次拦截及混合批次先完整校验。合并并行远端前完整回归 2006 passed、2 deselected、9 warnings，日志 work/pytest-face-approved.log。受限执行环境下第一次全量运行出现两项失败并停滞，已中止该测试进程；获准环境重新完整运行通过，未停止 CST 进程。
+- 原生只在本维护会话新建的独立极小夹具执行：两块 PEC 板及三个测试边端口，只将编号 3 转为面端口，无 EM、无 Computer Use、未连接或升级主工程 worker。创建基线的 Rebuild/保存返回且消息为空。
+- 转换 Rebuild/保存返回；CST 原生 ModelCache/Model.mif 将目标由 DISCRETEEDGE:3 改为 DISCRETEFACE:3，标签 fixture-P3、75 Ω、Monitor=True、InvertDirection=False 保持。其他两个端口的完整属性段逐字一致；Model.dpt 全文件字节一致，保留全部有向端点记录。证据是当前保存摘要对应的原生生成缓存，不是提交 history 文本，不等于在线 getter 或关闭重开验收。局部脱敏报告见 [夹具证据](evidence/discrete_face_port_fixture.json)，原始 before/after 快照留在本次 work/face-fixture。
+- CST 同编号 Create 发出“已有端口被覆盖” WARNING；会话正确保留 failed/session_geometry_unverified、returned_saved、review_required，未静默屏蔽，也未将原任务改为成功。此证据支持命令实际生效和上述保存记录一致，不放行总体几何、主模型转换、网格、收敛或 EM/HB。后续工程转换仍须明确授权与场景审阅，不能把备用路线当作执行请求。
+
 ## 2026-11-11：owned-worker 原生交接与 mixed-order 生效（所属会话回报）
 
 - 所属工程会话报告完成 0.3.46 owned 路径验收：独立小工程由实际 worker 创建 DE，诚实声明 owned 后交接至新 worker，原 DE/标签/参数及三点 synthetic/not-EM 存储曲线逐项一致。随后目标工程同样完成 owned-worker 交接，原 DE 保持，全部登记标签、完整参数及当时结果树前后相同。

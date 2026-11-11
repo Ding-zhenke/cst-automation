@@ -302,6 +302,7 @@ class PortMixin:
             "Define Free Port: " + str(id_val), f1)
 
     def discrete_port(self, r0, id_val, fold='', invert_direction=False,
+                      *, label='', monitor=True, p1=(0, 0, 0), p2=(0, 0, 0),
                       **legacy_kwargs):
         """
         创建离散端口（集总端口），用于射频器件的端接激励
@@ -309,41 +310,32 @@ class PortMixin:
 
         :param r0: float/str, 端口特征阻抗（如 50 欧姆）
         :param id_val: int/str, 端口编号
-        :param fold: str, 端口归属文件夹
+        :param fold: str, 兼容位置参数，仅接受空值（无已核实 Folder 命令）
         :param invert_direction: bool, 是否反转激励方向
+        :param label: str, 显式标签，不自动保留原端口标签
+        :param monitor: bool, 电压/电流监视开关
+        :param p1,p2: 三坐标参考点；picked=True，实际几何来自两条有序拾取边
         :param legacy_kwargs: 仅用于兼容旧拼写关键字 `invertdrection`（已废弃）
         :raises TypeError: 传入了未知关键字参数
         """
         invert_direction = _resolve_legacy_invert_direction(
             invert_direction, legacy_kwargs, 'discrete_port')
-        f1 = f"""With DiscreteFacePort 
-     .Reset 
-     .PortNumber "{id_val}" 
-     .Type "SParameter"
-     .Label ""
-     .Folder "{fold}"
-     .Impedance "{r0}"
-     .VoltageAmplitude "1.0"
-     .CurrentAmplitude "1.0"
-     .Monitor "True"
-     .CenterEdge "True"
-     .LocalCoordinates "False"
-     .InvertDirection "{invert_direction}"
-     .UseProjection "False"
-     .ReverseProjection "False"
-     .FaceType "Linear"
-     .Create 
-End With"""
+        from cst_automation.discrete_face_port import face_port_code
+        f1 = face_port_code(r0, id_val, fold, invert_direction, label=label,
+                            monitor=monitor, p1=p1, p2=p2)
         self.cst_file.model3d.add_to_history(
             "Define Discrete Port: " + str(id_val), f1)
 
     def create_discrete_face_port(self, r0, id_val, fold='', invert_direction=False,
+                                  *, label='', monitor=True, p1=(0, 0, 0), p2=(0, 0, 0),
                                   **legacy_kwargs):
         """
         创建离散面端口（蛇形命名）
-        等同于 discrete_port()
+        等同于 discrete_port()。依赖两条有序拾取边；p1/p2 仅为参考坐标，
+        picked 始终 True。不会自动读取或保留已有端口的属性。
         """
-        self.discrete_port(r0, id_val, fold, invert_direction, **legacy_kwargs)
+        self.discrete_port(r0, id_val, fold, invert_direction, label=label,
+                           monitor=monitor, p1=p1, p2=p2, **legacy_kwargs)
 
     def create_discrete_port(self, id_val, p1, p2, impedance=50,
                              label='', folder=''):
