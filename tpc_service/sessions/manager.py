@@ -120,6 +120,8 @@ class SessionManager:
                     raise ServiceError('request_id_conflict', 'Same request/stage has different payload')
                 write(alias_path, {'fingerprint': fingerprint, 'job_id': old['job_id']})
                 return old
+            if state.get('worker_upgrade', {}).get('mode') == 'preserve_native_de_v1':
+                raise ServiceError('session_maintenance', 'Native handoff freezes new submissions')
             if state['status'] in ('closing', 'closed', 'close_failed') or state.get('close_requested'):
                 raise ServiceError('session_closing', 'Session is closing or closed')
             if state['status'] == 'needs_reconcile' and operation not in FENCED_OPERATIONS:
@@ -169,10 +171,18 @@ class SessionManager:
             self._launch(folder)
         return self.job(session_id, credential, job['job_id'])
 
-    def _launch(self, folder, *, recover=False):
+    def _launch(self, folder, *, recover=False, native_handoff_token=None):
         with lock(folder / 'launch.lock'):
             with lock(folder / 'state.lock'):
                 state = read(folder / 'session.json')
+                native_handoff = state.get('worker_upgrade') or {}
+                if native_handoff.get('mode') == 'preserve_native_de_v1':
+                    if (native_handoff.get('phase') != 'starting' or not native_handoff_token
+                            or native_handoff.get('token') != native_handoff_token
+                            or native_handoff.get('launch_claimed')):
+                        raise ServiceError('session_maintenance', 'One-use native handoff launch authorization required')
+                    native_handoff['launch_claimed'] = True
+                    write(folder/'session.json',state)
                 if state['status'] == 'closed':
                     return
                 if alive(state['worker']):
@@ -230,12 +240,22 @@ class SessionManager:
             write(folder/'session.json', state)
             return dict(record)
 
+    def begin_native_worker_handoff(self, session_id, credential, **review):
+        from .native_handoff import begin
+        return begin(self, session_id, credential, **review)
+
+    def finish_native_worker_handoff(self, session_id, credential):
+        from .native_handoff import finish
+        return finish(self, session_id, credential)
+
     def finish_worker_upgrade(self, session_id, credential):
         folder = self._folder(session_id)
         launch = False
         with lock(self.root / 'registry.lock'), lock(folder / 'state.lock'):
             state = self._state(folder, credential)
             record = state.get('worker_upgrade')
+            if record and record.get('mode') == 'preserve_native_de_v1':
+                raise ServiceError('session_maintenance', 'Use finish_native_worker_handoff for preserved-DE handoff')
             if not record:
                 previous = state.get('last_worker_upgrade')
                 if previous and previous.get('phase') == 'complete':
@@ -288,6 +308,8 @@ class SessionManager:
         folder = self._folder(session_id)
         with lock(self.root / 'registry.lock'), lock(folder / 'state.lock'):
             state = self._state(folder, credential)
+            if state.get('worker_upgrade', {}).get('mode') == 'preserve_native_de_v1':
+                raise ServiceError('session_maintenance', 'Native handoff must remain frozen; reconcile cannot bypass it')
             if state['status'] not in ('needs_reconcile', 'close_failed'):
                 raise ServiceError('session_reconcile_not_needed', 'Only uncertain/failed-close sessions can be reconciled')
             jobs = [read(p) for p in (folder / 'jobs').glob('*.json')]

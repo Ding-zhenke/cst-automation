@@ -43,6 +43,13 @@ def register_session_tools(root, *, backend='cst', replace=False):
     def finish_worker_upgrade(a):
         return tool_payload({'upgrade': manager.finish_worker_upgrade(a['session_id'], a['credential'])})
 
+    def begin_native_worker_handoff(a):
+        return tool_payload({'upgrade': manager.begin_native_worker_handoff(
+            a['session_id'], a['credential'], **a['review'])})
+
+    def finish_native_worker_handoff(a):
+        return tool_payload({'upgrade': manager.finish_native_worker_handoff(a['session_id'], a['credential'])})
+
     def reconcile(a):
         return tool_payload({'session': manager.reconcile(a['session_id'], a['credential'],
                             a['review_note'], a['project_digests'], confirm_idle=a.get('confirm_idle', False),
@@ -52,6 +59,10 @@ def register_session_tools(root, *, backend='cst', replace=False):
                             resolve_job_ids=a.get('resolve_job_ids'))})
 
     entries = [
+        ('begin_cst_native_worker_handoff', 'Explicitly freeze a reviewed idle borrowed native worker for preserved-DE handoff; native acceptance pending.',
+         dict(identity, review={'type':'object'}), list(identity)+['review'], begin_native_worker_handoff, False),
+        ('finish_cst_native_worker_handoff', 'Advance frozen preserved-DE handoff with exact-tab native checks; never create or reopen.',
+         identity, list(identity), finish_native_worker_handoff, False),
         ('bind_cst_workflow', 'Bind an immutable engineering specification while idle, without starting CST.',
          dict(identity, project_id=string, spec={'type': 'object'}, expected_revision=string),
          list(identity) + ['project_id', 'spec'], bind, False),

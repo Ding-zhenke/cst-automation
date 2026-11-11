@@ -201,7 +201,12 @@ def run(folder):
     with lock(folder / 'worker.lock', blocking=False):
         with lock(folder / 'state.lock'):
             state = read(folder / 'session.json')
-            if state.get('worker_upgrade', {}).get('phase') == 'stop_requested':
+            native_upgrade = state.get('worker_upgrade') or {}
+            if native_upgrade.get('mode') == 'preserve_native_de_v1' and (
+                    native_upgrade.get('phase') != 'starting' or not native_upgrade.get('launch_claimed')
+                    or state.get('worker') != process_identity(os.getpid())):
+                return  # Only the atomically authorized replacement may enter.
+            if state.get('worker_upgrade', {}).get('phase') in ('reviewing', 'stop_requested'):
                 return  # A concurrent legacy resume must not replace the frozen worker.
             state['worker'] = process_identity(os.getpid())
             from .manager import UPGRADE_CAPABILITY
@@ -214,7 +219,9 @@ def run(folder):
             from cst_automation.embedded_network import CAPABILITY as EMBEDDED_CAPABILITY
             from .saved_baseline import CAPABILITY as BASELINE_CAPABILITY
             from cst_automation.em_qualification import EXPLORATORY_CAPABILITY
+            from .native_handoff import CAPABILITY as HANDOFF_CAPABILITY
             state['worker_capabilities'] = [EXPLORATORY_CAPABILITY, BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
+            state['worker_capabilities'].append(HANDOFF_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also
@@ -244,11 +251,16 @@ def run(folder):
             elif state['status'] not in ('closing', 'close_failed', 'needs_reconcile'):
                 state['status'] = 'ready'
             upgrade = state.get('worker_upgrade')
-            if (upgrade and upgrade.get('phase') == 'starting' and state['status'] == 'closing'
+            if (upgrade and upgrade.get('mode') != 'preserve_native_de_v1'
+                    and upgrade.get('phase') == 'starting' and state['status'] == 'closing'
                     and not uncertain and not state.get('launch_intent') and not JobIndex.load(folder).active_jobs()):
                 upgrade['new_worker_ready'] = state['worker']
             write(folder / 'session.json', state)
         runtime = Runtime(folder, state['backend'])
+        if (state.get('worker_upgrade') or {}).get('mode') == 'preserve_native_de_v1':
+            from .native_handoff import prepare_new_worker
+            if not prepare_new_worker(runtime):
+                return
         while True:
             with lock(folder / 'state.lock'):
                 state = read(folder / 'session.json')
@@ -260,7 +272,8 @@ def run(folder):
                     upgrade['stop_ack'] = True
                     write(folder / 'session.json', state)
                     return
-                job = JobIndex.load(folder).next_queued()
+                job = (None if upgrade and upgrade.get('mode') == 'preserve_native_de_v1'
+                       else JobIndex.load(folder).next_queued())
                 if job and state['status'] == 'needs_reconcile' and job['operation'] not in FENCED_OPERATIONS:
                     # Fence all accepted but not started writes after an uncertain predecessor.
                     job['status'] = 'blocked'
@@ -273,6 +286,11 @@ def run(folder):
                     job['worker_runtime'] = _worker_runtime_info()
                     write(folder / 'jobs' / (job['job_id'] + '.json'), job)
             if job is None:
+                if (upgrade and upgrade.get('mode') == 'preserve_native_de_v1'
+                        and upgrade.get('phase') == 'release_requested'):
+                    from .native_handoff import verify_release
+                    if not verify_release(runtime):
+                        return
                 time.sleep(.1)
                 continue
             monitor = None

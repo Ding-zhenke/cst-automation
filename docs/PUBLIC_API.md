@@ -1,5 +1,28 @@
 # cst-automation 与领域包的公共接口
 
+## Explicit preserved-DE worker handoff (native acceptance pending)
+
+`SessionManager.begin_native_worker_handoff(session_id, credential, *,
+environment_identity, worker_identity, project_digests, review_note,
+required_capabilities, confirm_idle, confirm_saved_tabs, confirm_borrowed_worker,
+accept_unverified_native_handoff)` freezes an idle, unfenced native session.
+All confirmations must be true. The old worker must advertise cooperative-worker-upgrade-v1.
+Identity and complete registered project digest maps must match current saved files.
+This explicit opt-in does not change ordinary worker-upgrade's live-DE refusal.
+
+`finish_native_worker_handoff` advances reviewing -> stop_requested -> starting ->
+release_requested -> release_verified -> complete. Replacement launch is authorized
+by a one-use token; final release requires a matching worker-owned native observation
+no older than 2 seconds, otherwise a fresh token requests another check. It verifies
+exact existing tabs, native EM idle and repeated full parameter snapshots
+before requesting cooperative exit and after exit; the new worker repeats verification
+before readiness. No create/open/save/close/rebuild/solve or force-stop is allowed.
+All failures remain frozen, with diagnostic evidence; uncertain launches are never retried.
+Schematic idle and absence of unsaved non-parameter changes are caller-reviewed inputs,
+not getter-certified facts. No guarantee of SDK destructor behavior is claimed before
+native acceptance. Capability: preserved-de-worker-handoff-v1. CLI and MCP expose
+separate begin/finish-native-worker-handoff routes; ordinary resume cannot bypass freeze.
+
 ## Exploratory saved EM evidence for external ADS handoff
 
 `qualify_exploratory_em` is a separate read-only owning-session operation,

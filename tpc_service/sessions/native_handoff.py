@@ -1,0 +1,285 @@
+"""Explicit cooperative handoff; native DE survival requires separate acceptance."""
+import copy
+import math
+import os
+import time
+from uuid import uuid4
+from pathlib import Path
+
+from tpc_service.errors import ServiceError
+from .store import alive, assert_environment_unclaimed, digest, lock, process_identity, read, write
+from .job_index import JobIndex
+from .native import Runtime, file_digest
+
+CAPABILITY = 'preserved-de-worker-handoff-v1'
+MODE = 'preserve_native_de_v1'
+RELEASE_MAX_AGE = 2.0
+
+
+def require(ok, message):
+    if not ok:
+        raise ServiceError('native_handoff_refused', message)
+
+
+def error_record(exc):
+    if isinstance(exc,ServiceError):
+        return exc.to_dict()
+    return dict(type=type(exc).__name__,message=str(exc),details=copy.deepcopy(getattr(exc,'details',None)))
+
+
+def saved_digests(state):
+    projects = state['projects']
+    require(bool(projects), 'Registered saved projects required')
+    result = {}
+    for key, project in projects.items():
+        require(project.get('saved') is True, 'Every registered project must be saved')
+        actual = file_digest(project['path'])
+        require(actual == project.get('saved_digest'), 'Registered saved baseline changed')
+        result[key] = actual
+    return result
+
+
+def file_versions(state):
+    result = {}
+    for key, project in state['projects'].items():
+        stat = Path(project['path']).stat()
+        result[key] = [stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_ino]
+    return result
+
+
+def check_frozen(folder, state):
+    record = state.get('worker_upgrade') or {}
+    require(record.get('mode') == MODE and state['backend'] == 'cst', 'Native handoff not active')
+    require(state['status'] == 'closing' and not state.get('uncertain_jobs')
+            and not state.get('launch_intent') and not state.get('close_requested')
+            and not JobIndex.load(folder).active_jobs(), 'Handoff must remain idle and frozen')
+    require(state.get('environment') == record['environment'] and alive(record['environment']),
+            'Original DE disappeared or changed; never create a replacement')
+    require(digest(state['projects']) == record['projects_digest']
+            and file_versions(state) == record['file_versions'], 'Project baseline changed')
+    if record['phase'] not in ('release_requested','release_verified'):
+        require(saved_digests(state) == record['project_digests'], 'Project content changed')
+    assert_environment_unclaimed(folder.parent, state['session_id'], record['environment'])
+    return record
+
+
+def verify_native(runtime, state):
+    """Borrow exact existing tabs. Never use Runtime.environment's create/reopen fallback."""
+    from cst_solver.dialogs import check_dialogs
+    from .read_review import borrow_open_project
+    from .inspection import inspect_native
+    from .project_lifecycle import path_key
+    identity = state['environment']
+    require(alive(identity), 'Original DE is not live')
+    versions = file_versions(state)
+    saved_digests(state)  # Hash before native observations, not after their timestamp.
+    check_dialogs(label='native_worker_handoff', pid=identity['pid'])
+    projects = {k:p for k,p in state['projects'].items() if not p.get('tab_closed')}
+    require(bool(projects), 'At least one registered open tab required')
+    expected = {path_key(p['path']) for p in projects.values()}
+    parameters, handles, app = {}, {}, None
+    def parameter_snapshot(app):
+        observed = inspect_native(app, {'solid_names': []})
+        require(not observed['errors'], 'Full native parameter readback failed')
+        for value in observed['parameters'].values():
+            require(isinstance(value['value'], (float, int)) and not isinstance(value['value'], bool)
+                    and math.isfinite(value['value']), 'Native parameter must be finite')
+        return observed['parameters']
+    for key, project in projects.items():
+        app, handle, opened = borrow_open_project(runtime, identity, project['path'])
+        require(set(opened) == expected, 'Open tabs differ; no foreign or missing tabs allowed')
+        require(handle.model3d.is_solver_running(timeout=5) is False, 'Native EM idle not proven')
+        app.cst_file = handle
+        parameters[key] = parameter_snapshot(app)
+        handles[key] = handle
+        runtime.app = app
+    require(set(map(path_key, app.project.list_open_projects())) == expected and alive(identity),
+            'DE or tabs changed during review')
+    for key, handle in handles.items():
+        app.cst_file = handle
+        require(parameter_snapshot(app) == parameters[key], 'Native parameter state changed during review')
+        require(path_key(handle.filename()) == path_key(projects[key]['path'])
+                and handle.model3d.is_solver_running(timeout=5) is False, 'Tab identity or idle changed')
+    check_dialogs(label='native_worker_handoff_complete', pid=identity['pid'])
+    require(alive(identity), 'DE identity changed during final dialog review')
+    observed_at = time.time()
+    require(file_versions(state) == versions, 'Saved files changed during native review')
+    runtime.handoff_native_observed_at = observed_at
+    runtime.handles = handles
+    return {'tabs': sorted(expected), 'parameters': parameters}
+
+
+def begin(manager, session_id, credential, *, environment_identity, worker_identity,
+          project_digests, review_note, required_capabilities, confirm_idle=False,
+          confirm_saved_tabs=False, confirm_borrowed_worker=False,
+          accept_unverified_native_handoff=False):
+    from .manager import UPGRADE_CAPABILITY
+    require(all(x is True for x in (confirm_idle, confirm_saved_tabs, confirm_borrowed_worker,
+                                    accept_unverified_native_handoff)), 'Explicit reviewed native handoff confirmations required')
+    require(isinstance(review_note, str) and 0 < len(review_note.strip()) <= 8192, 'Review note required')
+    require(isinstance(required_capabilities, list) and bool(required_capabilities)
+            and all(isinstance(x,str) and 0 < len(x) <= 256 for x in required_capabilities)
+            and len(set(required_capabilities)) == len(required_capabilities), 'Unique required capabilities required')
+    for identity in (environment_identity, worker_identity):
+        require(isinstance(identity,dict) and set(identity) == {'pid','started','image'}
+                and type(identity['pid']) is int and identity['pid'] > 0
+                and bool(identity['started']) and isinstance(identity['image'],str)
+                and bool(identity['image']), 'Complete process identity required')
+    folder = manager._folder(session_id)
+    with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+        state = manager._state(folder, credential)
+        require(manager.backend == state['backend'] == 'cst', 'Native session required')
+        if state.get('worker_upgrade'):
+            record = check_frozen(folder, state)
+            require(record['environment'] == environment_identity and record['old_worker'] == worker_identity
+                    and record['project_digests'] == project_digests
+                    and record['requested_capabilities'] == required_capabilities
+                    and record['review_note'] == review_note, 'Existing handoff inputs differ')
+            return copy.deepcopy(record)
+        require(state['status'] == 'ready' and not state.get('uncertain_jobs')
+                and not state.get('launch_intent') and not state.get('close_requested')
+                and not JobIndex.load(folder).active_jobs(), 'Ready idle unfenced session required')
+        require(state.get('worker') == worker_identity and alive(worker_identity)
+                and UPGRADE_CAPABILITY in state.get('worker_capabilities',[]), 'Exact cooperative worker required')
+        require(state.get('environment') == environment_identity and alive(environment_identity), 'Exact live DE required')
+        require(saved_digests(state) == project_digests, 'Complete reviewed project digests required')
+        assert_environment_unclaimed(manager.root,session_id,environment_identity)
+        record = dict(mode=MODE,token=uuid4().hex,phase='reviewing',old_worker=worker_identity,
+            environment=environment_identity,projects_digest=digest(state['projects']),
+            project_digests=project_digests,review_note=review_note,stop_ack=False,
+            file_versions=file_versions(state),
+            requested_capabilities=required_capabilities,
+            required_capabilities=sorted(set(required_capabilities+[CAPABILITY])),started_at=time.time(),
+            native_acceptance='pending',saved_tabs_asserted_by_caller=True,
+            schematic_idle_asserted_by_caller=True,borrowed_worker_asserted_by_caller=True)
+        state.update(status='closing',worker_upgrade=record)
+        write(folder/'session.json',state)
+        return copy.deepcopy(record)
+
+
+def finish(manager, session_id, credential):
+    folder = manager._folder(session_id)
+    # Serialize advances without holding state/registry locks across native getters.
+    with lock(folder/'handoff.lock'):
+        with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+            state = manager._state(folder,credential)
+            if not state.get('worker_upgrade'):
+                previous = state.get('last_worker_upgrade') or {}
+                require(previous.get('mode') == MODE and previous.get('phase') == 'complete', 'No native handoff')
+                return previous
+            record = check_frozen(folder,state)
+            phase, token = record['phase'], record['token']
+            if phase == 'stop_requested' and (not record.get('stop_ack') or alive(record['old_worker'])):
+                return copy.deepcopy(record)
+            if phase in ('starting','release_requested','release_verified'):
+                worker = state.get('worker')
+                if not (worker and worker != record['old_worker'] and alive(worker)
+                        and record.get('new_worker_ready') == worker
+                        and record.get('new_worker_native') == record.get('pre_exit_native')
+                        and set(record['required_capabilities']).issubset(state.get('worker_capabilities',[]))):
+                    return copy.deepcopy(record)
+                if phase == 'release_requested':
+                    return copy.deepcopy(record)
+                if (phase == 'release_verified' and record.get('release_worker') == worker
+                        and record.get('release_ack') == record.get('release_token')
+                        and record.get('release_native') == record['pre_exit_native']
+                        and 0 <= time.time()-record.get('release_verified_at',0) <= RELEASE_MAX_AGE):
+                    record.update(phase='complete',new_worker=worker,completed_at=time.time(),
+                                  native_acceptance='handoff_readback_verified')
+                    state.update(status='ready',last_worker_upgrade=record)
+                    state.pop('worker_upgrade')
+                else:
+                    record.update(phase='release_requested',release_token=uuid4().hex)
+                    for key in ('release_ack','release_worker','release_native','release_verified_at'):
+                        record.pop(key,None)
+                write(folder/'session.json',state)
+                return copy.deepcopy(record)
+            require(phase in ('reviewing','stop_requested'), 'Unknown native handoff phase')
+            if phase == 'reviewing':
+                require(state['worker'] == record['old_worker'] and alive(record['old_worker']), 'Original worker lost before exit request')
+        try:
+            proof = verify_native(Runtime(folder,'cst'),state)
+            if phase == 'stop_requested':
+                require(proof == record['pre_exit_native'], 'Native parameter/tab state changed across exit')
+        except Exception as exc:
+            with lock(folder/'state.lock'):
+                current = manager._state(folder,credential)
+                if (current.get('worker_upgrade') or {}).get('token') == token:
+                    current['worker_upgrade']['last_verification_error'] = error_record(exc)
+                    write(folder/'session.json',current)
+            raise
+        with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+            current = manager._state(folder,credential);record = check_frozen(folder,current)
+            require(record['token'] == token and record['phase'] == phase, 'Handoff changed during verification')
+            if phase == 'reviewing':
+                require(current['worker'] == record['old_worker'] and alive(record['old_worker']), 'Original worker lost during review')
+                record.update(phase='stop_requested',pre_exit_native=proof)
+            else:
+                require(record.get('stop_ack') and not alive(record['old_worker']), 'Original worker has not exited')
+                require(current.get('worker') in (None,record['old_worker']), 'Unexpected replacement worker')
+                record.update(phase='starting',launch_attempted=True,post_exit_native=proof)
+                current.update(worker=None,worker_capabilities=[])
+            write(folder/'session.json',current)
+        if phase == 'stop_requested':
+            manager._launch(folder,recover=True,native_handoff_token=token)
+        return copy.deepcopy(record)
+
+
+def prepare_new_worker(runtime):
+    """Run on the new worker's SDK thread before it may advertise native readiness."""
+    folder = runtime.folder
+    try:
+        with lock(folder.parent/'registry.lock'), lock(folder/'state.lock'):
+            state = read(folder/'session.json');record = check_frozen(folder,state)
+            require(record['phase'] == 'starting' and record.get('stop_ack')
+                    and not alive(record['old_worker']), 'Invalid native replacement phase')
+            token, worker = record['token'], state['worker']
+            require(worker == process_identity(os.getpid()) and worker != record['old_worker'],
+                    'Native readiness must be established by the replacement worker itself')
+        proof = verify_native(runtime,state)
+        require(proof == record['pre_exit_native'], 'Replacement readback differs from reviewed native state')
+        with lock(folder.parent/'registry.lock'), lock(folder/'state.lock'):
+            state = read(folder/'session.json');record = check_frozen(folder,state)
+            require(record['token'] == token and record['phase'] == 'starting'
+                    and state['worker'] == worker and alive(worker), 'Replacement identity changed')
+            record.update(new_worker_ready=worker,new_worker_native=proof)
+            write(folder/'session.json',state)
+        return True
+    except Exception as exc:
+        with lock(folder/'state.lock'):
+            state = read(folder/'session.json')
+            if (state.get('worker_upgrade') or {}).get('mode') == MODE:
+                state['worker_upgrade']['new_worker_error'] = error_record(exc)
+                write(folder/'session.json',state)
+        return False
+
+
+def verify_release(runtime):
+    """Fresh token-bound readback on the replacement's SDK thread, while queue is frozen."""
+    folder = runtime.folder
+    try:
+        with lock(folder.parent/'registry.lock'), lock(folder/'state.lock'):
+            state = read(folder/'session.json');record = check_frozen(folder,state)
+            require(record['phase'] == 'release_requested', 'Release verification not requested')
+            token, release_token, worker = record['token'], record['release_token'], state['worker']
+            require(worker == process_identity(os.getpid()) and worker == record['new_worker_ready'],
+                    'Only the verified replacement may acknowledge release')
+        proof = verify_native(runtime,state)
+        require(proof == record['pre_exit_native'], 'Native state changed before release')
+        observed_at = runtime.handoff_native_observed_at
+        with lock(folder.parent/'registry.lock'), lock(folder/'state.lock'):
+            state = read(folder/'session.json');record = check_frozen(folder,state)
+            require(record['token'] == token and record['phase'] == 'release_requested'
+                    and record['release_token'] == release_token and state['worker'] == worker and alive(worker),
+                    'Release authorization changed during verification')
+            record.update(phase='release_verified',release_ack=release_token,release_worker=worker,
+                          release_native=proof,release_verified_at=observed_at)
+            write(folder/'session.json',state)
+        return True
+    except Exception as exc:
+        with lock(folder/'state.lock'):
+            state = read(folder/'session.json')
+            if (state.get('worker_upgrade') or {}).get('mode') == MODE:
+                state['worker_upgrade']['release_error'] = error_record(exc)
+                write(folder/'session.json',state)
+        return False

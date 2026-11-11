@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-11：保留原 DE 的显式 worker 交接（离线）
+
+- 新增 32 项离线用例；完整回归 **1902 passed、2 deselected、9 warnings**（50.32 s），日志 `work/handoff-full-final.log`。会话 skill 格式检查通过。没有启用实机或界面测试。
+- 显式试验入口覆盖冻结、旧 worker 协作退出、精确 DE/标签/完整参数与保存摘要核对、一次性启动令牌、新 worker SDK 线程复查，以及不超过 2 秒的令牌绑定最终观测。失败保持冻结，普通 resume/reconcile/upgrade 不得绕过。
+- 独立代码复审提出的陈旧放行、并发启动、失败态绕过及结构化错误丢失问题已修复；复审未发现剩余代码阻塞项。原参数→EM→HB 提交和执行拒绝测试同属本次完整回归。
+- 此版本不证明实际旧 worker 退出后编译 SDK 保留 DE，也不证明已部署 worker 的兼容性、原理图空闲或完整非参数内存/磁盘等价。仍须所属会话明确批准并先做独立小工程验收；普通升级继续拒绝活 DE。
+- 本次未访问或操作实际 CST 工程、原 worker、DE 或求解；安装插件不会触发交接，也不会热更新运行中的 worker。
+
 ## 2026-11-11：HF Tet 奇异边细化和几何投影（离线）
 
 - 官方 MeshAdaption3D 文档核对 SingularEdgeRefinement 0..3、Automatic refinement 前提和 SnapToGeometry bool；新增受限 typed 设置，沿用显式注册的 service/MCP model_api 路径。未增加猜测的现代 MeshSettings 键或 legacy 质量优化替代。

@@ -58,6 +58,13 @@ scene makes the existing authorization insufficient.
   API and retain the frozen state until the replacement advertises the requested capabilities.
   Legacy workers cannot respond to this protocol; live-DE preservation is not yet validated.
   Do not force-stop a worker, close a DE, or represent fake tests as native upgrade evidence.
+- For an explicitly approved preserved-DE native handoff trial, use the separate
+  [native worker handoff](../../docs/guides/native_worker_handoff.md) protocol.
+  Read its entire procedure before use. It freezes, verifies, cooperatively exits,
+  verifies the exact original DE and repeats native checks on the replacement's SDK
+  thread before a fresh token-bound release. No create/reopen/force-stop fallback.
+  Native survival and deployed-worker compatibility remain unverified until the
+  owning session accepts them; do not infer approval from installing new code.
 - A failed circuit run_task with explicit returned/saved receipts may leave the session ready
   after project/run identity, saved and disk digests, and absence of prior uncertainty/dialogs
   are verified. The job remains failed and the solver outcome unverified/review_required.

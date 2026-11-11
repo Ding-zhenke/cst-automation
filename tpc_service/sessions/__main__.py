@@ -22,6 +22,9 @@ def main(argv=None):
     upgrade.add_argument('--confirm-idle', action='store_true')
     upgrade.add_argument('--require-capability', action='append', default=None)
     sub.add_parser('finish-worker-upgrade')
+    native_handoff = sub.add_parser('begin-native-worker-handoff')
+    native_handoff.add_argument('--review-file', required=True)
+    sub.add_parser('finish-native-worker-handoff')
     bind = sub.add_parser('bind-workflow')
     bind.add_argument('--project-id', required=True)
     bind.add_argument('--spec-file', required=True)
@@ -69,6 +72,10 @@ def main(argv=None):
                                                       required_capabilities=args.require_capability)
             elif args.command == 'finish-worker-upgrade':
                 result = manager.finish_worker_upgrade(sid, credential)
+            elif args.command == 'begin-native-worker-handoff':
+                result = manager.begin_native_worker_handoff(sid, credential, **read(args.review_file))
+            elif args.command == 'finish-native-worker-handoff':
+                result = manager.finish_native_worker_handoff(sid, credential)
             elif args.command == 'bind-workflow':
                 result = manager.bind_workflow(sid, credential, args.project_id, read(args.spec_file),
                                                expected_revision=args.expected_revision)
