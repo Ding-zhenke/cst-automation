@@ -1,5 +1,21 @@
 # 验证记录
 
+## 2026-11-12：公共离散端口 reader 的两组原生验收（0.3.67 文档更新）
+
+- 维护只读核对所属工程 35/25 nm fixed140 两组的 finished_native_review.json，
+  native_ports.public_reader 均明确为 cst_solver.simulation.discrete_ports.read_discrete_ports，
+  native_getters/cache_not_required/原十端口坐标阻抗一致均为 true；全部十组原始
+  坐标、属性、长度已读取。P1/P2=100 Ω，其余=50 Ω，基线摘要
+  `44bc340ec4034cbc7766080887b96a04eb3b82b4e754913df797f18531d79811`。
+- 两份报告 SHA256（35/25 nm 顺序）：
+  `87e1f86dd938b2f07509e6ddc80c6ba278be6d267e3d12db57a13362df314db4`、
+  `69798ac0f9c30625f70e5c04c0cca03064b7b51384bb785a355c6f8829047b0f`。
+  证据位于所属工程 R02/EM_contact_Gold13_{35,25}nm_fixed2_fixed140，私有产物不发布。
+- 仅将本机 CST 2026 公共底层 reader 的状态提升为上述两组已实测；session/MCP
+  路由仍是离线验证，不扩大为其他版本、所有端口类型、网格收敛或 HB 资格。
+  主会话报告自适应求解继续运行；维护没有操作 DE/worker，也未进行独立空工程取证。
+- 本版只更新验收说明和插件版本，运行时代码不变；使用插件打包测试及技能校验。
+
 ## 2026-11-12：有界离散端口原生读取与恢复验收记录（0.3.66）
 
 - 新增已有 app 的只读 read_discrete_ports，及 session inspect 的 discrete_port_ids。
