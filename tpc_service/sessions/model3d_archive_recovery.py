@@ -31,7 +31,7 @@ def _plain(path):
     return path.resolve()
 
 
-def _manifest(path):
+def _manifest(path, *, exclude_native_lock=False):
     path = _plain(path)
     if not path.exists():
         return None
@@ -40,9 +40,23 @@ def _manifest(path):
     for entry in path.rglob('*'):
         _plain(entry)
         require(entry.is_file() or entry.is_dir(), 'Unsupported companion entry')
+        if exclude_native_lock and entry.relative_to(path).as_posix() == 'Model.lok':
+            require(entry.is_file(), 'Native root lock must be a regular file')
+            continue
         if entry.is_file():
             result[entry.relative_to(path).as_posix()] = file_digest(entry)
     return result
+
+
+def _lock_exclusion(pair):
+    path = _plain(pair / 'Model.lok')
+    if not path.exists():
+        return {}
+    require(path.is_file(), 'Native root lock must be a regular file')
+    info = path.stat()
+    return {'Model.lok': dict(reason='owned_cst_companion_root_temporary_lock', content_backed_up=False,
+        stat=dict(size=info.st_size, mtime_ns=info.st_mtime_ns, ctime_ns=info.st_ctime_ns,
+                  inode=info.st_ino, mode=info.st_mode))}
 
 
 def _validate(review):
@@ -205,17 +219,27 @@ def _observe(folder, state, restored=False):
     return proof, app, handle
 
 
-def _backup(target, evidence):
-    before = evidence / 'before'
-    before.mkdir(parents=True, exist_ok=False)
+def _backup(target, evidence, *, allow_empty_resume=False):
+    evidence = _plain(evidence)
+    before = _plain(evidence / 'before')
+    require(not (evidence / 'before_manifest.json').exists(), 'Existing backup manifest cannot be overwritten')
+    if before.exists():
+        require(allow_empty_resume and before.is_dir() and not any(before.iterdir()),
+                'Only an empty uncommitted reviewing backup can continue')
+    else:
+        before.mkdir(parents=True, exist_ok=False)
     pair = target.with_suffix('')
-    cst_hash, manifest = file_digest(target), _manifest(pair)
+    excluded = _lock_exclusion(pair)
+    cst_hash, manifest = file_digest(target), _manifest(pair, exclude_native_lock=True)
     shutil.copy2(target, before / 'project.cst')
     if manifest is not None:
-        shutil.copytree(pair, before / 'companion')
+        def ignore_lock(directory, names):
+            return ['Model.lok'] if Path(directory) == pair and 'Model.lok' in names else []
+        shutil.copytree(pair, before / 'companion', ignore=ignore_lock)
     require(file_digest(target) == file_digest(before / 'project.cst') == cst_hash
-            and _manifest(pair) == _manifest(before / 'companion') == manifest, 'Failed scene changed during backup')
-    write(evidence / 'before_manifest.json', dict(project=cst_hash, companion=manifest))
+            and _manifest(pair, exclude_native_lock=True) == _manifest(before / 'companion') == manifest
+            and _lock_exclusion(pair) == excluded, 'Failed scene changed during backup')
+    write(evidence / 'before_manifest.json', dict(project=cst_hash, companion=manifest, excluded_companion=excluded))
 
 
 def _restore(folder, state):
@@ -226,7 +250,7 @@ def _restore(folder, state):
     manifest = read(evidence / 'before_manifest.json') or {}
     require(manifest.get('project') == review['current_digest']
             and _manifest(evidence / 'before' / 'companion') == manifest.get('companion')
-            and _manifest(target.with_suffix('')) == manifest.get('companion'),
+            and _manifest(target.with_suffix(''), exclude_native_lock=True) == manifest.get('companion'),
             'Failed companion changed since its verified backup')
     proof, app, handle = _observe(folder, state)
     require(proof == data['pre_exit_scene'], 'Scene changed across old worker exit')
@@ -239,7 +263,7 @@ def _restore(folder, state):
     require(file_digest(target) == review['current_digest'] and file_digest(source) == review['source_digest'],
             'Archive changed during close; recovery remains frozen')
     if pair.exists():
-        _manifest(pair)  # Reject reparse points before renaming the exact sibling.
+        _manifest(pair, exclude_native_lock=True)  # Reject reparse points before renaming the exact sibling.
         pair.rename(quarantine)
     require(not pair.exists(), 'Failed companion directory must be absent before reopen')
     staged = evidence / 'restored.cst'
@@ -281,7 +305,7 @@ def finish(manager, session_id, credential):
             if phase == 'recovery_reviewing':
                 require(alive(record['old_worker']), 'Original worker lost before reviewed exit')
                 proof, _, _ = _observe(folder, state)
-                _backup(target, Path(data['evidence_dir']))
+                _backup(target, Path(data['evidence_dir']), allow_empty_resume=True)
                 require(_observe(folder, state)[0] == proof, 'Scene changed while preserving failed files')
                 with lock(manager.root / 'registry.lock'), lock(folder / 'state.lock'):
                     current = manager._state(folder, credential)

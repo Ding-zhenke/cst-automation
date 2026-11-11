@@ -67,6 +67,10 @@ CLI：`begin-model3d-archive-recovery --review-file ABS.json`，之后反复调�
 - `recovery_reviewing`：已冻结提交，尚未退出旧 worker。只读借用精确目标标签，
   两次读取全部参数和端口，检查 EM idle/实际弹窗。完整复制当前 `.cst` 和整个
   companion 到 `<session>/archive-recovery/<token>/before/`，逐文件核对摘要。
+  唯一例外为该 companion **根部精确名 `Model.lok`** 的 CST 临时排他锁：不读取或
+  复制锁内容，manifest 的 excluded_companion 记录 size/mtime_ns/ctime_ns/inode/mode、
+  排除理由及 content_backed_up=false。其余文件（含嵌套 Model.lok、其他锁名）仍逐一
+  读取复制，任何 PermissionError 都拒绝；不把排除锁内容称为已备份。
 - `stop_requested` 且 pending=true：旧 worker 在既有循环正常写 stop_ack 后退出。
   必须同时观察 ack 和原进程消失；不关闭 DE。DE 丢失则冻结，不新建替代环境。
 - `recovery_mutation_claimed`：已持久声明不可自动重放的恢复动作。再查原现场及备份，
@@ -91,6 +95,11 @@ CLI：`begin-model3d-archive-recovery --review-file ABS.json`，之后反复调�
 
 begin 参数错误不会连接 CST 或冻结。冻结后任何异常保留 phase/last_error，先通过
 status 读取；不能手改 session.json、改 request ID、普通 resume/reconcile 绕过维护。
+0.3.63 允许仍在 recovery_reviewing 的同一事务续接前置失败留下的空 before/：
+接口实际核对目录为空、无 before_manifest.json 后继续，不更换 token、不删除目录。
+目录非空、已有清单或其他阶段均拒绝此续接。只有全部非排除文件的源/副本摘要及
+排除锁元数据前后匹配，才写提交清单；不接受部分快照。成功备份后另行失败仍需
+审阅，不通过“空目录续接”覆盖它。
 `recovery_mutation_claimed` 后的失败或客户端中断**不自动重试**，即使窗口已消失也
 不能推定成功，需独立审阅审计和实际现场。此版不提供任意阶段自动回滚或重复关闭。
 若仅在新 worker 启动、尚未 admission 时失败，可按既有 native handoff 的显式

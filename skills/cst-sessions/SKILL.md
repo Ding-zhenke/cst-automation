@@ -124,6 +124,9 @@ scene makes the existing authorization insufficient.
   ambiguous mutations are not replayed. Native archive recovery remains unverified.
   Preserve native Discrete port mode counts of 0 in recovery inventories; only
   Waveguide requires a positive count. Do not replace the observed 0 with 1.
+  The archive backup excludes only its root Model.lok, recording metadata and
+  explicitly uncopied content. Continue an empty uncommitted backup only through
+  the same reviewing transaction; never delete a partial snapshot to retry.
 - Keep the working project and its DE while the approved task is active, including replies and
   disconnects. Once modeling is complete and the formal CST plus paired data are verified, use
   session `close_project` to save, close and retire this task's process projects, then delete their

@@ -2,6 +2,13 @@
 
 ## Fenced 3D archive recovery
 
+Recovery backup excludes only the owned CST companion root's exact `Model.lok`
+temporary lock. Its stat metadata and explicit content-not-backed-up reason are
+recorded separately; no other name, nested lock, or PermissionError is ignored.
+While still recovery_reviewing, the same transaction may reuse an empty before/
+directory only if no before_manifest.json exists. Partial/nonempty snapshots and
+claimed native mutations cannot use this continuation.
+
 Port inventories preserve the native integer mode count: Discrete accepts >=0
 (CST 2026 reports 0); Waveguide requires >=1. Booleans, non-integers and negative
 counts are refused. No normalization from 0 to 1 is permitted. This applies to

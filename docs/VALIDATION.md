@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-11-12：归档备份根部 Model.lok 与空目录续接（0.3.63）
+
+- 所属会话报告：原生标签打开时 paired 根部 Model.lok 排他锁导致备份前读取失败，
+  仍在 recovery_reviewing，未退出 worker 或关闭标签。本轮维护不操作现场。
+- 仅排除这个精确根部临时锁的内容读写，单独记录元数据、理由和
+  content_backed_up=false。其它文件、嵌套同名锁、其他锁名和 PermissionError
+  不忽略；其余文件完整复制、源/副本摘要以及锁元数据前后核对后才写 manifest。
+- 同事务 reviewing 阶段仅可复用确实为空且没有提交 manifest 的 before/，不删目录、
+  不新建 token、不覆盖部分或成功备份；restore 的 mutation 防重放保持。
+- **99 项相关测试通过**，含 Windows 临时文件的真实 CreateFileW 排他锁测试，
+  验证读取拒绝但可取得元数据，以及未知锁失败、部分快照拒绝和空目录续接。
+  这不是实际 CST 备份/恢复验收，没有触碰原 DE、worker 或工程。
+
 ## 2026-11-12：离散端口原生零模式读回（0.3.62）
 
 - 维护只读核对所属会话保存的 `native_port_inventory_raw.json`：全部十个条目
