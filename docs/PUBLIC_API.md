@@ -2,6 +2,15 @@
 
 ## HF Tet curvature order
 
+`curvature_policy` additionally accepts exactly `automatic` or `fixedorder`,
+mapped to `MeshSettings.Set "CurvatureOrderPolicy", "..."` in the Tet group.
+It is independently sparse: policy alone preserves stored order, order alone
+preserves policy. For an explicit fixed-order trial submit both fields together.
+The token fixedorder is evidenced by owner-captured CST 2026.1 UI-generated
+history, not inferred from its label. Policy requests require actual worker
+`hf-tet-curvature-policy-v1` at submission and execution; a combined order/policy
+request requires both capabilities. Off/guessed aliases are rejected.
+
 `configure_tetrahedral_mesh(settings)` accepts optional `curvature_order`, a strict
 integer in `{1,2,3}`. It emits only `MeshSettings.SetMeshType "Tet"` and
 `MeshSettings.Set "CurvatureOrder", "N"` for this field, without changing field

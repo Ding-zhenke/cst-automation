@@ -23,6 +23,10 @@ def execute(runtime, job):
                 raise ServiceError('workflow_worker_upgrade_required', 'Content-bound settings history requires a compatible execution worker')
             from .model_api import uses_hf_tet_lf_controls
             from .model_api import uses_hf_tet_curvature, HF_TET_CURVATURE_CAPABILITY
+            from .model_api import uses_hf_tet_curvature_policy, HF_TET_CURVATURE_POLICY_CAPABILITY
+            if (uses_hf_tet_curvature_policy(params['calls'])
+                    and HF_TET_CURVATURE_POLICY_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'HF Tet curvature policy requires a compatible execution worker')
             if (uses_hf_tet_curvature(params['calls'])
                     and HF_TET_CURVATURE_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
                 raise ServiceError('workflow_worker_upgrade_required', 'HF Tet curvature order requires a compatible execution worker')

@@ -1,5 +1,25 @@
 # 验证记录
 
+## 2026-11-12：曲率 fixedorder 策略（0.3.56，离线及所属会话语法取证）
+
+- 所属会话报告 0.3.55 order=2 的短 probe 实际 mesher input/log 仍为 3；原未生效
+  结论保留。随后空闲工程 Automatic3→Fixed3 的 UI History 确认精确 token fixedorder。
+  维护只读核对 history_changes.json，原生版本 2026.1|35.0.0|20251022；未操作主 DE。
+  automatic 有官方模板依据。来源和原始命令摘录见 guides/hf_tet_curvature_order.md。
+- 新增 curvature_policy 严格 automatic/fixedorder，独立稀疏，不猜 off/fixed/manual。
+  独立 hf-tet-curvature-policy-v1 提交/执行检查，组合请求同时要求 order 能力。
+  原内容绑定历史、整批预检和纯设置无 Rebuild 保持；不补默认或修改几何/端口。
+- 171 项专项通过；完整离线回归 **2165 passed、2 deselected、9 warnings**（58.77 s），
+  日志 work/pytest-policy-full.log。独立只读代码复核无阻塞项。无专用 getter，回执
+  readback_verified=False；Fixed3 的语法证据不认证固定2的实际网格生效或数值通过。
+- 发布前所属会话进一步报告：已正式接受 fixedorder 保存基线后，使用原有 typed
+  order=2 启动最多两轮 probe，新任务绑定的 Mesh_Input.Options.tet 与 log.tet 均为 2。
+  这是所属会话报告的有效曲率证据；维护未独立读回，不等于新 policy 字段原生验收，
+  也不认证尚在执行的网格收敛或完整 EM。当前活跃 worker 保持不变。
+- 原会话另报 mesh 内容绑定历史完成原工程保存重开：完整旧 profile 与后续两个
+  稀疏块全部保留，前后 ModelHistory 字节摘要相同。维护未独立读取该完整验收报告；
+  该报告仅覆盖这条 mesh 路径，不泛化到其余三类设置或 EM 成功。本次无自动交接。
+
 ## 2026-11-12：modern HF Tet 曲率阶数（0.3.55，离线）
 
 - configure_tetrahedral_mesh 新增 curvature_order 严格整数 {1,2,3}；现代 Mesh Control

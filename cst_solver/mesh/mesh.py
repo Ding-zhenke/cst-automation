@@ -21,8 +21,14 @@ def normalize_tetrahedral_mesh_settings(settings):
     common_vbasolido/common_vbasolido_solid_object.htm.
     """
     source = _mapping(settings, ('steps_per_wavelength', 'minimum_steps',
-                      'material_refinement', 'local_solids', 'adaptation', 'curvature_order'), 'tetrahedral settings')
+                      'material_refinement', 'local_solids', 'adaptation', 'curvature_order',
+                      'curvature_policy'), 'tetrahedral settings')
     result = {}
+    if 'curvature_policy' in source:
+        policy = source['curvature_policy']
+        if not isinstance(policy, str) or policy not in ('automatic', 'fixedorder'):
+            raise ValueError('curvature_policy must be automatic or fixedorder')
+        result['curvature_policy'] = policy
     if 'curvature_order' in source:
         order = _integer(source['curvature_order'], 'curvature_order')
         if order not in (1, 2, 3):
@@ -90,9 +96,12 @@ class MeshMixin:
         """
         requested = normalize_tetrahedral_mesh_settings(settings)
         commands = []
+        if set(requested) & {'curvature_order', 'curvature_policy'}:
+            commands.append('MeshSettings.SetMeshType "Tet"')
         if 'curvature_order' in requested:
-            commands.extend(['MeshSettings.SetMeshType "Tet"',
-                f'MeshSettings.Set "CurvatureOrder", "{requested["curvature_order"]}"'])
+            commands.append(f'MeshSettings.Set "CurvatureOrder", "{requested["curvature_order"]}"')
+        if 'curvature_policy' in requested:
+            commands.append(f'MeshSettings.Set "CurvatureOrderPolicy", "{requested["curvature_policy"]}"')
         has_global_controls = bool(set(requested) & {
             'steps_per_wavelength', 'minimum_steps', 'material_refinement'})
         warnings = ([
