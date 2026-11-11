@@ -68,7 +68,7 @@ established: settings readback and effective precision remain unverified.
 | Model band | `set_frequency_range`; preserve parameter references |
 | Actual broadband frequency sampling | `configure_fd_frequency` → `sampling_intervals` |
 | Mesh-adaptation frequencies | same API → `adaptation_frequencies` (Single, Adapt=True), or explicit interval `adaptation` boolean |
-| Display/interpolated result resolution | `output_samples`; a dense curve is not that many independent solves |
+| Display/interpolated result resolution | `output_samples`, strict integer >=3; a dense curve is not that many independent solves |
 | Shared sweep/result axis mode | `output_spacing`; CST applies it to adaptive sampling and output axes |
 | Global tetrahedral density, material refinement | `configure_tetrahedral_mesh` |
 | Local tetrahedral solid size | same API → `local_solids` |
@@ -137,6 +137,11 @@ use `replace_intervals=True` and provide the complete intended interval/point
 set. This resets sample intervals only; it is not a full solver reset, nor proof
 that monitor-derived rows are removed. Inspect the resulting native frequency
 table, especially Adapt. flags. A zero band boundary does not prove a DC sample.
+
+Two diagnostic solve frequencies do not imply `output_samples=2`: CST requires
+at least three display/evaluation samples. Keep the two Single intervals and
+omit output_samples to preserve it, or explicitly choose an integer >=3.
+The shared validator rejects invalid display counts before the entire batch runs.
 
 Set a bounded adaptation pass count and Delta-S criterion, plus independent
 broadband interpolation error and sample/check budgets as needed. Material-only

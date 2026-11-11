@@ -1192,7 +1192,8 @@ unsupported. Mixed `configure_sweep` bounds stay numeric and reject strings.
 boolean `adaptation` (default False) and spacing
 `automatic|linear|logarithmic|single` and `samples=None` only for automatic;
 `adaptation_frequencies` is a list of positive single-frequency adaptation
-points. Optional `output_samples` (integer >=2), `output_spacing`
+points. Optional `output_samples` (strict integer 3..2147483647; booleans,
+floats and strings rejected), `output_spacing`
 (`automatic|linear|logarithmic|log_linear`), `sweep_error` (0,1],
 `sweep_minimum_samples`, `sweep_error_checks` (positive integers), and
 `stop_sweep_if_converged` (boolean) control broadband sampling independently.

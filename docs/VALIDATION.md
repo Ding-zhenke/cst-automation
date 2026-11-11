@@ -1,5 +1,19 @@
 # 验证记录
 
+## 2026-11-12：结果显示采样数下限修复（0.3.53，离线）
+
+- 所属工程会话报告 CST 2026 对 SetNumberOfResultDataSamples "2" 发出 History Error：
+  "The number of result evaluation samples has to be larger than or equal to three."
+  原配置任务及可能已应用的前缀由所属会话审阅；不将该错误归因于 LF 控制或追认任务成功。
+- 共用 normalize_fd_frequency_settings 将 output_samples 下限从 2 修为 3，保留严格
+  整数及上限 2147483647 校验。直接 API、整批预检、MCP 提交和执行入口复用此规则；
+  不自动修正输入。两个实际 Single 求解频点仍独立于显示采样数。
+- 109 项相关测试通过；新增用例先在旧实现复现拒绝缺口，再验证无原生访问、无此前
+  批次写入、无入队/worker 启动，以及合法边界与两个求解频点保持。
+  完整离线回归 **2096 passed、2 deselected、9 warnings**（52.33 s），
+  日志 work/pytest-output-full.log。维护端未连接主 DE、启动求解或交接 worker。
+  插件安装不会更新已加载的旧校验器；新提交进程须加载修复后的版本。
+
 ## 2026-11-12：HF Tet 低频稳定化与 float Direct 许可（0.3.52，离线）
 
 - configure_fd_linear_solver 新增稀疏严格布尔字段 low_frequency_stabilization、

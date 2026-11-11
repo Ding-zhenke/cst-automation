@@ -117,7 +117,7 @@ def normalize_fd_frequency_settings(settings):
             _sequence(source['adaptation_frequencies'], 'adaptation_frequencies')]
     for key in ('output_samples', 'sweep_minimum_samples', 'sweep_error_checks'):
         if key in source:
-            result[key] = _integer(source[key], key, 2 if key == 'output_samples' else 1)
+            result[key] = _integer(source[key], key, 3 if key == 'output_samples' else 1)
     if 'output_spacing' in source:
         result['output_spacing'] = _enum(source['output_spacing'],
             ('automatic', 'linear', 'logarithmic', 'log_linear'), 'output_spacing')

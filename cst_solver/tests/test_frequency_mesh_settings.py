@@ -168,7 +168,7 @@ def test_interval_adaptation_requires_a_boolean_before_project_access(adaptation
 
 BAD_FREQUENCY = [
     None, {}, [], {'typo': 1}, {'output_samples': True}, {'output_samples': 1},
-    {'output_samples': 2.5}, {'output_samples': '1001'},
+    {'output_samples': 2}, {'output_samples': 2.5}, {'output_samples': '1001'},
     {'output_spacing': 'linear\nFDSolver.Start'},
     {'sweep_error': float('nan')}, {'sweep_error': float('inf')},
     {'sweep_error': 0}, {'sweep_error': True}, {'sweep_error': '0.1'},
