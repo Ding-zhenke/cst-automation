@@ -28,7 +28,7 @@ def reject_unowned_route(path):
 
 
 def protected(operation, params):
-    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'prepare_hb_embedded_network') or (
+    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network') or (
         operation == 'circuit' and params.get('kind', 'build') in ('solve', 'study'))
 
 
@@ -199,6 +199,9 @@ def preflight(folder, state, operation, params, *, job=None):
     if operation == 'qualify_saved_em':
         from .em_qualification import preflight as qualify_preflight
         qualify_preflight(folder, state, params, job)
+    if operation == 'qualify_exploratory_em':
+        from .exploratory_em import preflight as exploratory_preflight
+        exploratory_preflight(folder, state, params, job)
     if operation in ('fit_em_network', 'update_hb_network'):
         from .em_network import preflight as network_preflight
         network_preflight(folder, state, operation, params)
