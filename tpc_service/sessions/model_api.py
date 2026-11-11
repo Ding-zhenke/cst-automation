@@ -4,8 +4,9 @@ from tpc_service.errors import ServiceError
 
 SETTINGS_ONLY_CAPABILITY = 'solver-settings-no-rebuild-v1'
 MESH_SETTINGS_CAPABILITY = 'mesh-settings-no-rebuild-v1'
+MODEL_BAND_CAPABILITY = 'model-band-no-rebuild-v1'
 SETTINGS_ONLY_METHODS = frozenset(('configure_fd_linear_solver', 'configure_fd_frequency',
-                                 'configure_fd_parallelization', 'configure_tetrahedral_mesh'))
+                                 'configure_fd_parallelization', 'configure_tetrahedral_mesh', 'set_frequency_range'))
 
 
 def settings_only(calls):
@@ -13,6 +14,8 @@ def settings_only(calls):
 
 
 def settings_capability(calls):
+    if any(call.get('method') == 'set_frequency_range' for call in calls):
+        return MODEL_BAND_CAPABILITY
     return (MESH_SETTINGS_CAPABILITY if any(call.get('method') == 'configure_tetrahedral_mesh'
             for call in calls) else SETTINGS_ONLY_CAPABILITY)
 

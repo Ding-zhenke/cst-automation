@@ -1,5 +1,18 @@
 # cst-automation 与领域包的公共接口
 
+## Model frequency band without full rebuild
+
+An isolated session `model_api` batch containing `set_frequency_range` and
+other settings-only methods uses the existing native `Solver.FrequencyRange`
+history command, checks messages and saves with `validate_model(rebuild=False)`.
+It requires worker capability `model-band-no-rebuild-v1`; older live workers
+are rejected before queueing. A mixed geometry batch still performs a full
+rebuild. Model band is separate from `configure_fd_frequency` sampling and
+adaptation rows. No-rebuild does not prove native result history retention,
+band readback, DC coverage or solver convergence; archive and independently
+verify native IDs, data and save/reopen on the authorized project. This route
+has offline tests only, and no project or solver is operated by this change.
+
 ## Selective reconciliation of session jobs
 
 `SessionManager.reconcile(..., resolve_job_ids=[...])` resolves only explicitly
