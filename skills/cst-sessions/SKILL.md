@@ -115,6 +115,13 @@ scene makes the existing authorization insufficient.
   Reuse existing authorization when its scope covers the reviewed recovery; do not invent user
   approval. Resolve only the explicitly reviewed uncertain job IDs, never unrelated failures.
   Reconcile does not certify the solver, erase original errors or authorize replay.
+- For a returned 3D History Error with a changed saved file and a verified successful
+  native archive, read the entire [fenced archive recovery procedure](../../docs/guides/model3d_archive_recovery.md).
+  Use the controller begin/finish interface to freeze, preserve the failed companion,
+  cooperatively retire stale handles and restore the exact archive in the same DE.
+  Do not substitute schematic recovery, ordinary reload, partial companion copying
+  or preemptive reconcile. Completion still requires targeted scene reconciliation;
+  ambiguous mutations are not replayed. Native archive recovery remains unverified.
 - Keep the working project and its DE while the approved task is active, including replies and
   disconnects. Once modeling is complete and the formal CST plus paired data are verified, use
   session `close_project` to save, close and retire this task's process projects, then delete their

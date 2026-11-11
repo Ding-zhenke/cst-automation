@@ -107,6 +107,7 @@ def file_versions(state):
 def check_frozen(folder, state):
     record = state.get('worker_upgrade') or {}
     require(record.get('mode') == MODE and state['backend'] == 'cst', 'Native handoff not active')
+    require(not record.get('archive_recovery', {}).get('pending'), 'Use archive recovery until restoration is verified')
     require(state['status'] == 'closing' and not state.get('uncertain_jobs')
             and not state.get('launch_intent') and not state.get('close_requested')
             and not JobIndex.load(folder).active_jobs(), 'Handoff must remain idle and frozen')
@@ -256,7 +257,7 @@ def finish(manager, session_id, credential):
                         and 0 <= time.time()-record.get('release_verified_at',0) <= RELEASE_MAX_AGE):
                     record.update(phase='complete',new_worker=worker,completed_at=time.time(),
                                   native_acceptance='handoff_readback_verified')
-                    state.update(status='ready',last_worker_upgrade=record)
+                    state.update(status='needs_reconcile' if record.get('return_to_fence') else 'ready',last_worker_upgrade=record)
                     state.pop('worker_upgrade')
                 else:
                     record.update(phase='release_requested',release_token=uuid4().hex)

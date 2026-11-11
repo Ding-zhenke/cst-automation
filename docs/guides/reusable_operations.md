@@ -15,6 +15,7 @@
 | Qt 历史错误确认 | `qt_history_error.inspect/acknowledge`，见[定向确认流程](cst_dialogs.md#qt-history-error-的显式确认) | 仅已审阅的精确错误及 OK；拒绝额外输入，不恢复或重放原任务。离线测试通过，真机未验收 |
 | 接受已审阅保存基线 | 会话 `accept_saved_baseline` | 复用已有入口；所属会话报告过真实数值策略保存验收，不等于几何等价或求解合格 |
 | 保留 DE 升级 | `begin_native_worker_handoff/finish_native_worker_handoff` | 复用既有受控交接；以当前任务返回、队列冻结、完整空闲证据为准，旧验收不能覆盖新阻塞 |
+| 失败 3D 归档恢复 | `begin_model3d_archive_recovery/finish_model3d_archive_recovery`，见[完整流程](model3d_archive_recovery.md) | 从原围栏开始、保留完整失败 paired、正常退出旧 worker 后恢复、换新句柄；结束仍需定向 reconcile，原生未验收 |
 | 正式 warning-only EM | 现有 `qualify_saved_em/qualify_exploratory_em` 契约各异 | 严格 warning-only 正式资格入口仍待开发；不得将 exploratory 或短 probe 当成完整 EM/DC/HB 通过 |
 | ADS HB | 官方 DE API、`CircuitSimulator.run_netlist`、dataset API | 链接既有 ADS 技能；不把私有器件拓扑/参数抽进通用库；历史数据不认证当前工程 |
 

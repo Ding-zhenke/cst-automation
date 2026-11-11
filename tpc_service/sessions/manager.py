@@ -286,6 +286,14 @@ class SessionManager:
         from .native_handoff import begin
         return begin(self, session_id, credential, **review)
 
+    def begin_model3d_archive_recovery(self, session_id, credential, **review):
+        from .model3d_archive_recovery import begin
+        return begin(self, session_id, credential, **review)
+
+    def finish_model3d_archive_recovery(self, session_id, credential):
+        from .model3d_archive_recovery import finish
+        return finish(self, session_id, credential)
+
     def finish_native_worker_handoff(self, session_id, credential):
         from .native_handoff import finish
         return finish(self, session_id, credential)

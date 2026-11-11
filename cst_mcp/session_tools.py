@@ -62,7 +62,18 @@ def register_session_tools(root, *, backend='cst', replace=False):
                             abandon_projects=a.get('abandon_projects'),
                             resolve_job_ids=a.get('resolve_job_ids'))})
 
+    def begin_archive_recovery(a):
+        return tool_payload({'recovery': manager.begin_model3d_archive_recovery(
+            a['session_id'], a['credential'], **a['review'])})
+
+    def finish_archive_recovery(a):
+        return tool_payload({'recovery': manager.finish_model3d_archive_recovery(a['session_id'], a['credential'])})
+
     entries = [
+        ('begin_cst_model3d_archive_recovery', 'Freeze a fenced failed 3D project for reviewed archive restore and fresh-handle handoff.',
+         dict(identity, review={'type': 'object'}), list(identity)+['review'], begin_archive_recovery, False),
+        ('finish_cst_model3d_archive_recovery', 'Advance explicit archive recovery; ambiguous mutation remains frozen without replay.',
+         identity, list(identity), finish_archive_recovery, False),
         ('recover_cst_native_worker_handoff', 'Review a failed pre-admission launch; rotate authorization while frozen, without launching.',
          dict(identity, review={'type':'object'}), list(identity)+['review'], recover_native_worker_handoff, False),
         ('begin_cst_native_worker_handoff', 'Freeze a reviewed idle native worker for preserved-DE handoff; owned workers require distinct explicit exit-risk acceptance.',

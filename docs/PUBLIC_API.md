@@ -1,5 +1,35 @@
 # cst-automation 与领域包的公共接口
 
+## Fenced 3D archive recovery
+
+`SessionManager.begin_model3d_archive_recovery(session_id, credential, **review)`
+and `finish_model3d_archive_recovery(session_id, credential)` are controller-side
+maintenance methods, not queued operations or hot reload. Begin requires one
+registered open project (closed registrations and their saved digests remain intact),
+a finished matching returned-native-error model_api/history job, exact
+old/current/source digests, full DE/worker identities, reviewed expected native
+parameters and port inventory, a forbidden failed-history fragment, and explicit
+idle/discard/worker-exit risk confirmations. The extracted source .cst must be
+outside the target and its companion tree; ZIP extraction is not performed here.
+
+The existing cooperative worker protocol freezes all submissions before native
+review. The old worker exits normally only after the failed disk scene is copied
+and verified. The controller then closes only the original tab without saving,
+quarantines the complete old companion directory, restores the exact source .cst,
+and opens that same path in the same DE. It never merges partial archive evidence
+into the new companion tree. Missing native dependencies/messages or mismatched
+parameters/ports/history leave the transaction frozen. Once mutation is claimed,
+an interrupted/failed action is never automatically replayed.
+
+The ordinary nonce-bound preserved-DE replacement handshake then gives the new
+worker fresh handles. Completion returns to `needs_reconcile`, not ready; the
+original failed job/error stays unchanged. Old EM/HB evidence is invalidated.
+Only after native review and handoff may the owning session reconcile the exact
+original job. No solve/rebuild/save or generic History deletion is performed.
+CLI: `begin-model3d-archive-recovery --review-file ABS.json` and
+`finish-model3d-archive-recovery`. MCP registration uses matching explicit
+`begin_cst_model3d_archive_recovery` and `finish_cst_model3d_archive_recovery` tools.
+
 ## Explicit Qt History Error acknowledgement
 
 `cst_solver.qt_history_error.inspect(pid=..., hwnd=..., expected_creation_time=...)`

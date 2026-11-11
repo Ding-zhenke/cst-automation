@@ -1,5 +1,26 @@
 # 验证记录
 
+## 2026-11-12：fenced 3D 成功归档恢复（0.3.61）
+
+- 新增 controller-side begin/finish_model3d_archive_recovery，以及显式 CLI/MCP。
+  从原 needs_reconcile 开始；静态验证完整返回的原生 add_to_history 错误、全身份、
+  三个摘要、空闲/丢弃/旧 worker 退出风险审阅，不要求提前清围栏。
+- 复用旧协作 MODE 冻结/正常退出协议，保留关闭前完整失败 .cst/paired，关闭后完整
+  隔离旧 companion，再恢复精确成功 .cst。不会混入不完整归档的零散 companion 文件。
+  新 worker 经原有 nonce/readback/release 握手获取新句柄，最后仍 needs_reconcile，
+  原 job/error 不改；旧 EM/HB 输入代数失效。任何已声明 mutation 的中断不自动重放。
+- 维护仅只读核对原工程已保存的失败回执：FDomainConfigurationError 的完整原生
+  add_to_history 错误，支持据此拒绝普通超时/断连。所属会话指出 native history.code
+  为 list[str]，现与 str 均完整读取；其已关闭参考登记保留并核对摘要，不重新打开。
+  目标文件/companion 与其他登记重叠，在冻结前拒绝。
+- 全库离线回归 **2296 passed、2 deselected、9 warnings**（58.46 s），日志
+  `work/pytest-archive-recovery-full.log`。最终重叠保护补丁后，恢复与交接相关
+  **84 项通过**，含实际文件复制/整目录隔离、原生接口替身、消息/参数/端口/历史
+  拒绝、冻结、中断不重放和完成后保留围栏。技能校验与独立审查另行完成。
+- **native unverified**：维护未连接 DE、关闭标签、移动实际工程、升级 worker 或
+  求解。重开是否自动物化所需历史 JSON、实际依赖完整性和句柄交接须所属会话验收；
+  缺证据则冻结，不能拿 fake 结果宣称原工程已经恢复。
+
 ## 2026-11-12：显式 Qt History Error 确认（0.3.60）
 
 - 新增 `qt_history_error.inspect/acknowledge`，只支持已审阅的精确历史错误标题、
