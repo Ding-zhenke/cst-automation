@@ -11,6 +11,12 @@ Start with `python -m cst_solver doctor --json` and preserve the complete diagno
 
 For a stall, inspect the actual dialog title, body, buttons, process ID, and owning CST process before any response. Do not blindly dismiss prompts or rerun a write while the original SDK call may still be blocked. A timeout or a closed dialog is not success; state the observed status and next actionable step.
 
+For Abort scope dialogs or apparently completed 3D stops, read
+[3D stop versus DS sequence idle](../../docs/guides/solver_stop_scope.md).
+Model3D running=False and session ready do not certify DS/sequence/postprocessing
+idle. Pending scope confirmation or unknown DS state prevents new writes and handoff;
+do not guess a whole-sequence stop API or treat a locked/unlocked log as an idle getter.
+
 ## History errors: code and text first
 
 Minimize Computer Use. Read the original session job/exception, CST messages and PID-scoped

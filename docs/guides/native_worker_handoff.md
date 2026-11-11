@@ -14,6 +14,9 @@
 - 操作者已明确批准本次受控交接，保存了原任务、结果和审阅证据。
 - 本入口只读回 Model3D 的空闲及全参数/表达式。原理图任务空闲、非参数修改已保存，
   仍由所属会话审阅确认；缺少确认不能提交。
+- 停止后按 [3D 与 DS 停止范围](solver_stop_scope.md) 重新审阅。Model3D False、
+  session ready 或 reconcile 完成不认证整条 DS 序列 idle；有 Abort 范围确认窗口或
+  DS 终态未知时不开始/继续交接，不沿用先前 confirm_idle。日志锁解除也不是放行证据。
 
 Python setup.attach 标记 _attached=True；本库没有自动析构关闭逻辑，借用实例 close()
 也不关闭 DE。本机 Python SDK 的 connect(pid) 包装器没有 Python __del__，但底层是

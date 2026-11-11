@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-11-11：3D 停止与 DS 序列空闲边界（文档核对）
+
+所属会话报告在 3D abort 返回、EM 中止及后处理完成、Model3D running=False、session ready
+之后，同一 DE 仍有 Abort 范围选择窗口。维护端只查本机官方帮助和库源码，没有读取主工程、
+操作窗口、发出停止/求解/交接或开启夹具。官方 GetNameOfCurrentTask 与
+GetActivePostprocessingTask 的有限范围、未定义的外部 idle 语义及现有交接的调用方声明
+边界已写入 [停止范围指南](guides/solver_stop_scope.md)。不归因未证实的内部实现，
+不新增猜测的 DS stop/idle API，不将 3D idle 或日志锁状态升级为整序列 idle。
+
 ## 2026-11-11：picked face-port typed 入口与独立夹具（0.3.48）
 
 - 注册 create_discrete_face_port，会话整批预检标签、监视、方向、参考点及阻抗；新增 picked-face-port-controls-v1 提交/执行能力门槛。原别名保留，SetP1/SetP2 显式 picked=True，非空 fold 拒绝。官方依据为本机 CST 2026 DiscreteFacePort 帮助及单端口部分的 edge→face 官方宏；未执行宏的全端口循环。

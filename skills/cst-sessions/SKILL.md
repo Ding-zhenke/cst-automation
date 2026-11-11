@@ -100,6 +100,11 @@ scene makes the existing authorization insufficient.
   a failure fence, call reconcile on ready, or hand-edit session state. Acceptance
   invalidates old EM/HB evidence; it does not approve a solve or change parameter ranges.
   Existing incompatible workers are refused, never automatically restarted.
+- A returned 3D abort, Model3D running=False, ready or completed reconcile does not
+  certify DS sequence idle. Before handoff after a stop, read
+  [stop scope](../../docs/guides/solver_stop_scope.md). Pending Abort scope confirmation
+  or unknown DS/postprocessing state prevents new writes and handoff; do not reuse
+  an earlier idle assertion or infer idle from log-file lock release.
 - needs_reconcile requires actual scene evidence and a matching explicit baseline authorization.
   Reuse existing authorization when its scope covers the reviewed recovery; do not invent user
   approval. Resolve only the explicitly reviewed uncertain job IDs, never unrelated failures.

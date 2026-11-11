@@ -133,6 +133,11 @@ Post evaluate 内自动嵌套宏。文档/离线契约通过仍保持 native_bri
 
 ## 工程中运行和读取
 
+停止范围及生命周期按 [3D 与 DS 空闲边界](../../docs/guides/solver_stop_scope.md)。
+3D abort 返回、is_solver_running=False、EM 完成日志和 session ready 均不认证整条
+DS 序列空闲。GetNameOfCurrentTask / GetActivePostprocessingTask 是范围有限的官方
+查询，尚未作为可靠外部 idle 门槛验收；范围确认未处理时不提交新任务或交接。
+
 ### HB 放行、代表工况与失败停止
 
 HB 或其父扫描运行前，执行 [HB 数据覆盖与停止门槛](references/hb-and-postprocessing.md#hb-运行前的放行门槛)：逐一核对实际被动块/链接文件的 DC 与全部保留混频范围；全局 `fmin=0` 不构成覆盖证据。参考 NPORT 与新链接 EM 分别验收；拓扑或 EM 数据改变后，先完成有界正反向代表工况的 DC 工作点、实际 RF 入射/匹配和谱线检查，再放行完整父扫描。
