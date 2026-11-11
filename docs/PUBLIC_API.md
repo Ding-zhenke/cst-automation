@@ -1,5 +1,58 @@
 # cst-automation 与领域包的公共接口
 
+## Existing schematic net attachment (development)
+
+The bounded native adapter may attach an unconnected external-port endpoint to
+an explicitly identified existing net, after checking its complete membership.
+It must verify all net membership after `Apply`, preserving every original
+endpoint, and report any partial native write as unverified. This primitive is
+not a session route or authorization to run a protected S-parameter task.
+
+An independent S-parameter task may be configured through a bounded native
+helper with explicit frequency units, sweep range, point count and named
+external-port reference impedances. Creation is conflict-checked and never
+starts a solve. Properties with no supported native getter remain unverified;
+the helper itself does not provide a protected session solve route.
+
+Exploratory saved-EM evidence may be rechecked against the original failed
+solver job, the bound workflow revision/generation, the native model log,
+and a fresh read of the same positive Run ID. It remains exploratory and does
+not create a formal EM receipt or authorize HB.
+
+`prepare_exploratory_sp_network` (development) accepts the exact
+`prepare_hb_embedded_network` fields plus `qualification_job_id`. It binds the
+warning-bearing exploratory EM qualification to the matrix, fits DC using
+the existing checked embedded-network builder, and replaces only the selected
+embedded payload. It invalidates formal HB evidence; it is not HB permission.
+It requires the new `exploratory-sp-network-v1` worker capability. Partial
+native failure is fenced and the caller must inspect the original operation.
+Before circuit configuration, the exploratory network receipt must still match
+its source job, all saved artifacts and the current native embedded payload and
+circuit topology. A stale or absent receipt is rejected before any write.
+`run_exploratory_linear_sp` requires a successful bound
+configuration receipt, unchanged payload/topology and a unique SP leaf task.
+It must run through the owning worker and preserve the original failed EM job.
+Its exact fields are `project_id`, `network_job_id`, `setup_job_id`,
+`task_name` and nonempty task-scoped S-parameter `expected_results` containing
+`tree_path` and `run_id`; it always requests `reuse=never` and `mode=network`.
+
+`configure_exploratory_linear_sp` binds a named SP task and new external
+ports to an existing exploratory network receipt. Its inputs are `project_id`,
+`network_job_id`, `task` (`task_name`, `frequency_unit`, `fmin`, `fmax`,
+`samples`, `port_impedances`) and `ports` (each `name`, `position`, `net_name`,
+`expected_members`, where members are native kind/name/port-index triples).
+The existing schematic must have no external ports; all new ports and their
+reference impedances are explicit. No existing tasks, blocks or endpoints may
+be replaced. A partial native
+write is fenced; all task settings without supported getters remain unverified.
+The exact source, task, topology and saved project identity bind the solve.
+The task's local frequency unit, sweep sample count and constant port impedance
+lack verified native getters and remain explicitly unverified. The solve gate
+therefore refuses every current setup until these native readbacks are supported;
+the setup preflight also refuses before making any circuit changes. The entry
+point is not yet runnable. These are exploratory commands only; no
+live CST execution or DE handoff was performed.
+
 ## Explicit preserved-DE worker handoff (native acceptance pending)
 
 `SessionManager.begin_native_worker_handoff(session_id, credential, *,

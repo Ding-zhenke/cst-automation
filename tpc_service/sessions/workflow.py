@@ -28,7 +28,7 @@ def reject_unowned_route(path):
 
 
 def protected(operation, params):
-    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network') or (
+    return operation in ('set_parameters', 'solve', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network', 'prepare_exploratory_sp_network', 'configure_exploratory_linear_sp', 'run_exploratory_linear_sp') or (
         operation == 'circuit' and params.get('kind', 'build') in ('solve', 'study'))
 
 
@@ -196,6 +196,15 @@ def preflight(folder, state, operation, params, *, job=None):
     if operation == 'prepare_hb_embedded_network':
         from .embedded_network import preflight as embedded_preflight
         embedded_preflight(folder, state, params)
+    if operation == 'prepare_exploratory_sp_network':
+        from .linear_sp import network_preflight
+        network_preflight(folder, state, params, job=job)
+    if operation == 'configure_exploratory_linear_sp':
+        from .linear_sp import setup_preflight
+        setup_preflight(folder, state, params, job=job)
+    if operation == 'run_exploratory_linear_sp':
+        from .linear_sp import sp_solve_preflight
+        sp_solve_preflight(folder, state, params, job=job)
     if operation == 'qualify_saved_em':
         from .em_qualification import preflight as qualify_preflight
         qualify_preflight(folder, state, params, job)
@@ -272,6 +281,8 @@ def invalidate(runtime, job):
         workflow['values'].update(params['values'])
     if operation == 'circuit' or affects_em:
         workflow['network_update'] = None
+        workflow['sp_network'] = None
+        workflow['sp_setup'] = None
     if affects_em:
         workflow['network_fit'] = None
     workflow['hb_generation'] += 1

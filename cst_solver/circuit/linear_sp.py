@@ -1,0 +1,51 @@
+"""Bounded native S-parameter task configuration; this module never solves."""
+import math
+
+from .adapter import CircuitError, iterate
+
+
+def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax,
+                             samples, port_impedances):
+    if (not isinstance(task_name, str) or not task_name.strip()
+            or any(c in task_name for c in '\r\n\x00\\')
+            or frequency_unit not in ('Hz', 'kHz', 'MHz', 'GHz')
+            or any(type(v) not in (int, float) or not math.isfinite(v) for v in (fmin, fmax))
+            or fmin < 0 or fmax <= fmin or type(samples) is not int or not 2 <= samples <= 100000
+            or not isinstance(port_impedances, dict) or not port_impedances):
+        raise ValueError('Explicit task, frequency range, unit, sample count and ports required')
+    for name, impedance in port_impedances.items():
+        if (not isinstance(name, str) or not name.strip() or any(c in name for c in '\r\n\x00')
+                or type(impedance) not in (int, float) or not math.isfinite(impedance) or impedance <= 0):
+            raise ValueError('Port names and finite positive real impedances required')
+    ports = list(iterate(schematic.ExternalPort, 'StartPortNameIteration', 'GetNextPortName'))
+    if len(ports) != len(set(ports)) or set(port_impedances) != set(ports):
+        raise ValueError('Every existing external port needs an explicit impedance')
+    task = schematic.SimulationTask
+    task.Reset(); task.Name(task_name)
+    if task.DoesExist():
+        raise ValueError('Task already exists; refusing overwrite')
+    try:
+        task.Type('S-Parameters'); task.Name(task_name); task.Create()
+        task.SetLocalUnit('Frequency', frequency_unit)
+        task.SetLocalUnit('Resistance', 'Ohm')
+        task.SetProperty('maximum frequency range', 'False')
+        task.SetProperty('circuit simulator', 'cst')
+        task.SetProperty('broadband sweep', 'False')
+        task.SetSweepData(format(fmin, '.17g'), format(fmax, '.17g'), str(samples))
+        task.SetProperty('logarithmic sweep', 'False')
+        for name, impedance in port_impedances.items():
+            task.SetConstPortImpedance(name, format(impedance, '.17g'), '0')
+        actual_type = str(task.GetTypeForTask(task_name)).casefold()
+        actual = {key: str(task.GetProperty(key)) for key in ('maximum frequency range', 'circuit simulator',
+                  'broadband sweep', 'logarithmic sweep', 'fmin', 'fmax')}
+        if (actual_type != 's-parameters' or actual['circuit simulator'].casefold() != 'cst'
+                or any(actual[k].casefold() != 'false' for k in ('maximum frequency range', 'broadband sweep', 'logarithmic sweep'))
+                or not math.isclose(float(actual['fmin']), fmin, rel_tol=1e-10, abs_tol=0)
+                or not math.isclose(float(actual['fmax']), fmax, rel_tol=1e-10, abs_tol=0)):
+            raise ValueError('Native task readback differs')
+    except Exception as exc:
+        raise CircuitError('circuit_build_partial', 'S-parameter task may be partially created', task_name=task_name) from exc
+    return {'task_name': task_name, 'properties_readback': actual, 'frequency_unit_requested': frequency_unit,
+            'resistance_unit_requested': 'Ohm',
+            'frequency_unit_readback': 'unsupported', 'sample_count_readback': 'unsupported',
+            'port_impedances_readback': 'unsupported', 'solver_verified': False}

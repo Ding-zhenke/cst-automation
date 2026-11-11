@@ -26,6 +26,18 @@ def validate(operation, params):
             raise ServiceError('invalid_session_argument', str(exc)) from exc
         return
     identifier(params.get('project_id'))
+    if operation in ('configure_exploratory_linear_sp', 'run_exploratory_linear_sp'):
+        from .linear_sp import validate_setup, validate_solve
+        try:
+            (validate_setup if operation == 'configure_exploratory_linear_sp' else validate_solve)(params)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'prepare_exploratory_sp_network':
+        from .linear_sp import network_options
+        try:
+            network_options(params)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'prepare_hb_embedded_network':
         from cst_automation.embedded_network import validate as validate_embedded
         try:

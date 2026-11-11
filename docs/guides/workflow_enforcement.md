@@ -14,8 +14,13 @@
    绑定不启动 CST。修改已有规格必须提供当前 `expected_revision`；忙碌时拒绝。
 3. 通过原有 submit 提交 `set_parameters`，等待其成功回执，再提交 `solve`。
    若该任务失败但调用和刷新已返回并保存，且依据原回执、相同保存摘要、定向
-   reconcile、完整的原生参数及必要实体读回确认同一基线，所属会话可按既有授权
+   状态对应的审阅、完整的原生参数及必要实体读回确认同一基线，所属会话可按既有授权
    接续 EM，无需重复写参数。原任务保持 resolved/失败审计，不称 succeeded。
+   `needs_reconcile`/`close_failed` 使用定向 reconcile；`ready` 且原回执证实
+   `verified_returned_saved`、`known_saved_geometry=true`、无监测失败或未决操作时，
+   记录原回执、同一保存摘要、工作流代次和只读核验作为审阅证据；`ready` 不支持
+   reconcile，不得人为变更状态。两种路径的详细共同条件见
+   [已审阅保存基线](../../skills/cst-simulation/SKILL.md#已审阅保存基线的接续)。
    `depends_on` 只接受 succeeded，不能把原失败任务作为依赖；在审阅完备的条件下
    可不声明该失败任务，仍必须遵守当前绑定规格、版本和执行前原生检查。
    此路线不认证几何、外部依赖、网格或求解，现场不明或证据不足时不放行。

@@ -211,6 +211,15 @@ def _execute_operation(runtime, job):
     mark_stage(runtime, 'project.acquire')
     app, record = runtime.project(params['project_id'])
     contract = record.get('workflow')
+    if operation == 'prepare_exploratory_sp_network':
+        from .linear_sp import execute_network
+        return execute_network(runtime, job, app)
+    if operation == 'configure_exploratory_linear_sp':
+        from .linear_sp import execute_setup
+        return execute_setup(runtime, job, app)
+    if operation == 'run_exploratory_linear_sp':
+        from .linear_sp import execute_sp_solve
+        return execute_sp_solve(runtime, job, app)
     if operation == 'prepare_hb_embedded_network':
         from .embedded_network import execute as execute_embedded
         return execute_embedded(runtime, job, app)

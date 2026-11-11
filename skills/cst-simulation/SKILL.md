@@ -20,11 +20,19 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 ## 已审阅保存基线的接续
 
 原 `set_parameters` 失败后，若其回执证明调用和参数刷新均已返回并保存，保存摘要、
-工程身份、目标参数和当前工作流代次一致，且所属会话已审阅实际弹窗及不确定副作用、
-完成针对原 job 的定向 reconcile，且原生只读回执完整匹配目标参数与必要实体、
-与该保存基线一致（只读检查可在 reconcile 之前），
+工程身份、目标参数和当前工作流代次一致，且所属会话已审阅实际弹窗及不确定副作用，
+原生只读回执完整匹配目标参数与必要实体、与该保存基线一致，再按会话状态处理：
+
+- `needs_reconcile` 或 `close_failed`：按状态机完成针对原 job 的定向 reconcile；
+  只读检查可在 reconcile 之前，仍须满足接口全部审阅条件。
+- `ready`：若原失败回执的 `completion_evidence.reason` 为
+  `verified_returned_saved`、`known_saved_geometry=true`、无监测失败或未决操作，
+  则审阅并记录原 job、返回和保存证据、同一摘要、工作流代次以及只读回执。
+  `ready` 不支持 reconcile，不要人为改变状态或修改原任务来制造 resolution。
+
+满足对应分支及上述共同条件后，
 可在既有授权范围内把该保存基线作为下一次 EM 的输入，不重写参数。保留原失败及
-resolution；`resolved` 不是 `succeeded`，实体存在和参数读回也不等于完整几何、依赖、
+已有 resolution（若有）；`failed` 或 `resolved` 都不是 `succeeded`，实体存在和参数读回也不等于完整几何、依赖、
 网格或求解通过。缺少返回/保存证据、现场未确定或基线变化则停止审阅。
 
 提交 `solve` 前重新核对当前工程、保存摘要、用户要求、求解配置、实时空闲与弹窗；

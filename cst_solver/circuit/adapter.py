@@ -62,6 +62,59 @@ def create_net(obj, name, endpoints):
     obj.Apply()
 
 
+def attach_external_port_to_net(obj, net_name, endpoint, expected_members):
+    """Add one free external port, verifying all electrical nets before and after."""
+    def norm(value):
+        if (not isinstance(value, (list, tuple)) or len(value) != 3
+                or not isinstance(value[0], str) or not isinstance(value[1], str)
+                or type(value[2]) is not int or value[2] < 0):
+            raise CircuitError('circuit_topology_invalid', 'Invalid native endpoint')
+        kind = value[0].lower()
+        kind = {'p': 'externalport', 'externalport': 'externalport', 'b': 'block', 'block': 'block'}.get(kind, kind)
+        return (kind, value[1], value[2])
+
+    if not isinstance(net_name, str) or not net_name or norm(endpoint)[0] != 'externalport':
+        raise CircuitError('circuit_topology_invalid', 'Explicit net and external port required')
+    expected = {norm(value) for value in expected_members}
+    if not expected:
+        raise CircuitError('circuit_topology_invalid', 'Expected existing members required')
+
+    def snapshot():
+        obj.Reset()
+        names = [str(obj.GetNetNameByIndex(i)) for i in range(int(obj.GetNumberOfNets()))]
+        if len(names) != len(set(names)) or not all(names):
+            raise CircuitError('circuit_topology_invalid', 'Native net names are not unique')
+        members = {name: {norm(row) for row in obj.GetComponentPorts(name, -1)} for name in names}
+        subnets = {name: [frozenset(norm(row) for row in obj.GetComponentPorts(name, i))
+                          for i in range(int(obj.GetNumberOfSubnets(name)))] for name in names}
+        if any(set().union(*subnets[name]) != members[name] for name in names):
+            raise CircuitError('circuit_topology_invalid', 'Native subnet membership is inconsistent')
+        return members, subnets
+
+    before, before_subnets = snapshot()
+    port = norm(endpoint)
+    if before.get(net_name) != expected or any(port in members for members in before.values()):
+        raise CircuitError('circuit_topology_invalid', 'Net membership changed or external port is already connected')
+    try:
+        generated = obj.AddComponentPorts(net_name, [list(endpoint)], False)
+        if str(generated) != net_name:
+            raise ValueError('Native net name changed')
+        obj.Apply()
+        after, after_subnets = snapshot()
+        wanted = dict(before)
+        wanted[net_name] = before[net_name] | {port}
+        normalized_subnets = {name: sorted((tuple(sorted(part - {port})) for part in parts
+                                            if part - {port})) for name, parts in after_subnets.items()}
+        prior_subnets = {name: sorted(tuple(sorted(part)) for part in parts)
+                         for name, parts in before_subnets.items()}
+        if after != wanted or normalized_subnets != prior_subnets:
+            raise ValueError('Native topology differs from the expected attachment')
+    except Exception as exc:
+        raise CircuitError('circuit_build_partial', 'Net attachment may be partially applied', net_name=net_name) from exc
+    return {'net_name': net_name, 'endpoint': list(endpoint), 'readback_verified': True,
+            'solver_verified': False}
+
+
 class NativeAdapter:
     """Use documented schematic objects, with no unrestricted VBA entry point."""
     def __init__(self, app):
