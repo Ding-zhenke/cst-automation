@@ -342,3 +342,37 @@ with lock(folder/'worker.lock'),lock(folder/'state.lock'):
     assert record['startup_worker']==result['worker']
     assert record['launcher']['pid']==processes[0].pid
     assert result['status']=='closing' and result['environment']==s['environment']
+
+@pytest.mark.parametrize('case',['valid','missing_confirm','missing_risk','contradictory'])
+def test_owned_worker_handoff_requires_distinct_explicit_review(handoff,monkeypatch,case):
+    m,r,f,live,args,h=handoff
+    args.update(worker_ownership='owned',confirm_borrowed_worker=False,confirm_owned_worker=True,
+                accept_owned_worker_exit_risk=True)
+    if case=='missing_confirm':args['confirm_owned_worker']=False
+    if case=='missing_risk':args['accept_owned_worker_exit_risk']=False
+    if case=='contradictory':args['confirm_borrowed_worker']=True
+    monkeypatch.setattr(h,'verify_native',lambda *a:pytest.fail('Begin never touches CST'))
+    before=read(f/'session.json')
+    if case=='valid':
+        record=m.begin_native_worker_handoff(r['session_id'],r['credential'],**args)
+        assert record['worker_ownership']=='owned'
+        assert record['borrowed_worker_asserted_by_caller'] is False
+        assert record['owned_worker_exit_risk_accepted'] is True
+        args.update(worker_ownership='borrowed',confirm_borrowed_worker=True,confirm_owned_worker=False,
+                    accept_owned_worker_exit_risk=False)
+        with pytest.raises(ServiceError):m.begin_native_worker_handoff(r['session_id'],r['credential'],**args)
+    else:
+        with pytest.raises(ServiceError):m.begin_native_worker_handoff(r['session_id'],r['credential'],**args)
+        assert read(f/'session.json')==before
+
+
+def test_owned_exit_lost_de_never_launches_replacement(handoff,monkeypatch):
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    args.update(worker_ownership='owned',confirm_borrowed_worker=False,confirm_owned_worker=True,
+                accept_owned_worker_exit_risk=True)
+    monkeypatch.setattr(h,'verify_native',lambda *a:{'parameters':{}})
+    m.begin_native_worker_handoff(sid,cred,**args);m.finish_native_worker_handoff(sid,cred)
+    s=read(f/'session.json');s['worker_upgrade']['stop_ack']=True;write(f/'session.json',s)
+    live.clear();monkeypatch.setattr(m,'_launch',lambda *a,**k:pytest.fail('Never replace lost DE'))
+    with pytest.raises(ServiceError):m.finish_native_worker_handoff(sid,cred)
+    assert read(f/'session.json')==s

@@ -73,6 +73,10 @@ scene makes the existing authorization insufficient.
   parent-identity admission, never a relaxed identity comparison. A consumed launch
   that failed before admission uses only the guide's explicit reviewed recovery;
   confirm the entire failed process tree is gone. Recovery does not launch a worker.
+  For a worker that created its DE, use the guide's explicit owned path and its
+  separate exit-risk acceptance; confirm_borrowed_worker must be false. Validate
+  an actual owned-worker small-project handoff before the engineering target.
+  A creator process exiting with its DE intact alone is not full handoff acceptance.
 - A failed circuit run_task with explicit returned/saved receipts may leave the session ready
   after project/run identity, saved and disk digests, and absence of prior uncertainty/dialogs
   are verified. The job remains failed and the solver outcome unverified/review_required.

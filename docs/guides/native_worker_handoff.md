@@ -8,7 +8,7 @@
 
 - 原任务、后处理及 SDK 调用已完整返回；原会话 ready，无排队任务、未决写入或弹窗。
 - 所有登记工程已保存，完整登记摘要与磁盘一致；原 DE 中恰好是登记的未关闭标签。
-- 旧 worker 已通过 cooperative-worker-upgrade-v1 协议运行，且已独立确认它借用原 DE。
+- 旧 worker 已通过 cooperative-worker-upgrade-v1 协议运行；如实审阅它借用或创建 DE 的身份，不能把 owned 填成 borrowed。
 - 操作者已明确批准本次受控交接，保存了原任务、结果和审阅证据。
 - 本入口只读回 Model3D 的空闲及全参数/表达式。原理图任务空闲、非参数修改已保存，
   仍由所属会话审阅确认；缺少确认不能提交。
@@ -42,11 +42,27 @@ MCP 为 begin_cst_native_worker_handoff（review 对象）/ finish_cst_native_wo
 | required_capabilities | 非空能力列表；新网格接口需 hf-tet-adaptation-controls-v1 |
 | confirm_idle | 原任务、原生 EM/原理图均空闲的真实确认 |
 | confirm_saved_tabs | 全部标签保存且无未知修改的真实确认 |
-| confirm_borrowed_worker | 旧 worker 使用借用 DE 句柄的真实确认 |
+| worker_ownership | borrowed（默认）或 owned，与实际创建/借用事实一致 |
+| confirm_borrowed_worker | borrowed 路径必须 true；owned 路径必须 false |
+| confirm_owned_worker | owned 路径必须 true；borrowed 路径必须 false |
+| accept_owned_worker_exit_risk | owned 路径必须 true，明确接受退出可能导致 DE 丢失；borrowed 路径必须 false |
 | accept_unverified_native_handoff | 已批准本次受控原生交接验收，必须为 true |
 
 begin 只冻结队列、保存审计，不取得 CST 句柄，不请求旧 worker 立即退出。
 finish 是有副作用的控制接口；原生读回发生在 finish 和新 worker 中，不可作为普通状态查询。
+
+### 创建并拥有 DE 的旧 worker
+
+0.3.46 起可显式选择 owned 路径，仍需原有 confirm_idle、confirm_saved_tabs 和
+accept_unverified_native_handoff 全部为 true。新增字段不改变退出协议，也不调用 close；
+但 owned 原生句柄的析构行为不能从 borrowed 小工程验收推断。已有“创建控制进程退出后
+DE 保留”的观察同样不等于此次 owned-worker 完整交接验收。
+
+先在独立小工程由实际 worker 创建 DE，保存测试参数和明确标为 synthetic/not-EM 的
+存储曲线，确认任务返回/空闲，按 owned 字段执行交接；核对原 DE/标签/参数/曲线，
+再用于获批的目标工程。ownership 为现场审阅声明，本库尚无所有权 getter，不允许猜填。
+原 worker 退出后若 DE 丢失立即保持冻结，不自动 reopen/create 或把试验改判成功。
+新 worker 成功后通过借用原 DE 工作；原旧 worker 的 owned 审计仍保留。
 
 ## 状态顺序
 

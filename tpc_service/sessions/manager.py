@@ -136,6 +136,11 @@ class SessionManager:
             from .workflow import preflight
             from .model_api import settings_only, settings_capability
             from .model_api import uses_hf_tet_adaptation_controls, HF_TET_ADAPTATION_CAPABILITY
+            from .model_api import uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
+            if (operation == 'model_api' and uses_hf_tet_order_controls(params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and HF_TET_ORDER_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'HF Tet order controls require a compatible idle worker')
             if (operation == 'model_api' and uses_hf_tet_adaptation_controls(params['calls'])
                     and state.get('worker') and alive(state['worker'])
                     and HF_TET_ADAPTATION_CAPABILITY not in state.get('worker_capabilities', [])):

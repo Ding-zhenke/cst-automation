@@ -65,7 +65,7 @@ def register_session_tools(root, *, backend='cst', replace=False):
     entries = [
         ('recover_cst_native_worker_handoff', 'Review a failed pre-admission launch; rotate authorization while frozen, without launching.',
          dict(identity, review={'type':'object'}), list(identity)+['review'], recover_native_worker_handoff, False),
-        ('begin_cst_native_worker_handoff', 'Explicitly freeze a reviewed idle borrowed native worker for preserved-DE handoff; native acceptance pending.',
+        ('begin_cst_native_worker_handoff', 'Freeze a reviewed idle native worker for preserved-DE handoff; owned workers require distinct explicit exit-risk acceptance.',
          dict(identity, review={'type':'object'}), list(identity)+['review'], begin_native_worker_handoff, False),
         ('finish_cst_native_worker_handoff', 'Advance frozen preserved-DE handoff with exact-tab native checks; never create or reopen.',
          identity, list(identity), finish_native_worker_handoff, False),

@@ -6,6 +6,7 @@ SETTINGS_ONLY_CAPABILITY = 'solver-settings-no-rebuild-v1'
 MESH_SETTINGS_CAPABILITY = 'mesh-settings-no-rebuild-v1'
 MODEL_BAND_CAPABILITY = 'model-band-no-rebuild-v1'
 HF_TET_ADAPTATION_CAPABILITY = 'hf-tet-adaptation-controls-v1'
+HF_TET_ORDER_CAPABILITY = 'hf-tet-order-controls-v1'
 SETTINGS_ONLY_METHODS = frozenset(('configure_fd_linear_solver', 'configure_fd_frequency',
                                  'configure_fd_parallelization', 'configure_tetrahedral_mesh', 'set_frequency_range'))
 
@@ -21,6 +22,15 @@ def uses_hf_tet_adaptation_controls(calls):
             settings = call['args'][0] if call.get('args') else call['kwargs']['settings']
             if set(settings.get('adaptation', {})) & {
                     'singular_edge_refinement', 'snap_to_geometry', 'refinement_type'}:
+                return True
+    return False
+
+
+def uses_hf_tet_order_controls(calls):
+    for call in calls:
+        if call.get('method') == 'configure_fd_linear_solver':
+            settings = call['args'][0] if call.get('args') else call['kwargs']['settings']
+            if set(settings) & {'tet_order','mixed_order'}:
                 return True
     return False
 

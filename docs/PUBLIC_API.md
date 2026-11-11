@@ -1,5 +1,35 @@
 # cst-automation 与领域包的公共接口
 
+## Typed HF tetrahedral order controls
+
+`configure_fd_linear_solver(settings)` additionally accepts `tet_order` as exactly
+`First`, `Second` or `Third`, and `mixed_order` as a strict boolean. Enabling mixed
+order requires an explicit tet_order in the same request (the maximum order).
+Disabling it alone preserves the existing order. Commands are OrderTet then
+MixedOrderTet. These are general-purpose HF tetrahedral settings, not IE/Hex
+controls; the caller must verify the active method. Sparse calls do not change
+geometry, ports, AccuracyTet, Delta-S, mesh adaptation, frequency or solver method.
+They do change the numerical discretization, so prior EM/HB evidence is invalidated
+through the existing workflow. Native readback, memory reduction and convergence
+are not certified by the configuration receipt. Session requests require live
+worker capability `hf-tet-order-controls-v1`, including mixed/keyword batches.
+Official reference: CST 2026 Online Help,
+`mergedProjects/VBA_3D/special_vbasolver/special_vbasolver_fdsolver_object.htm`,
+OrderTet and MixedOrderTet. Example settings:
+`{"solver_type":"Direct","tet_order":"Second","mixed_order":true}`.
+Fixed First requires `{"tet_order":"First","mixed_order":false}` explicitly;
+it is a new accuracy/convergence trial, never permission to lower acceptance thresholds.
+
+Native handoff begin additionally accepts `worker_ownership="borrowed"` (default)
+or `"owned"`. Borrowed requires confirm_borrowed_worker=True and no owned flags.
+Owned requires confirm_borrowed_worker=False, confirm_owned_worker=True and
+accept_owned_worker_exit_risk=True, in addition to all existing idle/save/trial
+confirmations. Ownership is a reviewed caller assertion, not a new native getter.
+The owned route explicitly accepts that native destructor exit may lose the DE;
+exact-DE rechecks still freeze on loss, with no create/reopen fallback. It is not
+certified by the separate small-project owner-process exit observation. Record
+ownership and risk acceptance in the durable audit and reject changed retry inputs.
+
 ## Explicit preserved-DE worker handoff (limited native acceptance)
 
 The owning session reports 0.3.44 acceptance on an independent small project with
@@ -22,8 +52,10 @@ share this guard. Post-admission failures cannot use this recovery route.
 `SessionManager.begin_native_worker_handoff(session_id, credential, *,
 environment_identity, worker_identity, project_digests, review_note,
 required_capabilities, confirm_idle, confirm_saved_tabs, confirm_borrowed_worker,
-accept_unverified_native_handoff)` freezes an idle, unfenced native session.
-All confirmations must be true. The old worker must advertise cooperative-worker-upgrade-v1.
+accept_unverified_native_handoff, worker_ownership="borrowed", confirm_owned_worker=False,
+accept_owned_worker_exit_risk=False)` freezes an idle, unfenced native session.
+Idle/save/trial confirmations must be true; ownership confirmations follow the mutually
+exclusive rules above. The old worker must advertise cooperative-worker-upgrade-v1.
 Identity and complete registered project digest maps must match current saved files.
 This explicit opt-in does not change ordinary worker-upgrade's live-DE refusal.
 

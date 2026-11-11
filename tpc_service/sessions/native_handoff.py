@@ -169,10 +169,19 @@ def verify_native(runtime, state):
 def begin(manager, session_id, credential, *, environment_identity, worker_identity,
           project_digests, review_note, required_capabilities, confirm_idle=False,
           confirm_saved_tabs=False, confirm_borrowed_worker=False,
-          accept_unverified_native_handoff=False):
+          accept_unverified_native_handoff=False, worker_ownership='borrowed',
+          confirm_owned_worker=False, accept_owned_worker_exit_risk=False):
     from .manager import UPGRADE_CAPABILITY
-    require(all(x is True for x in (confirm_idle, confirm_saved_tabs, confirm_borrowed_worker,
+    require(all(x is True for x in (confirm_idle, confirm_saved_tabs,
                                     accept_unverified_native_handoff)), 'Explicit reviewed native handoff confirmations required')
+    require(worker_ownership in ('borrowed','owned'), 'Explicit borrowed or owned worker classification required')
+    if worker_ownership == 'borrowed':
+        require(confirm_borrowed_worker is True and confirm_owned_worker is False
+                and accept_owned_worker_exit_risk is False, 'Borrowed-worker review required without owned assertions')
+    else:
+        require(confirm_borrowed_worker is False and confirm_owned_worker is True
+                and accept_owned_worker_exit_risk is True,
+                'Owned worker requires separate confirmation and explicit native exit risk acceptance')
     require(isinstance(review_note, str) and 0 < len(review_note.strip()) <= 8192, 'Review note required')
     require(isinstance(required_capabilities, list) and bool(required_capabilities)
             and all(isinstance(x,str) and 0 < len(x) <= 256 for x in required_capabilities)
@@ -191,6 +200,7 @@ def begin(manager, session_id, credential, *, environment_identity, worker_ident
             require(record['environment'] == environment_identity and record['old_worker'] == worker_identity
                     and record['project_digests'] == project_digests
                     and record['requested_capabilities'] == required_capabilities
+                    and record.get('worker_ownership','borrowed') == worker_ownership
                     and record['review_note'] == review_note, 'Existing handoff inputs differ')
             return copy.deepcopy(record)
         require(state['status'] == 'ready' and not state.get('uncertain_jobs')
@@ -208,7 +218,10 @@ def begin(manager, session_id, credential, *, environment_identity, worker_ident
             requested_capabilities=required_capabilities,
             required_capabilities=sorted(set(required_capabilities+[CAPABILITY])),started_at=time.time(),
             native_acceptance='pending',saved_tabs_asserted_by_caller=True,
-            schematic_idle_asserted_by_caller=True,borrowed_worker_asserted_by_caller=True)
+            schematic_idle_asserted_by_caller=True,
+            worker_ownership=worker_ownership,borrowed_worker_asserted_by_caller=confirm_borrowed_worker,
+            owned_worker_asserted_by_caller=confirm_owned_worker,
+            owned_worker_exit_risk_accepted=accept_owned_worker_exit_risk)
         state.update(status='closing',worker_upgrade=record)
         write(folder/'session.json',state)
         return copy.deepcopy(record)

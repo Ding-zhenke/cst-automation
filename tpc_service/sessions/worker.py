@@ -224,8 +224,10 @@ def run(folder):
             from .saved_baseline import CAPABILITY as BASELINE_CAPABILITY
             from cst_automation.em_qualification import EXPLORATORY_CAPABILITY
             from .native_handoff import CAPABILITY as HANDOFF_CAPABILITY
+            from .model_api import HF_TET_ORDER_CAPABILITY
             state['worker_capabilities'] = [EXPLORATORY_CAPABILITY, BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
             state['worker_capabilities'].append(HANDOFF_CAPABILITY)
+            state['worker_capabilities'].append(HF_TET_ORDER_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also

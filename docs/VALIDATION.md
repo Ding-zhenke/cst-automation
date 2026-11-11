@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-11：HF Tet 阶次设置与显式 owned-worker 交接（离线）
+
+- 核对本机 CST 2026 FDSolver 官方帮助 OrderTet/MixedOrderTet：First/Second/Third，混合阶次以指定阶次为上限；新增 typed tet_order/mixed_order，保持其他设置不变。启用 mixed 必须同请求明确上限，严格布尔和枚举校验先于整批写入。
+- 新增 43 项回归，覆盖稀疏命令、非法值、MCP、纯设置无 Rebuild/solve、提交/执行能力门槛、旧 worker 的位置/关键词/混合批次拒绝，以及 owned 确认互斥、幂等身份和 DE 丢失不启动替代进程。完整离线 **1963 passed、2 deselected、9 warnings**（53.07 s），日志 work/tetorder-full.log；两项 skill 格式检查通过，独立源码复审无阻断项。
+- 新 worker 能力 hf-tet-order-controls-v1。原生阶次读回、实际 DOF/内存降低、残差/Delta-S 收敛均未在维护端验收；混合或降低阶次改变离散方式，不能据配置成功或用量下降放行 EM/HB。
+- owned-worker 使用单独 ownership/确认/退出风险接受，不能虚填 borrowed。独立创建控制进程退出后 DE 保留的观察，不等于完整 owned-worker 交接通过；须所属会话先在实际 worker 创建的独立小工程验收。原 exact-DE/标签/基线复查及无 fallback 边界保持。
+- 维护端未连接、停止、接管或修改实际工程/DE/worker。所属会话报告的有界 Iterative 失败和正常 API 停止不在本项中提升为求解验收。
+
 ## 2026-11-11：独立小工程原生交接与恢复验收（所属会话回报）
 
 - 所属工程会话报告已完成 0.3.44 原生验收；维护端本次仅接收回报并更新文档，未独立打开私有回执或访问 CST。原始审计保存在所属会话私有 work 目录的 native_handoff_validation/{verified.json,recovery_receipt.json,latest_handoff.json}，不随公共插件发布。
