@@ -199,7 +199,7 @@ def setup_preflight(folder, state, p, job=None):
     if p['task']['fmax'] * scale > float(f[-1]):
         reject('exploratory_sp_coverage_invalid', 'SP upper frequency exceeds the saved network')
     reject('exploratory_sp_setup_readback_unsupported',
-           'Native readback of task frequency units, sample count and impedance is not yet supported')
+           'Native readback of task sample count and constant impedance is not yet supported')
 
 
 def execute_setup(runtime, job, app):
@@ -279,6 +279,11 @@ def execute_sp_solve(runtime, job, app):
     task = app.circuit.adapter.select('SimulationTask', p['task_name'])
     props = setup['task_report']['properties_readback']
     if (not task.DoesExist() or str(task.GetTypeForTask(p['task_name'])).casefold() != 's-parameters'
+            or str(task.GetUnit('Frequency')) != setup['task']['frequency_unit']
+            or str(task.GetUnit('Resistance')) != 'Ohm'
+            or any(str(task.GetPortImpedanceType(name)) != mode['impedance_type']
+                   or str(task.GetPortSourceType(name)) != mode['source_type']
+                   for name, mode in setup['task_report']['port_modes'].items())
             or any(str(task.GetProperty(k)) != v for k, v in props.items())):
         raise ServiceError('exploratory_sp_native_mismatch', 'Native SP task differs from setup receipt')
     requested = {'project_id': p['project_id'], 'kind': 'solve', 'settings': {
