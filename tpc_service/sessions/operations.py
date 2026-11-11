@@ -31,6 +31,9 @@ def _execute_operation(runtime, job):
     if operation == 'qualify_saved_em':
         from .em_qualification import execute as qualify_saved
         return qualify_saved(runtime, job)
+    if operation == 'qualify_exploratory_em':
+        from .exploratory_em import execute as qualify_exploratory
+        return qualify_exploratory(runtime, job)
     if operation == 'accept_workflow_evidence':
         state = runtime.state()
         project = state['projects'][params['project_id']]

@@ -5,6 +5,67 @@ import re
 
 CAPABILITY='saved-em-qualification-v1'
 OPERATION='qualify_saved_em'
+EXPLORATORY_CAPABILITY='exploratory-saved-em-v1'
+EXPLORATORY_OPERATION='qualify_exploratory_em'
+
+
+def validate_exploratory(p):
+    expected={'project_id','em_job_id','expected_digest','run_id','port_ids','fmin_hz','fmax_hz',
+              'required_frequencies_hz','frequency_atol_hz','max_residual','acknowledged_warnings'}
+    if not isinstance(p,dict) or set(p)!=expected: raise ValueError('Exact exploratory qualification fields required')
+    warnings=p['acknowledged_warnings']
+    if (not isinstance(warnings,list) or not warnings or len(warnings)>1000
+            or any(not isinstance(w,str) or not w.strip() or len(w)>10000 for w in warnings)
+            or len(set(warnings))!=len(warnings)):
+        raise ValueError('Explicit unique warning texts required')
+    validate(dict({k:v for k,v in p.items() if k!='acknowledged_warnings'}, delta_s_limit=.01, consecutive_passes=1))
+
+
+def exploratory_log_proof(text, job, p):
+    """Identify one finished broadband run without making a mesh-convergence claim."""
+    starts=list(re.finditer(r'^([0-9-]{10} [0-9:]{8})\s+Solver started at: ([0-9-]{10} [0-9:]{8} [+-][0-9]{4})\s*$',text,re.M))
+    if len(starts)!=1: raise ValueError('Exactly one timestamped native solve required')
+    start=datetime.strptime(starts[0].group(2),'%Y-%m-%d %H:%M:%S %z')
+    if not job['started_at']-1<=start.timestamp()<=job['finished_at']: raise ValueError('Native start outside source job window')
+    blocks=[]
+    for line in text[starts[0].start():].splitlines():
+        match=re.match(r'^([0-9-]{10} [0-9:]{8})\s+(.*)$',line)
+        if match:
+            stamp=datetime.strptime(match.group(1),'%Y-%m-%d %H:%M:%S').replace(tzinfo=start.tzinfo).timestamp()
+            if not start.timestamp()<=stamp<=job['finished_at'] or (blocks and stamp<blocks[-1][0]): raise ValueError('Native log outside job window or unordered')
+            blocks.append((stamp,match.group(2)))
+        elif blocks: blocks[-1]=(blocks[-1][0],blocks[-1][1]+' '+line.strip())
+    joined='\n'.join(v for _,v in blocks)
+    if re.search(r'\b(?:aborted|abort|cancelled|canceled|fatal|failed)\b|^Error\s*:',joined,re.I|re.M): raise ValueError('Conflicting native failure')
+    patterns=[r'Finished the general purpose interpolative broadband frequency sweep:.*All broadband sweep convergence criteria have been satisfied after.*calculating (\d+) frequency samples:',
+              r'Post-processing finished\.',rf'Creating parametric 1D results for Run ID {p["run_id"]}\b']
+    hits=[]
+    for pattern in patterns:
+        found=[(i,re.search(pattern,v)) for i,(_,v) in enumerate(blocks) if re.search(pattern,v)]
+        if len(found)!=1: raise ValueError('Missing or ambiguous terminal marker')
+        hits.append(found[0])
+    indices=[i for i,_ in hits]
+    if indices!=sorted(set(indices)) or re.findall(r'Creating parametric 1D results for Run ID (\d+)',joined)!=[str(p['run_id'])]: raise ValueError('Wrong terminal order or multiple runs')
+    expected_count=int(hits[0][1].group(1)); samples=[]; current=None
+    for _,body in blocks[:indices[0]]:
+        match=re.search(r'Calculation \d+(?: of \d+)? \(Frequency: ([0-9.eE+-]+) (Hz|kHz|MHz|GHz)\)',body)
+        if match:
+            current={'frequency':float(match.group(1))*{'Hz':1,'kHz':1e3,'MHz':1e6,'GHz':1e9}[match.group(2)],'ports':{}}
+            if not math.isfinite(current['frequency']) or current['frequency']<0: raise ValueError('Invalid native frequency')
+            samples.append(current)
+        for match in re.finditer(r'Stimulation port\s*:\s*(\d+)\s+Accuracy\s*:\s*([0-9.eE+-]+)\s+Iterations\s*:',body):
+            port=int(match.group(1)); value=float(match.group(2))
+            if current is None or port not in p['port_ids'] or port in current['ports'] or not math.isfinite(value) or not 0<=value<=p['max_residual']:
+                raise ValueError('Invalid per-excitation residual')
+            current['ports'][port]=value
+    if len(samples)!=expected_count or any(set(s['ports'])!=set(p['port_ids']) for s in samples): raise ValueError('Incomplete direct sample/port coverage')
+    frequencies=[s['frequency'] for s in samples]
+    if not frequencies or min(frequencies)>p['fmin_hz']+p['frequency_atol_hz'] or max(frequencies)<p['fmax_hz']-p['frequency_atol_hz']:
+        raise ValueError('Direct sample band coverage missing')
+    if any(not any(abs(f-v)<=p['frequency_atol_hz'] for f in frequencies) for v in p['required_frequencies_hz']): raise ValueError('Required direct sample missing')
+    return {'native_start':start.isoformat(),'direct_samples':len(samples),
+            'max_residual':max(v for sample in samples for v in sample['ports'].values()),
+            'mesh_convergence':'unknown','terminal_times':[blocks[i][0] for i in indices]}
 
 
 def validate(p):

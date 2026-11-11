@@ -1,5 +1,27 @@
 # cst-automation 与领域包的公共接口
 
+## Exploratory saved EM evidence for external ADS handoff
+
+`qualify_exploratory_em` is a separate read-only owning-session operation,
+requiring worker capability `exploratory-saved-em-v1`. It accepts the same
+fields as `qualify_saved_em` except mesh delta and pass count, plus a unique
+`acknowledged_warnings` list matching all warning texts in the source. It requires the
+original returned-and-saved warning-only failed solve, unchanged workflow and
+saved digest, no latched monitor failure, a ready/idle session, the complete
+positive-ID saved matrix and parameter combination, and current-run terminal
+and per-excitation residual evidence. Required frequency coverage is explicit;
+no extrapolation or inferred DC is accepted. The receipt retains warnings,
+native source and data hashes with `mesh_convergence=unknown`,
+`solver_verified=false`, and purpose `exploratory_ads_handoff`.
+
+The receipt is an evidence inventory for external ADS workflows. It does not
+export a Touchstone, write an EM qualification into the workflow, pass its HB
+gate, authorize a solver, or certify mesh convergence. Callers must preserve
+port/reference mapping and independently compare any exported file to the fixed
+native run, qualify frequency/DC coverage, and document all model limits. Only
+offline tests are currently available; a live old worker is rejected rather
+than upgraded or bypassed.
+
 ## Accept an explicitly reviewed external save while ready
 
 `accept_saved_baseline` is an explicit session submit operation, capability

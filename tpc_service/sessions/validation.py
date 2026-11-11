@@ -38,6 +38,12 @@ def validate(operation, params):
             validate_qualification(params)
         except (ValueError, TypeError, KeyError) as exc:
             raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'qualify_exploratory_em':
+        from cst_automation.em_qualification import validate_exploratory
+        try:
+            validate_exploratory(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation in ('fit_em_network', 'update_hb_network'):
         from cst_automation.em_network import validate as validate_network
         try:
