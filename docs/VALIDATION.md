@@ -7,6 +7,7 @@
 - 原生只在本维护会话新建的独立极小夹具执行：两块 PEC 板及三个测试边端口，只将编号 3 转为面端口，无 EM、无 Computer Use、未连接或升级主工程 worker。创建基线的 Rebuild/保存返回且消息为空。
 - 转换 Rebuild/保存返回；CST 原生 ModelCache/Model.mif 将目标由 DISCRETEEDGE:3 改为 DISCRETEFACE:3，标签 fixture-P3、75 Ω、Monitor=True、InvertDirection=False 保持。其他两个端口的完整属性段逐字一致；Model.dpt 全文件字节一致，保留全部有向端点记录。证据是当前保存摘要对应的原生生成缓存，不是提交 history 文本，不等于在线 getter 或关闭重开验收。局部脱敏报告见 [夹具证据](evidence/discrete_face_port_fixture.json)，原始 before/after 快照留在本次 work/face-fixture。
 - CST 同编号 Create 发出“已有端口被覆盖” WARNING；会话正确保留 failed/session_geometry_unverified、returned_saved、review_required，未静默屏蔽，也未将原任务改为成功。此证据支持命令实际生效和上述保存记录一致，不放行总体几何、主模型转换、网格、收敛或 EM/HB。后续工程转换仍须明确授权与场景审阅，不能把备用路线当作执行请求。
+- 审阅并保留原生快照后，临时夹具通过所属会话 close_project 完成 saved/tab_closed/retired，environment_closed=False；仅删除已关闭的本夹具过程工程及配套目录，审计保留。合并远端并行 SP 读回原语后最终完整回归 **2010 passed、2 deselected、9 warnings**（56.77 s），日志 work/pytest-face-merged.log。新增面端口测试 17 项，技能格式及插件构建通过。
 
 ## 2026-11-11：owned-worker 原生交接与 mixed-order 生效（所属会话回报）
 
