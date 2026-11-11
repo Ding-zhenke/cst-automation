@@ -30,10 +30,10 @@ pre-open/无写入审计时，本版不增加自动续接、不自动清 needs_r
    无排队任务或未处理弹窗，完成对不确定副作用的现场核对，并核实原 DE 身份及实际状态。
 2. 只由所属会话在实际空闲时加载修复；不建立新绑定或新 DE，不在这里代替其操作。
 3. 审阅完整保存基线后，使用现有 reconcile API/CLI 提交 review_note、全部活动登记的
-   project_digests 和 confirm_idle=True；包括这个已有目标文件但 saved=False 的登记。
+   project_digests、confirm_idle=True 和需解决的 `resolve_job_ids`；包括这个已有目标文件但 saved=False 的登记。
    若有 launch_intent，还须按既有规则明确处理环境身份。缺证据或审阅未完成则停留在围栏。
-4. reconcile 记录真实 resolution/last_resolution，原错误仍保留；现有 API 会把 failed job
-   标 resolved，而不是 succeeded。先前保留的原始失败副本仍保留。它采纳磁盘基线，不认证
+4. reconcile 记录真实 resolution/last_resolution，原错误仍保留；只把所指定任务
+   标 resolved，而不是 succeeded，其他 failed/blocked 不变。先前保留的原始失败副本仍保留。它采纳磁盘基线，不认证
    import 成功、原生保存、依赖、几何或求解，也不自动重放原任务。
 5. 使用新的 inspect 请求并沿同一 project_id 检查。Runtime.project/environment 可按这份
    真实审阅恢复同路径标签，再核对模型/电路/文件依赖。inspect 本身不重导入、不保存或求解。

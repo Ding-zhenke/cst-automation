@@ -18,6 +18,10 @@ def main(argv=None):
     sub.add_parser('ensure')
     sub.add_parser('status')
     sub.add_parser('resume')
+    upgrade = sub.add_parser('begin-worker-upgrade')
+    upgrade.add_argument('--confirm-idle', action='store_true')
+    upgrade.add_argument('--require-capability', action='append', default=None)
+    sub.add_parser('finish-worker-upgrade')
     bind = sub.add_parser('bind-workflow')
     bind.add_argument('--project-id', required=True)
     bind.add_argument('--spec-file', required=True)
@@ -60,6 +64,11 @@ def main(argv=None):
                 result = manager.status(sid, credential)
             elif args.command == 'resume':
                 result = manager.resume(sid, credential)
+            elif args.command == 'begin-worker-upgrade':
+                result = manager.begin_worker_upgrade(sid, credential, confirm_idle=args.confirm_idle,
+                                                      required_capabilities=args.require_capability)
+            elif args.command == 'finish-worker-upgrade':
+                result = manager.finish_worker_upgrade(sid, credential)
             elif args.command == 'bind-workflow':
                 result = manager.bind_workflow(sid, credential, args.project_id, read(args.spec_file),
                                                expected_revision=args.expected_revision)

@@ -74,6 +74,14 @@ rather than caller-written `Solver.FrequencyRange` history. Derived expression
 strings are supported by the same wrapper. Check the active runtime source
 when diagnosing linkage; changing skill text does not update Python code.
 
+A settings-only session batch including `set_frequency_range` checks messages
+and saves without full Rebuild when the worker advertises
+`model-band-no-rebuild-v1`. A mixed geometry batch still rebuilds. This is an
+offline-tested execution route, not proof that native history survived: retain
+required data and verify the old and new native run IDs, parameters and curves,
+including save/reopen when authorized. The model band is not the F-solver
+sampling table or evidence that DC or all retained HB products are covered.
+
 `configure_fd_frequency` interval endpoints and adaptation points currently
 accept numeric values only. They do not create parameter references or update
 the model band. Recheck those separately configured rows when changing band

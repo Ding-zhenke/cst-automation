@@ -30,7 +30,19 @@ def restore_reviewed_projects(app, state, open_paths):
         if key in open_paths or not path.is_file():
             continue
         digest=file_digest(path)
-        if not reviewed.get('human_reviewed') or digests.get(project_id)!=digest or record.get('saved_digest')!=digest:
+        adopted = record.get('adoption_review') or {}
+        authorization = record.get('path_authorization') or {}
+        authorized_path = authorization.get('working_path')
+        note = adopted.get('review_note')
+        adoption_matches = (state.get('status') == 'ready' and not state.get('uncertain_jobs')
+                            and not state.get('launch_intent') and record.get('saved') is True
+                            and authorization.get('operation') == 'adopt_project'
+                            and isinstance(authorized_path, str)
+                            and os.path.normcase(str(Path(authorized_path).resolve())) == key
+                            and isinstance(note, str) and bool(note.strip())
+                            and adopted.get('expected_digest') == digest)
+        resolution_matches = reviewed.get('human_reviewed') and digests.get(project_id) == digest
+        if record.get('saved_digest') != digest or not (resolution_matches or adoption_matches):
             raise ServiceError('session_project_mismatch', 'Absent saved project has no matching explicit review', project_id=project_id)
         missing.append(str(path))
     for path in missing:

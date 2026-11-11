@@ -48,7 +48,10 @@ Rebuild 异常没有正常返回证明，不追加保存，继续围栏。保存
 实体。该入口不接受宏、表达式执行或任意 SDK 方法。
 
 只读入口限于 session_geometry_unverified 围栏或原 ready，无 launch_intent/uncertain_jobs
-及已知弹窗；要求保存登记/预期/磁盘摘要一致、原 DE 身份仍存活、目标实际在打开列表。
+及当前阻塞弹窗；要求保存登记/预期/磁盘摘要一致、原 DE 身份仍存活、目标实际在打开列表。
+读取前同步按原 DE PID 检查当前弹窗，并再次核对身份；检测失败或有阻塞弹窗时拒绝。
+历史 `runtime_diagnostics` 随结果作为 prior_dialog_diagnostics 保留，不当作本轮窗口状态；
+本轮独立监测的失败仍锁存，后续 clear 不能抹去本轮失败。新同步检查仅离线测试。
 借用原 app；若刚加载 worker，可仅精确 attach 原 PID，核对进程身份和实际 PID。
 不调用 Runtime.environment/project 的恢复流程，不 open/activate 任何标签，不创建 DE，
 不 Rebuild/save/solve，不消费消息队列，不制造 human_reviewed/last_resolution。

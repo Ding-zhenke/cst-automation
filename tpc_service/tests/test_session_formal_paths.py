@@ -158,7 +158,7 @@ def test_failed_adoption_keeps_claim_until_explicit_resolution(tmp_path, status,
     # Explicit scene review resolves the failed journal before releasing the claim.
     runtime.update(status='needs_reconcile')
     manager.reconcile(ref['session_id'], ref['credential'], 'Confirmed failed open has no owned tab', {},
-                      confirm_idle=True, confirm_no_environment=True)
+                      confirm_idle=True, confirm_no_environment=True, resolve_job_ids=[job['job_id']])
     accepted = submit(manager, other, 'after-resolution', 'adopt_project', **params)
     assert accepted['status'] == 'queued'
 

@@ -83,6 +83,52 @@ def test_mixed_batch_not_classified_as_settings_only():
     assert not settings_only([{'method': 'configure_fd_linear_solver'}, {'method': 'create_brick'}])
 
 
+def test_model_band_setting_saves_without_rebuild_or_solver(tmp_path):
+    from cst_solver.parameters import ParametersMixin
+    from tpc_service.sessions.operations import _execute_operation
+    from tpc_service.sessions.model_api import settings_capability
+    class App(ParametersMixin, ValidationMixin):
+        pass
+    app = App()
+    commands, saves = [], []
+    def forbidden(*a, **k):
+        pytest.fail('Model band settings must not rebuild or solve')
+    app.cst_file = SimpleNamespace(get_messages=lambda: [], model3d=SimpleNamespace(
+        add_to_history=lambda *a: commands.append(a), Rebuild=forbidden,
+        full_history_rebuild=forbidden, run_solver=forbidden))
+    record = {'path': str(tmp_path/'model.cst'), 'saved_digest': 'saved'}
+    runtime = SimpleNamespace(folder=tmp_path, backend='cst', project=lambda pid: (app, record),
+                              save=lambda *a: saves.append(a) or record)
+    calls = [{'method': 'set_frequency_range', 'args': ['fmin', 'fmax']}]
+    job = {'operation':'model_api','job_id':'j','operation_id':'o','fingerprint':'f',
+           'params':{'project_id':'p','calls':calls}}
+    assert settings_only(calls)
+    assert settings_capability(calls) == 'model-band-no-rebuild-v1'
+    result = _execute_operation(runtime, job)
+    assert result['settings_only'] is True and not result['geometry_validation']['rebuild_performed']
+    assert 'Solver.FrequencyRange "fmin", "fmax"' in commands[0][1]
+    assert len(saves) == 1
+
+
+def test_old_worker_rejects_model_band_before_queue(tmp_path, monkeypatch):
+    from tpc_service.sessions import manager as module
+    from tpc_service.sessions.store import read, write
+    manager = module.SessionManager(str(tmp_path), backend='fake')
+    ref = manager.ensure('band', 'band')
+    folder = tmp_path/ref['session_id']; state = read(folder/'session.json')
+    state.update(status='ready', worker={'pid':123}, worker_capabilities=['solver-settings-no-rebuild-v1'])
+    write(folder/'session.json', state)
+    monkeypatch.setattr(module, 'alive', lambda *a: True)
+    monkeypatch.setattr(manager, '_launch', lambda *a: pytest.fail('No launch'))
+    calls = [{'method':'set_frequency_range','args':['fmin','fmax']}]
+    params = {'project_id':'p','stage_id':'band','calls':calls,
+              'preview_digest':hashlib.sha256(json.dumps(calls,sort_keys=True,ensure_ascii=False).encode()).hexdigest()}
+    with pytest.raises(ServiceError) as caught:
+        manager.submit(ref['session_id'],ref['credential'],'request','model_api',params)
+    assert caught.value.code == 'workflow_worker_upgrade_required'
+    assert not list((folder/'jobs').glob('*.json'))
+
+
 @pytest.mark.parametrize('method,settings', [
     ('configure_fd_linear_solver', {'solver_type': 'Direct'}),
     ('configure_tetrahedral_mesh', {'adaptation': {'max_passes': 3}})])

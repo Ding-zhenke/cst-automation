@@ -16,6 +16,7 @@ from .store import alive, assert_environment_unclaimed, contained, digest, ident
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
                         'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'prepare_hb_embedded_network', 'accept_saved_baseline', SCHEMATIC_RECOVERY))
 FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY))
+UPGRADE_CAPABILITY = 'cooperative-worker-upgrade-v1'
 
 
 class SessionManager:
@@ -63,10 +64,12 @@ class SessionManager:
 
     def status(self, session_id, credential):
         folder = self._folder(session_id)
-        with lock(folder / 'state.lock'):
-            state = self._state(folder, credential)
-            public = {k: v for k, v in state.items() if k != 'credential_hash'}
-            public['jobs'] = [read(p) for p in sorted((folder / 'jobs').glob('*.json'))]
+        state = self._state(folder, credential)
+        public = {k: v for k, v in state.items() if k != 'credential_hash'}
+        # State and journals are atomically replaced. A long history scan must not hold
+        # the state lock against a just-launched worker. The state and jobs are
+        # consequently observations at different times, not one snapshot.
+        public['jobs'] = [read(p) for p in sorted((folder / 'jobs').glob('*.json'))]
         return public
 
     def job(self, session_id, credential, job_id):
@@ -188,14 +191,93 @@ class SessionManager:
             state = self._state(folder, credential)
             if state['status'] == 'closed':
                 raise ServiceError('session_closed', 'Explicitly closed session; create a new binding to reopen saved work')
+            if state.get('worker_upgrade'):
+                raise ServiceError('session_maintenance', 'Finish the existing worker upgrade instead of resuming')
         self._launch(folder, recover=True)
         return self.status(session_id, credential)
+
+    def begin_worker_upgrade(self, session_id, credential, *, confirm_idle=False, required_capabilities=None):
+        folder = self._folder(session_id)
+        with lock(self.root / 'registry.lock'), lock(folder / 'state.lock'):
+            state = self._state(folder, credential)
+            if state.get('worker_upgrade'):
+                if required_capabilities is not None and required_capabilities != state['worker_upgrade']['required_capabilities']:
+                    raise ServiceError('session_maintenance', 'Existing upgrade has different required capabilities')
+                return dict(state['worker_upgrade'])
+            if confirm_idle is not True:
+                raise ServiceError('session_review_required', 'Confirm the owned session and DE are idle')
+            required = [] if required_capabilities is None else required_capabilities
+            if (not isinstance(required, list) or any(not isinstance(c, str) or not c for c in required)
+                    or len(set(required)) != len(required)):
+                raise ServiceError('invalid_session_argument', 'required_capabilities must be a unique list of names')
+            if (state['status'] != 'ready' or state.get('uncertain_jobs') or state.get('launch_intent')
+                    or state.get('close_requested') or JobIndex.load(folder).active_jobs()):
+                raise ServiceError('session_busy', 'Worker upgrade requires an idle, unfenced session')
+            worker = state.get('worker')
+            if not worker or not alive(worker) or UPGRADE_CAPABILITY not in state.get('worker_capabilities', []):
+                raise ServiceError('worker_upgrade_unsupported', 'Live worker lacks cooperative upgrade support')
+            if self.backend == 'cst' and state.get('environment') and alive(state['environment']):
+                raise ServiceError('worker_upgrade_live_de_unverified', 'Live native DE preservation is not verified')
+            record = {'phase': 'stop_requested', 'old_worker': worker, 'stop_ack': False,
+                      'started_at': time.time(), 'environment': state.get('environment'),
+                      'projects_digest': digest(state['projects']), 'required_capabilities': required}
+            state.update(status='closing', worker_upgrade=record)
+            write(folder/'session.json', state)
+            return dict(record)
+
+    def finish_worker_upgrade(self, session_id, credential):
+        folder = self._folder(session_id)
+        launch = False
+        with lock(self.root / 'registry.lock'), lock(folder / 'state.lock'):
+            state = self._state(folder, credential)
+            record = state.get('worker_upgrade')
+            if not record:
+                previous = state.get('last_worker_upgrade')
+                if previous and previous.get('phase') == 'complete':
+                    return dict(previous)
+                raise ServiceError('session_maintenance', 'No worker upgrade is in progress')
+            if (state['status'] != 'closing' or state.get('uncertain_jobs') or state.get('launch_intent')
+                    or state.get('close_requested') or JobIndex.load(folder).active_jobs()
+                    or state.get('environment') != record['environment']
+                    or digest(state['projects']) != record['projects_digest']):
+                raise ServiceError('session_maintenance', 'Upgrade remains frozen; inspect changed session state')
+            if self.backend == 'cst' and state.get('environment') and alive(state['environment']):
+                raise ServiceError('worker_upgrade_live_de_unverified', 'Live native DE preservation is not verified')
+            if record['phase'] == 'stop_requested':
+                if not record.get('stop_ack') or alive(record['old_worker']):
+                    return dict(record)
+                current = state.get('worker')
+                if current != record['old_worker'] and current and alive(current):
+                    return dict(record)
+                record['phase'] = 'starting'
+                record['launch_attempted'] = True
+                state.update(worker=None, worker_capabilities=[], worker_upgrade=record)
+                write(folder/'session.json', state)
+                launch = True
+            elif record['phase'] == 'starting':
+                worker = state.get('worker')
+                if (worker and worker != record['old_worker'] and alive(worker)
+                        and record.get('new_worker_ready') == worker
+                        and UPGRADE_CAPABILITY in state.get('worker_capabilities', [])
+                        and set(record['required_capabilities']).issubset(state.get('worker_capabilities', []))):
+                    record.update(phase='complete', new_worker=worker, completed_at=time.time())
+                    state.update(status='ready', last_worker_upgrade=record)
+                    state.pop('worker_upgrade', None)
+                    write(folder/'session.json', state)
+                    return dict(record)
+                # A lost launch receipt may conceal a live child. Never launch
+                # another worker automatically from an uncertain attempt.
+            else:
+                raise ServiceError('session_maintenance', 'Unknown upgrade phase')
+        if launch:
+            self._launch(folder, recover=True)
+        return dict(record)
 
     def close(self, session_id, credential, request_id):
         return self.submit(session_id, credential, request_id, 'close')
 
     def reconcile(self, session_id, credential, review_note, project_digests, *, confirm_idle=False,
-                  environment_identity=None, confirm_no_environment=False, abandon_projects=None):
+                  environment_identity=None, confirm_no_environment=False, abandon_projects=None, resolve_job_ids=None):
         """Explicit human-reviewed baseline, never an automatic retry or success certification."""
         from .native import file_digest
         folder = self._folder(session_id)
@@ -206,6 +288,20 @@ class SessionManager:
             jobs = [read(p) for p in (folder / 'jobs').glob('*.json')]
             if any(j['status'] == 'running' for j in jobs):
                 raise ServiceError('session_busy', 'Original operation is still running; do not reconcile it')
+            selected = [] if resolve_job_ids is None else resolve_job_ids
+            if (not isinstance(selected, list) or any(not isinstance(i, str) for i in selected)
+                    or len(set(selected)) != len(selected)):
+                raise ServiceError('invalid_session_argument', 'resolve_job_ids must be a unique list of job IDs')
+            by_id = {j['job_id']: j for j in jobs}
+            if any(i not in by_id or by_id[i]['status'] not in ('needs_reconcile', 'failed', 'blocked') for i in selected):
+                raise ServiceError('session_review_required', 'Selected job is missing or not eligible for resolution')
+            required = set(state.get('uncertain_jobs') or []) | {j['job_id'] for j in jobs if j['status'] == 'needs_reconcile'}
+            if not required.issubset(selected):
+                raise ServiceError('session_review_required', 'Select every uncertain job before clearing the fence')
+            last_error = state.get('last_error')
+            matching = {j['job_id'] for j in jobs if j['status'] == 'failed' and j.get('error') == last_error} if last_error else set()
+            if not required and last_error and not matching.intersection(selected):
+                raise ServiceError('session_review_required', 'Select the failed job corresponding to the session last error')
             if not isinstance(review_note, str) or not review_note.strip():
                 raise ServiceError('session_review_required', 'Explicit human review note required')
             for pid in abandon_projects or []:
@@ -231,10 +327,11 @@ class SessionManager:
                 state['launch_intent'] = False
             audit = {'review_note': review_note, 'project_digests': project_digests,
                      'abandoned_projects': abandon_projects or [],
+                     'resolved_job_ids': selected,
                      'human_reviewed': True, 'readback_verified': False, 'solver_verified': False,
                      'at': time.time()}
             for job in jobs:
-                if job['status'] in ('needs_reconcile', 'failed', 'blocked'):
+                if job['job_id'] in selected:
                     job.update(status='resolved', resolution=audit)
                     write(folder / 'jobs' / (job['job_id'] + '.json'), job)
             for pid, record in state['projects'].items():

@@ -85,13 +85,17 @@ history 用于通用 CST 历史块，VBA 是受信任用户代码，并非隔离
 
 `job-index.json` 缓存请求 ID、操作 ID、序号及活动任务。提交与取队列只枚举原回执文件名，读取缺索引的回执或实际匹配的任务。先落盘 `jobs/` 回执，再更新索引。中断留下的新回执可通过文件名补索引，活动状态和前置成功均从原回执核对。worker 进程启动时完整核对一次原回执，以恢复检查点及确认未知写入。完整 `status` 继续返回全部回执，按任务轮询使用 `job --job-id`。
 
+`status` 从原子发布的会话记录验证凭据并读取状态，再逐个读取原子发布的历史回执，不持有 `state.lock`；`resume` 启动前的状态检查和启动过程仍使用锁。返回不是同一时刻的一致快照：读取期间任务可变化或新任务可加入。恢复决策必须重新查询具体 job 和当前会话，不能以一次返回认定 worker 已完成启动、解除围栏或任务成功。worker 自身启动审计仍在锁内，其他需要锁的操作可能等待；锁等待失败应保留现场，不重复启动或清理围栏。
+
 Windows 上，读取中的 JSON 可能短暂拒绝原子替换并返回 WinError 5 或 32。会话存储仅重试同一份已经刷盘的临时 JSON 的替换，最多等待约 0.8 秒。持续失败时保留原记录并报告替换异常。按原 job 回执、保存检查点和现场证据处理，已读到的工程结果与回执落盘分别核验。
 
-恢复失败不能回退到 connect_to_any。若需人工核对，读取 status、具体 job 与
+任务开始时确认具体工程保存基线及授权范围；同一会话已有明确确认时记录并沿用，讨论或新一轮对话不使其失效。继续已授权恢复、建模或求解前仍核对身份、摘要、任务与空闲证据；出现新的未知写入、实质性基线变化或无法确定现场时按实际风险处理。
+
+恢复失败不能回退到 connect_to_any。若需现场核对，读取 status、具体 job 与
 runtime_diagnostics 中实际弹窗的标题、正文、按钮及所属 PID。reconcile 仅供用户明确
 核对后使用：CLI `reconcile --review-file ABS.json`，内容包括 review_note、全部
-project_digests、confirm_idle=true；未知 DE 创建另需完整 environment_identity 或
-confirm_no_environment=true。它只记录人工采纳的保存基线，未知任务标 resolved，
+project_digests、confirm_idle=true，以及 `resolve_job_ids`（要解决的具体任务 ID 列表）；未知 DE 创建另需完整 environment_identity 或
+confirm_no_environment=true。它只记录经审阅的保存基线，仅指定任务标 resolved，其他 failed/blocked 保持原状，
 首次创建失败且没有落盘的工程意图可以在核对后用 abandon_projects 显式放弃；此操作
 不能删除已保存工程，也不能接管其他会话已占用的环境。
 不认证几何/求解、不重放任务。blocked 阶段如需继续，必须在核对后使用新的阶段 ID。
@@ -109,16 +113,19 @@ execution_state=returned_saved、review_required=true，session 维持 ready。
 不一致、其他操作或原有 needs_reconcile 保持围栏；不自动改历史任务、不自动 reconcile。
 
 更新源码不刷新已存活 worker。所属会话确证 SDK 调用已返回、DE 空闲、无 running/queued
-任务与未处理弹窗后，才可让原 worker 退出并用本仓库同一 `.venv`、同一 root/reference
+任务与未处理弹窗后，仍须有防止新任务竞态的安全停止机制才能主动退出 worker；
+协作升级的适用范围和限制见下文。若 worker 已经退出，可用本仓库同一 `.venv`、同一 root/reference
 执行 resume。保留原 DE/PID/创建身份、工程及恢复引用，不关闭 CST、不复制/重算任务，
 不要启动第二个 worker 抢占仍被持有的锁。resume 校验原环境身份并重新连接；它不会因本次
 补丁自动解除既有 needs_reconcile。旧任务缺少新增返回回执时，不能用曲线存在或新版单元
 测试补写证明；历史围栏的处置属于所属会话独立的有审计恢复，不是逐轮数值审批。
 
+新 worker 宣告 `cooperative-worker-upgrade-v1` 后，可用 CLI `begin-worker-upgrade --confirm-idle` 原子冻结新任务并请求协作退出，再重复调用 `finish-worker-upgrade` 等待旧进程退出、新 worker 启动并解除冻结。中断可继续 finish；未确认的阶段保持冻结。该接口不关闭 DE、工程或重放任务；当前只在 fake 后端测试，原生只允许已确认 DE 不在运行的情况，活 DE 的退出保留尚未验证。旧 worker 不支持协作退出，在冻结前拒绝；没有已验证的无强杀兼容退出方式。单次空闲检查不能证明随后强停无竞态，不擅自结束旧进程或 DE。
+
 ### 同一 DE 接续与 EM 历史验收
 
 1. 所属会话先暂停提交，等原任务到可审阅的终态。核对无排队、运行和未知写入，确认 CST 空闲且没有需答复的窗口。记录原 worker 与 DE 的 PID、创建身份、已登记工程路径和保存摘要，保留结果归档。旧任务若有围栏，先独立审阅其证据。
-2. 只让身份相符且已空闲的 Python worker 退出，确认其进程已结束并释放 worker 锁。使用同一个 `.venv`、root 和私有 reference 执行 `resume`。核对新 worker 身份、原 DE 身份及工程路径一致，然后在所属会话执行已登记目标的只读检查。若 DE 身份、保存摘要或标签不符，停在现场核对阶段。
+2. 如果原 worker 已退出并释放锁，使用同一个 `.venv`、root 和私有 reference 执行 `resume`；主动升级仅在上述能力和限制内使用协作接口。核对新 worker 身份、原 DE 身份及工程路径一致，然后在所属会话执行已登记目标的只读检查。若 DE 身份、保存摘要或标签不符，停在现场核对阶段。
 3. 记录续跑前目标工程的正 3D Run ID 基线。用两个连续且参数不同的已授权几何工况，分别调用 `set_parameters` 和 `solve`，保存后读回。核对新任务的 `worker_runtime` 指纹和几何回执 `rebuild_mode="parametric"`。每组同时记录原生完成日志、保存摘要及实际参数。
 4. 第二组保存后，从同一工程的全部所需 3D S 参数叶枚举共同正 ID，逐 ID 核对实际存储参数、复数曲线和频轴。两组须可同时读回，只有 `[0, 1]` 或两个日志均写 Run ID 1 时，仍未证明不同几何的历史保留。Run 0 和最大编号不能代替参数匹配。在另一个获准的空闲点保存关闭重开，重复读回以验证重开持久化。
 
@@ -157,7 +164,7 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 验收边界以 `docs/VALIDATION.md` 为准。
 
 
-恢复时，如果同一已核实 DE 中的已保存工程标签已关闭，只有匹配的显式基线确认（last_resolution.human_reviewed、每个工程摘要和当前文件摘要全部相同）才允许重新打开该已登记路径。无确认或摘要变化仍拒绝；不接管其他会话、不搜索活动窗口，也不重放建模。
+恢复时，如果同一已核实 DE 中的已保存工程标签已关闭，可复用匹配的既有 `last_resolution`，或在 ready 且无未知任务/启动意图时复用该工程的原始 `adoption_review`（登记路径、授权路径和保存摘要均一致）。无匹配确认或摘要变化仍拒绝；不接管其他会话、不搜索活动窗口，也不重放建模。该规则不适用于会丢弃内存改动的 `reload_project`。
 
 
 `set_parameters` supports `expressions` alongside `values` to pass UTF-8 parameter descriptions directly to the existing Python `app.para(..., expression=...)` API. Expressions here are descriptions; executable CST formulas remain in values.

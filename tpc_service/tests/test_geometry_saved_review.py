@@ -10,6 +10,12 @@ from tpc_service.sessions.operations import _execute_operation as execute
 from tpc_service.sessions.worker import _finish_failed_job
 
 
+@pytest.fixture(autouse=True)
+def mock_dialog_scan(monkeypatch):
+    from cst_solver import dialogs
+    monkeypatch.setattr(dialogs, 'check_dialogs', lambda **kwargs: [])
+
+
 def validation_app(messages, *, raises=False):
     class App(ValidationMixin): pass
     app=App(); batches=iter([[],messages])
@@ -164,7 +170,11 @@ def test_fenced_review_rejects_unsafe_context_without_reopening(tmp_path,monkeyp
     if issue=='idle': p['confirm_idle']=False
     if issue=='digest': p['expected_digest']='0'*64
     if issue=='closed': app.project.list_open_projects=lambda:[]
-    if issue=='dialog': runtime.update(runtime_diagnostics={'state':'blocked_by_dialog'})
+    if issue=='dialog':
+        from cst_solver import dialogs
+        def blocked(**kwargs):
+            raise dialogs.CstDialogTimeout('active dialog', {'dialogs':[{'pid': identity['pid'], 'title':'warning'}]})
+        monkeypatch.setattr(dialogs,'check_dialogs',blocked)
     if issue=='busy':
         from tpc_service.sessions.store import write
         write(runtime.folder/'jobs'/'busy.json',{'job_id':'other','status':'running'})
@@ -172,6 +182,63 @@ def test_fenced_review_rejects_unsafe_context_without_reopening(tmp_path,monkeyp
     if issue=='other_fence': runtime.update(last_error={'code':'native_write_uncertain'})
     with pytest.raises(ServiceError): runtime.execute({'operation':'inspect','job_id':'review','params':p})
     assert runtime.state()['status']=='needs_reconcile'
+
+
+def test_stale_dialog_diagnostic_does_not_reject_fresh_clear_review(tmp_path, monkeypatch):
+    runtime,app,record,p,identity=review_case(tmp_path)
+    from tpc_service.sessions import store
+    from cst_solver import dialogs
+    monkeypatch.setattr(store,'alive',lambda value:value==identity)
+    seen=[]
+    monkeypatch.setattr(dialogs,'check_dialogs',lambda **kwargs:seen.append(kwargs) or [])
+    prior={'state':'blocked_by_dialog','label':'old-job','dialogs':[{'title':'old warning'}]}
+    runtime.update(runtime_diagnostics=prior)
+    result=runtime.execute({'operation':'inspect','job_id':'review','params':p})
+    assert seen[0]['pid']==identity['pid']
+    assert result['native_readback']['parameters']['x']['value']==1
+    assert result['prior_dialog_diagnostics']==prior
+    assert runtime.state()['runtime_diagnostics']==prior
+    assert runtime.state()['status']=='needs_reconcile'
+
+
+def test_dialog_scan_failure_blocks_native_getters(tmp_path, monkeypatch):
+    runtime,app,record,p,identity=review_case(tmp_path)
+    from tpc_service.sessions import store
+    from cst_solver import dialogs
+    monkeypatch.setattr(store,'alive',lambda value:value==identity)
+    def fail(**kwargs): raise OSError('dialog scan unavailable')
+    monkeypatch.setattr(dialogs,'check_dialogs',fail)
+    app.get_parameter=lambda *a:pytest.fail('no getter after scan failure')
+    with pytest.raises(ServiceError) as exc:
+        runtime.execute({'operation':'inspect','job_id':'review','params':p})
+    assert exc.value.code=='session_read_review_refused'
+    assert runtime.state()['status']=='needs_reconcile'
+
+
+def test_active_dialog_is_retained_in_error_and_blocks_getters(tmp_path, monkeypatch):
+    runtime,app,record,p,identity=review_case(tmp_path)
+    from tpc_service.sessions import store
+    from cst_solver import dialogs
+    monkeypatch.setattr(store,'alive',lambda value:value==identity)
+    dialog={'pid':identity['pid'], 'title':'Warning', 'body':'license', 'buttons':[{'text':'OK'}]}
+    def blocked(**kwargs): raise dialogs.CstDialogTimeout('dialog', {'dialogs':[dialog]})
+    monkeypatch.setattr(dialogs,'check_dialogs',blocked)
+    app.get_parameter=lambda *a:pytest.fail('no getter with active dialog')
+    with pytest.raises(ServiceError) as exc:
+        runtime.execute({'operation':'inspect','job_id':'review','params':p})
+    assert exc.value.details['dialog_preflight']['dialogs']==[dialog]
+    assert runtime.state()['status']=='needs_reconcile'
+
+
+def test_environment_identity_change_during_dialog_check_blocks_getters(tmp_path, monkeypatch):
+    runtime,app,record,p,identity=review_case(tmp_path)
+    from tpc_service.sessions import store
+    states=iter([True, False])
+    monkeypatch.setattr(store,'alive',lambda value: next(states))
+    app.get_parameter=lambda *a:pytest.fail('no getter after identity change')
+    with pytest.raises(ServiceError) as exc:
+        runtime.execute({'operation':'inspect','job_id':'review','params':p})
+    assert exc.value.code=='session_environment_mismatch'
 
 
 def test_unknown_rebuild_exception_does_not_trigger_another_save(tmp_path):

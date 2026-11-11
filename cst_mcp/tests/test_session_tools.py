@@ -24,4 +24,10 @@ def test_session_tools_explicit_registration_and_no_global_session(tmp_path, mon
     from tpc_service.sessions.manager import OPERATIONS
     schema = next(s for s in tools.TOOL_SPECS if s['name'] == 'submit_cst_session_operation')
     assert schema['inputSchema']['properties']['operation']['enum'] == sorted(OPERATIONS)
+    reconcile = next(s for s in tools.TOOL_SPECS if s['name'] == 'reconcile_cst_session')
+    assert reconcile['inputSchema']['properties']['resolve_job_ids']['type'] == 'array'
+    begin = next(s for s in tools.TOOL_SPECS if s['name'] == 'begin_cst_worker_upgrade')
+    assert begin['inputSchema']['properties']['required_capabilities']['type'] == 'array'
+    assert 'begin_cst_worker_upgrade' in tools.WRITE_TOOLS
+    assert 'finish_cst_worker_upgrade' in tools.WRITE_TOOLS
     assert not list(tmp_path.rglob('worker.log'))

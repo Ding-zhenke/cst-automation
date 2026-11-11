@@ -201,15 +201,19 @@ def run(folder):
     with lock(folder / 'worker.lock', blocking=False):
         with lock(folder / 'state.lock'):
             state = read(folder / 'session.json')
+            if state.get('worker_upgrade', {}).get('phase') == 'stop_requested':
+                return  # A concurrent legacy resume must not replace the frozen worker.
             state['worker'] = process_identity(os.getpid())
+            from .manager import UPGRADE_CAPABILITY
             from .workflow import CAPABILITY
-            from .model_api import SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY
+            from .model_api import SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY
+            from .read_review import CAPABILITY as READ_REVIEW_CAPABILITY
             from cst_automation.port_replacement import CAPABILITY as PORT_CAPABILITY
             from cst_automation.em_network import CAPABILITY as NETWORK_CAPABILITY
             from cst_automation.em_qualification import CAPABILITY as QUALIFICATION_CAPABILITY
             from cst_automation.embedded_network import CAPABILITY as EMBEDDED_CAPABILITY
             from .saved_baseline import CAPABILITY as BASELINE_CAPABILITY
-            state['worker_capabilities'] = [BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, PORT_CAPABILITY]
+            state['worker_capabilities'] = [BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also
@@ -238,12 +242,22 @@ def run(folder):
                 state['uncertain_jobs'] = uncertain
             elif state['status'] not in ('closing', 'close_failed', 'needs_reconcile'):
                 state['status'] = 'ready'
+            upgrade = state.get('worker_upgrade')
+            if (upgrade and upgrade.get('phase') == 'starting' and state['status'] == 'closing'
+                    and not uncertain and not state.get('launch_intent') and not JobIndex.load(folder).active_jobs()):
+                upgrade['new_worker_ready'] = state['worker']
             write(folder / 'session.json', state)
         runtime = Runtime(folder, state['backend'])
         while True:
             with lock(folder / 'state.lock'):
                 state = read(folder / 'session.json')
                 if state['status'] == 'closed':
+                    return
+                upgrade = state.get('worker_upgrade')
+                if (upgrade and upgrade.get('phase') == 'stop_requested'
+                        and upgrade.get('old_worker') == process_identity(os.getpid())):
+                    upgrade['stop_ack'] = True
+                    write(folder / 'session.json', state)
                     return
                 job = JobIndex.load(folder).next_queued()
                 if job and state['status'] == 'needs_reconcile' and job['operation'] not in FENCED_OPERATIONS:

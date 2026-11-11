@@ -5,6 +5,8 @@ from .inspection import validate_options, inspect_native
 from .project_lifecycle import path_key
 from .store import read
 
+CAPABILITY = 'geometry-review-fresh-dialog-v1'
+
 
 def borrow_open_project(runtime, identity, path):
     """Borrow one already-open tab from the exact recorded environment."""
@@ -36,8 +38,7 @@ def inspect_saved_geometry(runtime, job):
     validate_options(params)
     state = runtime.state()
     if (runtime.backend != 'cst' or state.get('status') not in ('ready', 'needs_reconcile')
-            or state.get('launch_intent') or state.get('uncertain_jobs')
-            or (state.get('runtime_diagnostics') or {}).get('state', 'clear') != 'clear'):
+            or state.get('launch_intent') or state.get('uncertain_jobs')):
         raise ServiceError('session_read_review_refused', 'Unsafe environment or unknown work prevents native review')
     if state['status'] == 'needs_reconcile' and state.get('last_error', {}).get('code') != 'session_geometry_unverified':
         raise ServiceError('session_read_review_refused', 'This native review is scoped to a geometry-validation fence')
@@ -52,6 +53,21 @@ def inspect_saved_geometry(runtime, job):
         if other.get('job_id') != job['job_id'] and other.get('status') in ('running', 'queued', 'needs_reconcile'):
             raise ServiceError('session_busy', 'Other work prevents read-only review')
     identity = state.get('environment')
+    if not identity or not alive(identity):
+        raise ServiceError('session_environment_mismatch', 'Recorded environment identity is not live')
+    from cst_solver.dialogs import check_dialogs, CstDialogTimeout
+    try:
+        check_dialogs(label=job['job_id'], pid=identity['pid'])
+    except CstDialogTimeout as exc:
+        raise ServiceError('session_read_review_refused', 'Current CST dialog prevents native review',
+                           dialog_preflight=exc.details,
+                           prior_dialog_diagnostics=state.get('runtime_diagnostics')) from exc
+    except Exception as exc:
+        raise ServiceError('session_read_review_refused', 'Current CST dialog scan failed',
+                           dialog_scan_error=repr(exc),
+                           prior_dialog_diagnostics=state.get('runtime_diagnostics')) from exc
+    if not alive(identity):
+        raise ServiceError('session_environment_mismatch', 'Environment changed during dialog scan')
     app, handle, _ = borrow_open_project(runtime, identity, record['path'])
     app.cst_file = handle
     result = inspect_native(app, params)
@@ -63,4 +79,6 @@ def inspect_saved_geometry(runtime, job):
                 readback_verified=not result['errors'], geometry_verified=False, solver_verified=False,
                 message_read_status='not_read_preserve_queue', messages=[],
                 session_state=state['status'], read_only_review=True,
-                idle_asserted_by_caller=True, idle_verified=False)
+                idle_asserted_by_caller=True, idle_verified=False,
+                prior_dialog_diagnostics=state.get('runtime_diagnostics'),
+                dialog_preflight={'state': 'clear', 'target_pid': identity['pid']})
