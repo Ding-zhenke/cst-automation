@@ -46,8 +46,15 @@ receipt = manager.finish_model3d_archive_recovery(session_id, credential)
 ```
 
 `expected_parameters` 为 `{name: {"value": finite_number, "expression": exact_string}}`；
-`expected_ports` 为 `{"1": {"type": "Discrete", "number_of_modes": 1}, ...}`，也支持
-Waveguide 类型。身份和映射必须取自该工程证据，不复制示例。精确字段见 PUBLIC_API。
+`expected_ports` 为 `{"1": {"type": "Discrete", "number_of_modes": 0}, ...}`，也支持
+Waveguide 类型。Discrete 允许原生整数 0，Waveguide 要求整数 >=1；真实 0 不补成 1。
+身份和映射必须取自该工程证据，不复制示例。精确字段见 PUBLIC_API。
+
+本机 CST 2026 官方 `Online Help/mergedProjects/VBA_3D/special_vbaports/`
+`special_vbaports_port_object.htm` 将 GetType 列为 Waveguide/Discrete；
+GetNumberOfModes 的原文仅说返回指定现有端口的模式数，没有明确写“仅波导端口”，
+也没有给出 Discrete 的正数下界。允许 Discrete=0 的依据是所属会话完整原生读回，
+不能把模式数 0 解释为端口缺失或无效，也不据此修改实际端口属性。
 
 CLI：`begin-model3d-archive-recovery --review-file ABS.json`，之后反复调用
 `finish-model3d-archive-recovery`。MCP 对应显式注册的

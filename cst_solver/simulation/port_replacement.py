@@ -18,7 +18,8 @@ def port_inventory(app):
     for _ in range(count):
         pid = port_id(port.GetNextPortNumber())
         kind, modes = str(port.GetType(pid)), port.GetNumberOfModes(pid)
-        if kind not in ('Discrete','Waveguide') or type(modes) is not int or modes < 1 or str(pid) in result:
+        if (kind not in ('Discrete','Waveguide') or type(modes) is not int
+                or modes < (0 if kind == 'Discrete' else 1) or str(pid) in result):
             raise ValueError('Invalid/duplicate native port identity')
         result[str(pid)] = {'type': kind, 'number_of_modes': modes}
     return result

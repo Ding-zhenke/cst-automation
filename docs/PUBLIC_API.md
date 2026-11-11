@@ -2,6 +2,11 @@
 
 ## Fenced 3D archive recovery
 
+Port inventories preserve the native integer mode count: Discrete accepts >=0
+(CST 2026 reports 0); Waveguide requires >=1. Booleans, non-integers and negative
+counts are refused. No normalization from 0 to 1 is permitted. This applies to
+the generic `port_inventory` reader and recovery `expected_ports` alike.
+
 `SessionManager.begin_model3d_archive_recovery(session_id, credential, **review)`
 and `finish_model3d_archive_recovery(session_id, credential)` are controller-side
 maintenance methods, not queued operations or hot reload. Begin requires one

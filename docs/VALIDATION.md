@@ -1,5 +1,17 @@
 # 验证记录
 
+## 2026-11-12：离散端口原生零模式读回（0.3.62）
+
+- 维护只读核对所属会话保存的 `native_port_inventory_raw.json`：全部十个条目
+  GetType=Discrete、GetNumberOfModes=0。没有调用 native getter 或修改端口。
+- generic port_inventory 与 archive recovery expected_ports 同步允许 Discrete 的
+  严格整数 >=0，Waveguide 仍要求 >=1；负数、bool、浮点、字符串和未知类型拒绝，
+  不把真实 0 归一化为 1。恢复测试 fixture 改用真实类型组合 Discrete/0。
+- 本机官方 Port 对象帮助仅说明 GetNumberOfModes 返回现有端口模式数，并未明确
+  将方法限定为 Waveguide。Discrete=0 的支持来自现场读回，不伪称文档保证。
+- 新增 17 项模式合同回归；端口替换、离散面端口、归档恢复及 worker 交接合计
+  **142 项通过**。本次不增加原生归档恢复、端口几何/阻抗或求解的验收等级。
+
 ## 2026-11-12：fenced 3D 成功归档恢复（0.3.61）
 
 - 新增 controller-side begin/finish_model3d_archive_recovery，以及显式 CLI/MCP。

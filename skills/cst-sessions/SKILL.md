@@ -122,6 +122,8 @@ scene makes the existing authorization insufficient.
   Do not substitute schematic recovery, ordinary reload, partial companion copying
   or preemptive reconcile. Completion still requires targeted scene reconciliation;
   ambiguous mutations are not replayed. Native archive recovery remains unverified.
+  Preserve native Discrete port mode counts of 0 in recovery inventories; only
+  Waveguide requires a positive count. Do not replace the observed 0 with 1.
 - Keep the working project and its DE while the approved task is active, including replies and
   disconnects. Once modeling is complete and the formal CST plus paired data are verified, use
   session `close_project` to save, close and retire this task's process projects, then delete their

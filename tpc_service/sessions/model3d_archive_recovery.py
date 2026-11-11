@@ -76,7 +76,7 @@ def _validate(review):
         require(isinstance(key, str) and key.isdecimal() and int(key) > 0
                 and isinstance(value, dict) and set(value) == {'type', 'number_of_modes'}
                 and value['type'] in ('Discrete', 'Waveguide') and type(value['number_of_modes']) is int
-                and value['number_of_modes'] > 0, 'Invalid expected port inventory')
+                and value['number_of_modes'] >= (0 if value['type'] == 'Discrete' else 1), 'Invalid expected port inventory')
 
 
 def _preflight(folder, state, review):

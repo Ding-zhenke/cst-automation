@@ -47,10 +47,22 @@ def recovery(tmp_path, monkeypatch):
                   registered_digest=file_digest(source), current_digest=file_digest(target),
                   source_path=str(source), source_digest=file_digest(source),
                   expected_parameters={'a': {'value': 1, 'expression': '1'}},
-                  expected_ports={'1': {'type': 'Discrete', 'number_of_modes': 1}},
+                  expected_ports={'1': {'type': 'Discrete', 'number_of_modes': 0}},
                   forbidden_history_fragment='MinPasses "1"', review_note='Reviewed archive recovery',
                   confirm_idle=True, confirm_discard=True, accept_worker_exit_risk=True)
     return manager, ref, folder, target, source, live, review, mod
+
+
+@pytest.mark.parametrize('kind,modes,valid', [('Discrete', 0, True), ('Waveguide', 1, True),
+    ('Waveguide', 0, False), ('Discrete', -1, False), ('Discrete', False, False), ('Discrete', 0.0, False)])
+def test_expected_port_mode_contract(recovery, kind, modes, valid):
+    m, ref, folder, target, source, live, review, mod = recovery
+    review['expected_ports']['1'] = {'type': kind, 'number_of_modes': modes}
+    if valid:
+        mod._validate(review)
+        assert review['expected_ports']['1']['number_of_modes'] == modes
+    else:
+        with pytest.raises(ServiceError): mod._validate(review)
 
 
 @pytest.mark.parametrize('bad', ['digest', 'source', 'running', 'identity', 'confirmation', 'job', 'extra_project', 'timeout'])
