@@ -136,6 +136,9 @@ def check_evidence(folder, project):
 
 
 def preflight(folder, state, operation, params, *, job=None):
+    if operation == 'accept_saved_baseline':
+        from .saved_baseline import preflight as baseline_preflight
+        return baseline_preflight(folder, state, params, job)
     project = state['projects'].get(params.get('project_id'))
     workflow = project.get('workflow') if project else None
     standalone_transient = (operation == 'circuit' and params.get('kind') == 'solve'
