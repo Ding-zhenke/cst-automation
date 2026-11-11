@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-11：Windows venv worker 身份交接修复
+
+- 所属工程会话报告：独立小工程旧 worker 正常退出且原 DE/标签/参数/存储曲线保留，新 worker 被启动器身份比较拒绝。维护端通过源码定位 Popen 启动器与实际 Python 子进程身份混用；未访问该工程或 DE。
+- 新增 15 项测试：nonce/父子身份/解释器/重放拒绝，冻结恢复的令牌、活进程、worker 锁、已登记 worker、原生变化拒绝，以及实际 Windows venv Python 子进程登记。真实子进程测试断言未加载 CST SDK，不等于原生交接验收。
+- 修复后完整离线回归 1917 passed、2 deselected、9 warnings（44.29 s）。独立源码复审无阻断项，技能格式检查通过。原生小工程交接的后半段仍须所属会话继续验收。
+- 整合远端 ADS 2025 兼容更新后的最终完整回归为 **1920 passed、2 deselected、9 warnings**（43.17 s），日志 `work/launcher-merged.log`；发布插件 0.3.44，打包测试通过。
+- recover_native_worker_handoff 仅恢复尚未登记实际 worker 的已消费启动，保存旧尝试并旋转令牌，不启动进程。原生状态必须不变；失败启动器整棵进程树已退出仍需现场审阅，不从启动器死亡或空日志自动推断。
+
 ## 2026-11-11：保留原 DE 的显式 worker 交接（离线）
 
 - 新增 32 项离线用例；完整回归 **1902 passed、2 deselected、9 warnings**（50.32 s），日志 `work/handoff-full-final.log`。会话 skill 格式检查通过。没有启用实机或界面测试。
