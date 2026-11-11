@@ -31,11 +31,11 @@ class ValidationMixin:
 
     def get_messages(self):
         """
-        读取并清空 CST 的待处理消息。
+        读取 CST 返回的消息；不保证读取会清空队列。
 
         CST 的 VBA 失败**不会**抛 Python 异常，只会往消息队列里写一条；
         非空可能包含 INFO/WARNING/ERROR，不能仅凭非空判定失败；保留原生类型。
-        本仓库按读取后消费队列处理，因此调用方应立即持久化原始消息。
+        SDK 可能重复返回历史消息；调用方应持久化原始观测，不按文本相等消除消息。
 
         :return: list, 消息列表（可能是字符串或消息对象）；空列表表示无消息
         """
@@ -57,7 +57,7 @@ class ValidationMixin:
               "status":     "success" | "unverified" | "error",
               "messages":   [ ... ],               # 本次验收到的问题消息（含 rebuild 阶段）
               "rebuild_ok": bool,                  # Rebuild 本身是否干净
-              "before":     [ ... ],               # 调用前积压的历史消息（已清空）
+              "before":     [ ... ],               # 调用前读到的消息，未证明已清空
               "guard":      {...},                 # 守卫层发现摘要
             }
 
@@ -111,6 +111,9 @@ class ValidationMixin:
             'message_summary': summary, 'before_summary': before_summary, 'rebuild_summary': rebuild_summary,
             'dependency_validation': 'unknown', 'validation_scope': 'rebuild_and_message_queue',
             'message_scope': 'pending_queue_unbounded',
+            'message_consumption_verified': False,
+            'native_run_message_binding_verified': False,
+            'repeated_snapshot': (before == rebuild_messages if rebuild_returned else None),
             'before': before,
             'guard': state.summary(),
         }

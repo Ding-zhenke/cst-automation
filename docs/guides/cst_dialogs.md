@@ -84,6 +84,16 @@ Qt 的虚拟按钮无法用标准 Win32 Button 发送路径操作，返回 `no_m
 
 ## 结果失效弹窗的 API 预处理
 
+精确标题匹配时诊断分类为 `cst_results_incompatible`，仍保留 blocking 和首次
+monitor failure。分类不代表已选缓存策略，也不会自动点击。通用自动处理尚缺
+显式请求策略、原 PID/HWND/完整控件核验、选择后独立读回、确认后原调用完成及
+缓存内容可读验证；不能用标题匹配、DeleteResults 或 quiet mode 代替这一链条。
+
+`validate_model` 的 `repeated_snapshot` 仅比较前后观测是否相同，单次读取时为 null。
+`message_consumption_verified` 和 `native_run_message_binding_verified` 为 false：
+读取不保证清队列，相同文本不能证明是旧消息。保留完整前后原始记录；原生 INFO
+也可能说明外部依赖缺失，不能因为数量重复或全部 INFO 自动放行几何。
+
 `Results May Get Incompatible With Model` 表示模型变更将使已有结果失效。
 优先在提交变更前通过 CST API 处理结果，减少对 Computer Use 的依赖。
 这不是让旧结果在修改后的模型上继续有效。

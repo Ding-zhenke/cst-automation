@@ -29,6 +29,12 @@ to report success. An unresolved call must return before any further SDK write o
 
 ## Result incompatibility prompts: prefer API preparation
 
+`cst_results_incompatible` identifies the known title but remains blocking; it does
+not authorize a cache selection or clear a latched monitor failure. For repeated
+`get_messages()` snapshots, do not assume reads consume the queue or subtract equal
+text. `repeated_snapshot` is diagnostic only; INFO can describe missing external
+dependencies, so repeated INFO alone cannot certify rebuilt geometry.
+
 For `Results May Get Incompatible With Model`, read the [API handling guidance](../../docs/guides/cst_dialogs.md#结果失效弹窗的-api-预处理) before resorting to Computer Use.
 
 - Before a model-changing call, determine the result-retention policy from existing user instructions. Preserve and verify any required results before cleanup; ask only if the needed choice is still unspecified.

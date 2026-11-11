@@ -70,6 +70,27 @@ def test_controller_requires_complete_known_body():
   assert not _is_startup_controller(changed)
 
 
+def test_result_incompatibility_is_classified_but_still_latched(monkeypatch):
+ from types import SimpleNamespace
+ from cst_solver import dialogs
+ window=dict(hwnd=77,pid=53304,owner_pid=53304,owner=66,
+             title='Results May Get Incompatible With Model',visible=True,is_dialog=True,
+             modal=True,responding=True,**{'class':'Qt683QWindow'})
+ monkeypatch.setattr(dialogs,'list_windows',lambda **kwargs:[window])
+ monkeypatch.setattr(dialogs,'_dialog_content',lambda *args:dict(
+     body='Store current results in result cache',text_readable=True,text_complete=True,
+     read_errors=[],buttons=[{'text':'OK'},{'text':'Cancel'}]))
+ monkeypatch.setattr(dialogs,'_child_buttons',lambda hwnd:[])
+ monkeypatch.setattr(dialogs,'_user32',SimpleNamespace(IsWindowVisible=lambda hwnd:True))
+ snapshot,=dialogs.list_dialogs(pid=53304)
+ assert snapshot['error_code']=='cst_results_incompatible'
+ assert snapshot['blocking'] is True
+ monitor=dialogs.DialogMonitor(pid=53304,timeout=None,on_event=lambda event:None)
+ monitor._scan()
+ assert monitor.failure is not None
+ assert monitor.snapshot()['state']=='blocked_by_dialog'
+
+
 def test_observed_complete_save_progress_is_not_an_action_prompt():
  from cst_solver.dialogs import _is_startup_controller
  w=dict(pid=53304,owner_pid=53304,owner_class='Qt683QWindowIcon',
