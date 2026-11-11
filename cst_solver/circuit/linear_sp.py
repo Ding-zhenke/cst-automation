@@ -36,9 +36,16 @@ def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax
         for name, impedance in port_impedances.items():
             task.SetConstPortImpedance(name, format(impedance, '.17g'), '0')
         actual_type = str(task.GetTypeForTask(task_name)).casefold()
+        frequency_unit_actual = str(task.GetUnit('Frequency'))
+        resistance_unit_actual = str(task.GetUnit('Resistance'))
+        port_modes = {name: {'impedance_type': str(task.GetPortImpedanceType(name)),
+                             'source_type': str(task.GetPortSourceType(name))} for name in port_impedances}
         actual = {key: str(task.GetProperty(key)) for key in ('maximum frequency range', 'circuit simulator',
                   'broadband sweep', 'logarithmic sweep', 'fmin', 'fmax')}
-        if (actual_type != 's-parameters' or actual['circuit simulator'].casefold() != 'cst'
+        if (actual_type != 's-parameters' or frequency_unit_actual != frequency_unit
+                or resistance_unit_actual != 'Ohm' or actual['circuit simulator'].casefold() != 'cst'
+                or any(row['impedance_type'].casefold() != 'constant'
+                       or row['source_type'].casefold() not in ('none', 'signal') for row in port_modes.values())
                 or any(actual[k].casefold() != 'false' for k in ('maximum frequency range', 'broadband sweep', 'logarithmic sweep'))
                 or not math.isclose(float(actual['fmin']), fmin, rel_tol=1e-10, abs_tol=0)
                 or not math.isclose(float(actual['fmax']), fmax, rel_tol=1e-10, abs_tol=0)):
@@ -47,5 +54,7 @@ def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax
         raise CircuitError('circuit_build_partial', 'S-parameter task may be partially created', task_name=task_name) from exc
     return {'task_name': task_name, 'properties_readback': actual, 'frequency_unit_requested': frequency_unit,
             'resistance_unit_requested': 'Ohm',
-            'frequency_unit_readback': 'unsupported', 'sample_count_readback': 'unsupported',
+            'frequency_unit_readback': frequency_unit_actual, 'resistance_unit_readback': resistance_unit_actual,
+            'port_modes': port_modes,
+            'sample_count_readback': 'unsupported',
             'port_impedances_readback': 'unsupported', 'solver_verified': False}

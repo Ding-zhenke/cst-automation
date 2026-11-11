@@ -68,12 +68,24 @@ reference impedances are explicit. No existing tasks, blocks or endpoints may
 be replaced. A partial native
 write is fenced; all task settings without supported getters remain unverified.
 The exact source, task, topology and saved project identity bind the solve.
-The task's local frequency unit, sweep sample count and constant port impedance
-lack verified native getters and remain explicitly unverified. The solve gate
+The selected task's frequency unit is read with documented `GetUnit("Frequency")`
+and must match the request; native acceptance is still pending. Sweep sample
+count and constant port impedance lack verified readback and remain unverified. The solve gate
 therefore refuses every current setup until these native readbacks are supported;
 the setup preflight also refuses before making any circuit changes. The entry
 point is not yet runnable. These are exploratory commands only; no
 live CST execution or DE handoff was performed.
+
+For each SP port the native task getter must report impedance type `Constant`
+and source type `None` or `Signal`. `GetConstPortImpedance` is documented with
+two ByRef strings; a returned constant alone does not establish that it is used.
+Its Python ABI and live native execution remain unverified.
+The SDK-free `cst_automation.sp_impedance_bridge` builds a project-bound,
+token-bound VBA ByRef query and parses its bounded receipt. It never connects to
+CST or writes a file; building/parsing is not native verification and does not
+open the SP setup/solve gates. The specific schematic identity is not yet
+verified; same-named tasks in different schematics are not distinguished.
+Numeric strings using a decimal comma are rejected rather than guessed.
 
 ## Typed HF tetrahedral order controls
 
