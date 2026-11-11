@@ -202,10 +202,14 @@ def run(folder):
         with lock(folder / 'state.lock'):
             state = read(folder / 'session.json')
             native_upgrade = state.get('worker_upgrade') or {}
-            if native_upgrade.get('mode') == 'preserve_native_de_v1' and (
-                    native_upgrade.get('phase') != 'starting' or not native_upgrade.get('launch_claimed')
-                    or state.get('worker') != process_identity(os.getpid())):
-                return  # Only the atomically authorized replacement may enter.
+            if native_upgrade.get('mode') == 'preserve_native_de_v1':
+                from .native_handoff import admit_worker, STARTUP_ENV, error_record
+                try:
+                    admit_worker(state, os.environ.pop(STARTUP_ENV, None))
+                except Exception as exc:
+                    native_upgrade['startup_error'] = error_record(exc)
+                    write(folder/'session.json',state)
+                    return  # No native handle acquired; keep the original identity and freeze.
             if state.get('worker_upgrade', {}).get('phase') in ('reviewing', 'stop_requested'):
                 return  # A concurrent legacy resume must not replace the frozen worker.
             state['worker'] = process_identity(os.getpid())

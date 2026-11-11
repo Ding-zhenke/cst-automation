@@ -14,6 +14,63 @@ from .native import Runtime, file_digest
 CAPABILITY = 'preserved-de-worker-handoff-v1'
 MODE = 'preserve_native_de_v1'
 RELEASE_MAX_AGE = 2.0
+STARTUP_ENV = 'CST_HANDOFF_STARTUP_NONCE'
+
+
+def admit_worker(state, nonce):
+    """Caller holds worker.lock and state.lock; no SDK calls before admission."""
+    record = state.get('worker_upgrade') or {}
+    require(record.get('mode') == MODE and record.get('phase') == 'starting'
+            and record.get('launch_claimed') and not record.get('startup_worker'),
+            'No unused native worker startup authorization')
+    require(isinstance(nonce, str) and bool(nonce)
+            and digest(nonce) == record.get('launch_nonce_digest'), 'Startup nonce mismatch')
+    launcher = record.get('launcher')
+    worker = process_identity(os.getpid())
+    require(launcher and state.get('worker') == launcher
+            and process_identity(launcher['pid']) == launcher, 'Launcher identity changed')
+    require(worker and os.path.normcase(os.path.realpath(worker['image'])) ==
+            os.path.normcase(os.path.realpath(record['expected_worker_image'])), 'Unexpected worker image')
+    require(worker == launcher or (os.getppid() == launcher['pid']
+            and process_identity(os.getppid()) == launcher), 'Worker is not the authorized launcher child')
+    record.update(startup_worker=worker, startup_registered_at=time.time())
+    return worker
+
+
+def recover(manager, session_id, credential, *, expected_token, expected_launcher,
+            review_note, confirm_no_worker_processes=False):
+    require(confirm_no_worker_processes is True and isinstance(review_note,str)
+            and 0 < len(review_note.strip()) <= 8192, 'Reviewed absence of failed worker process tree required')
+    folder = manager._folder(session_id)
+    with lock(folder/'handoff.lock'), lock(folder/'launch.lock'), lock(folder/'worker.lock', blocking=False):
+        def check(state):
+            record = check_frozen(folder,state)
+            require(record['phase'] == 'starting' and record['token'] == expected_token
+                    and record.get('launch_claimed') and record.get('stop_ack'), 'Exact consumed launch required')
+            require(expected_launcher and state.get('worker') == expected_launcher
+                    and record.get('launcher',expected_launcher) == expected_launcher,
+                    'Exact failed launcher identity required')
+            require(not any(record.get(k) for k in ('startup_worker','new_worker_ready','new_worker_native','new_worker_error')),
+                    'Post-admission recovery is not supported')
+            require(process_identity(expected_launcher['pid']) is None
+                    and not alive(record['old_worker']), 'Old worker or launcher is still present')
+            return record
+        with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+            state = manager._state(folder,credential);record = check(state)
+        proof = verify_native(Runtime(folder,'cst'),state)
+        require(proof == record['pre_exit_native'], 'Native state changed before recovery')
+        with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+            state = manager._state(folder,credential);record = check(state)
+            history = record.pop('failed_launches', [])
+            history.append(dict(copy.deepcopy(record), recovery_review=review_note,
+                                process_tree_absence_asserted_by_caller=True, recovered_at=time.time()))
+            for key in ('launch_attempted','launch_claimed','launch_nonce_digest','launcher',
+                        'expected_worker_image','startup_error','post_exit_native'):
+                record.pop(key,None)
+            record.update(token=uuid4().hex,phase='stop_requested',failed_launches=history)
+            state.update(worker=None,worker_capabilities=[],worker_launch_intent=False)
+            write(folder/'session.json',state)
+            return copy.deepcopy(record)
 
 
 def require(ok, message):

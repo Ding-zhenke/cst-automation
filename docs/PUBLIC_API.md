@@ -2,6 +2,19 @@
 
 ## Explicit preserved-DE worker handoff (native acceptance pending)
 
+Startup separates the Popen launcher from the actual Python worker. A one-use
+inherited nonce, exact live launcher/parent identity and expected interpreter image
+authorize registration under worker/state locks, before any native acquisition.
+`recover_native_worker_handoff(session_id, credential, *, expected_token,
+expected_launcher, review_note, confirm_no_worker_processes=True)` handles only
+failed pre-admission launches: exact consumed attempt, absent old/launcher processes,
+available worker lock, no admitted worker/readiness, unchanged frozen baseline and
+fresh native readback. Caller reviews absence of the entire failed process tree,
+including orphan children. Recovery archives the attempt, rotates its token and
+returns to stop_requested without launching. CLI `recover-native-worker-handoff
+--review-file <json>` and MCP `recover_cst_native_worker_handoff` (review object)
+share this guard. Post-admission failures cannot use this recovery route.
+
 `SessionManager.begin_native_worker_handoff(session_id, credential, *,
 environment_identity, worker_identity, project_digests, review_note,
 required_capabilities, confirm_idle, confirm_saved_tabs, confirm_borrowed_worker,

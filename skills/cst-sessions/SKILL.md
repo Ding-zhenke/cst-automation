@@ -65,6 +65,10 @@ scene makes the existing authorization insufficient.
   thread before a fresh token-bound release. No create/reopen/force-stop fallback.
   Native survival and deployed-worker compatibility remain unverified until the
   owning session accepts them; do not infer approval from installing new code.
+  Windows launcher/actual-worker PID differences require the protocol's nonce and
+  parent-identity admission, never a relaxed identity comparison. A consumed launch
+  that failed before admission uses only the guide's explicit reviewed recovery;
+  confirm the entire failed process tree is gone. Recovery does not launch a worker.
 - A failed circuit run_task with explicit returned/saved receipts may leave the session ready
   after project/run identity, saved and disk digests, and absence of prior uncertainty/dialogs
   are verified. The job remains failed and the solver outcome unverified/review_required.

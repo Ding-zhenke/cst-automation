@@ -72,7 +72,32 @@ size/mtime_ns/ctime_ns/inode，防止反复大文件哈希耗尽 2 秒窗口。�
 保持冻结并保存结构化错误（包括实际弹窗证据）。使用普通 status 查看；不要重复
 设置任务，不使用 resume/reconcile/普通 finish-worker-upgrade 绕过冻结，不手改
 session.json。原 DE 消失、标签缺失、参数/摘要变化、读回未知、缺能力均不能放行。
-本版本没有自动放弃或回滚交接入口；需依据具体阶段单独审阅恢复，不能自动重启。
+本版本没有自动放弃或回滚交接入口，不能自动重启。
+
+### Windows 启动器拒绝后的显式恢复
+
+0.3.44 起分别记录 Popen 启动器和实际 Python worker。Windows 虚拟环境可能由
+启动器创建使用基础解释器的子进程；新 worker 必须持有一次性继承凭据，同时满足
+原启动器完整身份、直接父子关系和预期解释器路径，才能登记自身。拒绝有结构化
+startup_error；不能仅凭 PID 不同就替换身份或跳过检查。
+
+仅对 starting 阶段、启动令牌已消费但实际 worker 尚未登记的失败，可调用：
+
+```text
+python -m tpc_service.sessions --root <原root> --reference <原引用> recover-native-worker-handoff --review-file <恢复审阅JSON>
+```
+
+Python 为 recover_native_worker_handoff，MCP 为 recover_cst_native_worker_handoff。
+审阅 JSON 包含 expected_token（当前交接 token）、expected_launcher（当前登记的
+失败启动器完整 pid/started/image）、review_note 和 confirm_no_worker_processes=true。
+最后一项必须依据实际失败启动器及整个子进程树均已退出的审阅，不能从 worker.log
+为空或单独启动器退出推断。旧版未登记 launcher 字段时，使用原 state.worker 身份。
+
+入口要求原 worker/失败启动器已消失、能独占 worker 锁、无已登记替代 worker 或
+原生 readiness/error，重新验证原 DE/标签/参数/保存基线。成功只归档 failed_launches、
+旋转 token 并退回 stop_requested；不会启动进程。随后 finish 才可消费新的一次授权。
+旧 token、存活启动器、原生变化、已进入原生准备阶段均拒绝。任何拒绝继续保留冻结；
+未确定整个进程树已退出时不要调用恢复，不强杀进程。
 
 ## 实机验收范围
 

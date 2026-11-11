@@ -193,11 +193,22 @@ class SessionManager:
                 write(folder / 'session.json', state)
                 flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if os.name == 'nt' else 0
                 source_root = Path(__file__).resolve().parents[2]
+                launch_env = os.environ.copy()
+                if native_handoff.get('mode') == 'preserve_native_de_v1':
+                    from .native_handoff import STARTUP_ENV
+                    import secrets
+                    nonce = secrets.token_hex(32)
+                    launch_env[STARTUP_ENV] = nonce
+                    native_handoff.update(launch_nonce_digest=digest(nonce),
+                        expected_worker_image=os.path.realpath(getattr(sys, '_base_executable', sys.executable)))
+                    write(folder/'session.json',state)
                 with (folder / 'worker.log').open('ab') as log:
                     proc = subprocess.Popen([sys.executable, '-m', 'tpc_service.sessions.worker', str(folder)],
                                             cwd=str(source_root), stdin=subprocess.DEVNULL, stdout=log,
-                                            stderr=log, creationflags=flags, start_new_session=os.name != 'nt')
+                                            stderr=log, creationflags=flags, start_new_session=os.name != 'nt', env=launch_env)
                 state['worker'] = process_identity(proc.pid)
+                if native_handoff.get('mode') == 'preserve_native_de_v1':
+                    native_handoff['launcher'] = state['worker']
                 write(folder / 'session.json', state)
 
     def resume(self, session_id, credential):
@@ -247,6 +258,10 @@ class SessionManager:
     def finish_native_worker_handoff(self, session_id, credential):
         from .native_handoff import finish
         return finish(self, session_id, credential)
+
+    def recover_native_worker_handoff(self, session_id, credential, **review):
+        from .native_handoff import recover
+        return recover(self, session_id, credential, **review)
 
     def finish_worker_upgrade(self, session_id, credential):
         folder = self._folder(session_id)

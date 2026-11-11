@@ -246,4 +246,99 @@ def test_unapproved_direct_worker_start_does_not_replace_identity(handoff,monkey
     before=read(f/'session.json')
     monkeypatch.setattr(worker,'process_identity',lambda pid:{'pid':99,'started':1,'image':'python.exe'})
     worker.run(f)
-    assert read(f/'session.json')==before
+    after=read(f/'session.json')
+    assert after['worker_upgrade'].pop('startup_error')['code']=='native_handoff_refused'
+    assert after==before
+
+@pytest.mark.parametrize('case', ['child','direct','wrong_parent','wrong_token','wrong_image','replay'])
+def test_startup_admission_binds_token_and_launcher(handoff, monkeypatch, case):
+    import os
+    from tpc_service.sessions import worker
+    m,r,f,live,args,h=handoff
+    m.begin_native_worker_handoff(r['session_id'],r['credential'],**args)
+    launcher={'pid':33,'started':3,'image':'venv/python.exe'}
+    child=launcher if case=='direct' else {'pid':44,'started':4,'image':'base/python.exe'}
+    s=read(f/'session.json');s['worker']=launcher
+    s['worker_upgrade'].update(phase='starting',launch_claimed=True,launch_nonce_digest=digest('secret'),
+        launcher=launcher,expected_worker_image=child['image'],stop_ack=True)
+    if case=='replay':s['worker_upgrade']['startup_worker']=child
+    write(f/'session.json',s)
+    monkeypatch.setattr(h,'process_identity',lambda pid: child if pid==os.getpid() else launcher)
+    monkeypatch.setattr(h.os,'getppid',lambda:99 if case=='wrong_parent' else 33)
+    if case=='wrong_image':s['worker_upgrade']['expected_worker_image']='other.exe';write(f/'session.json',s)
+    if case in ('child','direct'):
+        assert h.admit_worker(s,'secret')==child
+        assert s['worker_upgrade']['startup_worker']==child
+    else:
+        with pytest.raises(ServiceError):h.admit_worker(s,'wrong' if case=='wrong_token' else 'secret')
+
+
+def test_failed_launch_recovery_rotates_token_without_launch(handoff,monkeypatch):
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    proof={'parameters':{}}
+    monkeypatch.setattr(h,'verify_native',lambda *a:proof)
+    m.begin_native_worker_handoff(sid,cred,**args);m.finish_native_worker_handoff(sid,cred)
+    s=read(f/'session.json');old=s['worker_upgrade']['token'];launcher={'pid':33,'started':3,'image':'venv.exe'}
+    s['worker']=launcher;s['worker_upgrade'].update(phase='starting',stop_ack=True,launch_claimed=True,launch_attempted=True)
+    write(f/'session.json',s);live.remove(11)
+    monkeypatch.setattr(h,'process_identity',lambda pid:None)
+    monkeypatch.setattr(m,'_launch',lambda *a,**k:pytest.fail('Recovery must not launch'))
+    result=m.recover_native_worker_handoff(sid,cred,expected_token=old,expected_launcher=launcher,
+        review_note='Reviewed failed pre-admission process tree is gone',confirm_no_worker_processes=True)
+    assert result['phase']=='stop_requested' and result['token']!=old
+    assert result['failed_launches'][0]['token']==old
+    assert read(f/'session.json')['worker'] is None
+    with pytest.raises(ServiceError):
+        m.recover_native_worker_handoff(sid,cred,expected_token=old,expected_launcher=launcher,
+            review_note='retry',confirm_no_worker_processes=True)
+
+@pytest.mark.parametrize('failure',['alive_launcher','admitted','ready','wrong_token','missing_review','native_drift','worker_lock'])
+def test_recovery_cannot_bypass_uncertainty(handoff,monkeypatch,failure):
+    from contextlib import nullcontext
+    from tpc_service.sessions.store import lock
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential'];proof={'parameters':{}}
+    monkeypatch.setattr(h,'verify_native',lambda *a:proof)
+    m.begin_native_worker_handoff(sid,cred,**args);m.finish_native_worker_handoff(sid,cred)
+    s=read(f/'session.json');launcher={'pid':33,'started':3,'image':'venv.exe'};s['worker']=launcher
+    s['worker_upgrade'].update(phase='starting',stop_ack=True,launch_claimed=True)
+    if failure=='admitted':s['worker_upgrade']['startup_worker']=launcher
+    if failure=='ready':s['worker_upgrade']['new_worker_ready']=launcher
+    write(f/'session.json',s);live.remove(11)
+    monkeypatch.setattr(h,'process_identity',lambda pid:launcher if failure=='alive_launcher' else None)
+    if failure=='native_drift':monkeypatch.setattr(h,'verify_native',lambda *a:{'changed':True})
+    with lock(f/'worker.lock',blocking=False) if failure=='worker_lock' else nullcontext():
+        with pytest.raises(ServiceError):
+            m.recover_native_worker_handoff(sid,cred,
+                expected_token='wrong' if failure=='wrong_token' else s['worker_upgrade']['token'],
+                expected_launcher=launcher,review_note='Reviewed',confirm_no_worker_processes=failure!='missing_review')
+    assert read(f/'session.json')==s
+
+
+def test_real_python_launcher_registers_actual_worker_without_sdk(handoff,monkeypatch):
+    import subprocess
+    from tpc_service.sessions import manager as module
+    m,r,f,live,args,h=handoff
+    m.begin_native_worker_handoff(r['session_id'],r['credential'],**args)
+    s=read(f/'session.json');s['worker']=None;s['worker_upgrade'].update(phase='starting',stop_ack=True)
+    write(f/'session.json',s);live.remove(11)
+    original=subprocess.Popen;processes=[]
+    code='''import sys,os
+from pathlib import Path
+from tpc_service.sessions.store import lock,read,write
+from tpc_service.sessions.native_handoff import admit_worker,STARTUP_ENV
+folder=Path(sys.argv[1])
+with lock(folder/'worker.lock'),lock(folder/'state.lock'):
+    state=read(folder/'session.json')
+    state['worker']=admit_worker(state,os.environ.pop(STARTUP_ENV,None))
+    assert not any(k=='cst' or k.startswith('cst.') for k in sys.modules)
+    write(folder/'session.json',state)
+'''
+    def launch(command,**kwargs):
+        process=original([command[0],'-c',code,str(f)],**kwargs);processes.append(process);return process
+    monkeypatch.setattr(module.subprocess,'Popen',launch)
+    m._launch(f,recover=True,native_handoff_token=s['worker_upgrade']['token'])
+    assert processes[0].wait(timeout=20)==0, (f/'worker.log').read_text()
+    result=read(f/'session.json');record=result['worker_upgrade']
+    assert record['startup_worker']==result['worker']
+    assert record['launcher']['pid']==processes[0].pid
+    assert result['status']=='closing' and result['environment']==s['environment']
