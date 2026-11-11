@@ -97,6 +97,11 @@ ownership and risk acceptance in the durable audit and reject changed retry inpu
 
 ## Explicit preserved-DE worker handoff (limited native acceptance)
 
+The owning session also reports 0.3.46 owned-worker acceptance on an independent
+synthetic-data project and a reviewed engineering target, preserving the original
+DE, tabs, parameters and current result tree. Existing matrices remain unqualified;
+no EM/HB or matrix-value-equivalence certification follows. See VALIDATION.md.
+
 The owning session reports 0.3.44 acceptance on an independent small project with
 synthetic stored data, including failed-launch recovery and client interruption.
 No EM computation or physical-result certification; see VALIDATION.md for scope.

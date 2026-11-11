@@ -79,6 +79,11 @@ Verify effective settings, cells/DOF, peak memory, per-excitation residual and D
 from the actual run. An iteration/pass cap or successful configuration cannot pass
 these checks. For owned-worker upgrades, follow the explicit owned handoff review
 in cst-sessions; never claim a creating worker borrowed its DE.
+The owning session reported native mixed-order effect in 0.3.46: for unchanged
+initial cell count, DOF decreased versus uniform second order. This is evidence
+of changed discretization, not convergence or physical performance. Keep memory
+released by closing completed reference tabs separate from order-related savings;
+do not infer final peak memory from DOF alone. Scope and numbers are in VALIDATION.md.
 
 For a parameter-linked EM model band, define the project parameters first and
 call `app.set_frequency_range("fmin", "fmax")` with expression strings. Numeric

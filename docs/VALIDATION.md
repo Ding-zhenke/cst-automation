@@ -1,5 +1,13 @@
 # 验证记录
 
+## 2026-11-11：owned-worker 原生交接与 mixed-order 生效（所属会话回报）
+
+- 所属工程会话报告完成 0.3.46 owned 路径验收：独立小工程由实际 worker 创建 DE，诚实声明 owned 后交接至新 worker，原 DE/标签/参数及三点 synthetic/not-EM 存储曲线逐项一致。随后目标工程同样完成 owned-worker 交接，原 DE 保持，全部登记标签、完整参数及当时结果树前后相同。
+- 目标工程旧矩阵仍为 unqualified；结果树一致不等于矩阵数值逐项复核，也不提升原失败结果。全程未强杀、未使用 Computer Use、无 DE create/reopen fallback。该证据限定于本次环境和已审阅对象，不推出所有 SDK/worker 版本兼容性。
+- Direct + tet_order=Second + mixed_order=True 已实际进入原生计算；在同为 159634 初始 cells 的对照下，DOF 从固定二阶的 1111562 降至 351425，支持数值离散配置生效。回报时任务尚在 pass 3；不认证最终残差、Delta-S、完整频段、EM/HB 或物理性能，不据该快照声称任务现在仍处于同一阶段。
+- 交接后另行通过 API 关闭六个已完成参考标签，保留正式文件，所属会话报告释放约 7 GB。标签清理与 mixed-order 作用分开，不能将这部分内存变化归因于阶次设置，也没有据 DOF 变化推断最终峰值内存。
+- 原始审计留在所属会话私有 work 目录的 native_handoff_owned_validation 与 R02/EM_mixed2/handoff；不发布身份、凭证或工程文件。维护端本次仅根据所属会话回报更新记录，未独立读取私有回执或接触正在运行的任务。
+
 ## 探索性线性 SP 接口（仅离线）
 
 新增探索性网络准备和 SP 配置、求解门槛，未访问原生会话。任务单位按官方 GetUnit
