@@ -7,6 +7,14 @@ description: Diagnose CST installation, Python ABI, SDK import, solver stalls, d
 
 # CST diagnostics
 
+For routine run/stop checks, use the [reusable read-only workflow](../../docs/guides/reusable_operations.md)
+and existing job/native/dialog/log evidence before screenshots. Diagnosing status
+and answering a prompt are separate actions. The bounded UIA reader tries Raw View
+when Control View has no body; missing text stays unknown. For a known authorized
+cache-choice prompt, reuse the guide's explicit inspect/select/independent-inspect/
+confirm API rather than writing another coordinate script. It is UI Automation,
+not a CST SDK API; cache integrity and the original call's return need separate checks.
+
 Start with `python -m cst_solver doctor --json` and preserve the complete diagnostic report. Separate installation discovery, Python ABI match, import/DLL load, project readback, and solver execution; evidence for one stage does not prove a later stage.
 
 For a stall, inspect the actual dialog title, body, buttons, process ID, and owning CST process before any response. Do not blindly dismiss prompts or rerun a write while the original SDK call may still be blocked. A timeout or a closed dialog is not success; state the observed status and next actionable step.

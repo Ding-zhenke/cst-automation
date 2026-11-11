@@ -53,6 +53,13 @@ do not automatically stop a live solve or relax numerical acceptance.
 
 ## Separate the controls
 
+Reuse `cst_solver.mesh_input.read_saved_options(path)` for the bounded saved
+mesher-input decoder instead of rewriting project-specific readers. Read the
+[scope and run-binding rules](../../docs/guides/reusable_operations.md#冻结读取及有效网格输入).
+It returns all attributes and SHA256 without a CST connection; it is not a live
+getter. Linear iterations, adaptive passes and quality warnings are different
+evidence; no verified modern quality-optimization iteration cap is supplied.
+
 For modern HF Tet mesh curvature, `configure_tetrahedral_mesh.curvature_order`
 accepts only strict integers 1, 2, 3; require `hf-tet-curvature-order-v1` on the
 actual worker and read [curvature scope and sources](../../docs/guides/hf_tet_curvature_order.md).

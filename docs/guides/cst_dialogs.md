@@ -9,7 +9,9 @@ python -m cst_solver.dialogs --json --pid 12345
 ```
 
 快照提供 `pid`、`hwnd`、`title`、`body`、`buttons`、`text_readable`、`read_errors`。
-Win32 通过有超时的 `WM_GETTEXT` 读取正文，Qt/自绘窗口尝试有 4 秒进程超时的 UI Automation。
+Win32 通过有超时的 `WM_GETTEXT` 读取正文，Qt/自绘窗口尝试总计最多 4 秒的 UI Automation：
+先 Control View，无正文时再 Raw View，每次最多 2 秒；补读 Text/Value pattern。
+read_attempts 保留各次正文和失败。Raw View 仍无正文时保持未知，不从 Yes/No 猜语义。
 `text_readable=false` / `needs_visual_inspection=true` 表示正文没有读到，必须检查实际窗口；
 不能把读取失败解释为没有弹窗，也不能猜测正文。
 实现依据：[WM_GETTEXT](https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-gettext)、
@@ -85,9 +87,9 @@ Qt 的虚拟按钮无法用标准 Win32 Button 发送路径操作，返回 `no_m
 ## 结果失效弹窗的 API 预处理
 
 精确标题匹配时诊断分类为 `cst_results_incompatible`，仍保留 blocking 和首次
-monitor failure。分类不代表已选缓存策略，也不会自动点击。通用自动处理尚缺
-显式请求策略、原 PID/HWND/完整控件核验、选择后独立读回、确认后原调用完成及
-缓存内容可读验证；不能用标题匹配、DeleteResults 或 quiet mode 代替这一链条。
+monitor failure。分类不代表已选缓存策略，也不会自动点击。不注册后台自动回答；
+显式缓存选择入口见下文。确认后原调用完成及缓存内容可读验证仍是独立步骤，
+不能用标题匹配、DeleteResults 或 quiet mode 代替这一链条。
 
 `validate_model` 的 `repeated_snapshot` 仅比较前后观测是否相同，单次读取时为 null。
 `message_consumption_verified` 和 `native_run_message_binding_verified` 为 false：
@@ -128,6 +130,10 @@ with de.quiet_mode_enabled():
 处理后读取原调用返回值/异常、CST 消息与实际状态，保留弹窗监测。
 
 ### Qt 选项的程序化处理证据
+
+现已抽取为 `cst_solver.result_cache_dialog.inspect/select/confirm`，详见
+[完整调用及收尾链条](reusable_operations.md#有限缓存选项流程)。这不是通用 Yes/No
+回答器，也不处理正文未知的恢复提示。新增封装仅离线验收，以下为早期原型的现场证据。
 
 已在真实 CST 2026 Qt 弹窗中通过 UI Automation 读取并核对窗口归属、标题、完整选项
 和按钮，程序化选择 `Store current results in result cache`，在下一次独立只读检查

@@ -5,6 +5,12 @@ description: Use when working with Keysight PathWave ADS RF circuits or physical
 
 # Keysight ADS Simulation
 
+For repeated CST-to-ADS work, reuse the [common operation map](../../docs/guides/reusable_operations.md)
+and the official interfaces below. Opening/building/binding a supported design,
+running its netlist and reading datasets do not require screenshots or GUI clicks.
+Keep project-specific topology and parameters in the project, and bind each new
+EM input/dataset to its actual run; older successful HB data do not certify it.
+
 Use the ADS **official Python API** as the primary control surface and the `.ds` dataset as the source of truth for numerical acceptance. The normal evidence path is `simulate -> read .ds -> calculate -> CSV/JSON -> script plot`. Never derive numerical values from screenshots when structured ADS data is available.
 
 Protect user work: inventory the requested root first, create unique workspace and run-output paths, and **never overwrite** an existing workspace, dataset, display, netlist, log, layout, or fabrication export unless the user explicitly authorizes that exact replacement.

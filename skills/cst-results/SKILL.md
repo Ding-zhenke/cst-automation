@@ -7,6 +7,12 @@ description: Read, export, and analyze CST result trees, fields, far fields, or 
 
 # CST results
 
+For immutable diagnostics, read the [freeze/read contract](../../docs/guides/reusable_operations.md#冻结读取及有效网格输入).
+Use official `cst.results.ProjectFile(frozen_path, allow_interactive=False)` on the
+verified frozen package; current `cst_solver.Result` defaults to interactive reads.
+Do not fallback to the live DE, alias 0 or an old positive ID on failure. Preserve
+all requested matrix elements and axes. A short diagnostic never qualifies full EM.
+
 Online CST reads must use [the conversation's persistent session](../cst-sessions/SKILL.md).
 Offline Result file reads need no DE; still preserve the session's explicit saved project/run identity.
 

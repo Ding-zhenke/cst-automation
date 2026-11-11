@@ -1,5 +1,26 @@
 # 验证记录
 
+## 2026-11-12：常用只读核查与有限 Qt 缓存操作（0.3.57）
+
+- 新增 `run_status.inspect_owned_run`，仅复用原所属 app/job reader，分别记录 native
+  3D、PID 弹窗、日志末尾及前后身份/时间；无 attach/open/stop/重启/提交行为。
+  DS 空闲、计算进展和资源采样不伪造；日志末尾不参与正式 EM 资格认证。
+- UIA Control View 无正文时增加有界 Raw View/Text/Value 读取；保留失败和独立读取
+  证据，不从按钮猜正文。当前真实恢复提示未用新读取器验收，不能宣称已修复现场。
+- 从早期已记录的 Qt SelectionItem.Select → 独立 IsSelected → Invoke 原型抽取
+  `result_cache_dialog.inspect/select/confirm`。精确身份、完整消息、控件/选择状态和
+  授权均须匹配；超时不自动重试。新封装无真机动作验收，缓存完整及原调用返回仍独立。
+- 新增纯文件 `mesh_input.read_saved_options`，限制大小/深度/类型，拒绝变动、重复键、
+  截断及非有限值。维护侧既有冻结样本完整解码 114 属性；没有访问活动工程。
+- 六个技能及通用操作指南覆盖十类复用路径，明确 strict warning-only 正式 EM 入口
+  仍待开发。补充坏单元文件与恢复网格代次不配套时拒绝映射；不新增定位器或改动端口。
+- 独立代码复核提出两处问题并修复，二次复核无阻塞项。测试包括真实 PowerShell
+  纯数据守卫与文字 pattern stub，不枚举桌面、不创建 CST/GUI。完整离线回归
+  **2215 passed、2 deselected、9 warnings**（57.31 s），日志
+  `work/pytest-reusable-approved.log`；六个技能校验通过。首次受限运行出现失败且未完成，
+  仅终止已确认身份的两个 pytest 解释器后重跑；没有终止 CST/工程 worker。
+- 发布与插件同步不会自动更新活跃 worker；本次没有原生交接、求解或工程写入。
+
 ## 2026-11-12：曲率 fixedorder 策略（0.3.56，离线及所属会话语法取证）
 
 - 所属会话报告 0.3.55 order=2 的短 probe 实际 mesher input/log 仍为 3；原未生效

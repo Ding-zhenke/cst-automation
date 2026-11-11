@@ -1,5 +1,41 @@
 # cst-automation 与领域包的公共接口
 
+## Bounded UIA text fallback
+
+`cst_solver.mesh_input.read_saved_options(path)` decodes a stable, bounded saved
+`Mesh_Input.Options.tet` definite-length CBOR file without importing CST. It
+returns all attributes, file format/version and SHA256; it does not infer the
+active DE settings, per-element order, convergence or job binding. Unsupported,
+truncated, duplicate-key, nonfinite and changing input fails explicitly.
+
+`cst_solver.result_cache_dialog.inspect(pid=..., hwnd=...,
+expected_creation_time=...)` reads one exact UIA window. `select(snapshot,
+authorization_note=...)` selects only `Store current results in result cache`;
+`confirm(snapshot, authorization_note=...)` requires a separately collected fresh
+snapshot with that option selected. Both re-read all controls and identity inside
+the action subprocess before acting. They are explicit UIA calls, not session
+jobs or CST SDK calls; no automatic monitor response is registered. Snapshots
+expire after 30 seconds, and unknown/incomplete dialogs are refused. A timed-out
+action is indeterminate and must never be retried blindly. Returned actions do
+not clear a session fence or establish original-call completion/cache integrity.
+
+`cst_solver.run_status.inspect_owned_run(app, *, job_reader, expected_pid,
+expected_creation_time, expected_project)` accepts an already owned application
+and a fresh read-only original-job callback (normally `SessionManager.job`). It
+never attaches, opens, submits, stops or upgrades. It checks exact process and
+open project identity before querying the existing Model3D getter, reads scoped
+dialogs and the native log tail, and repeats identities and job observations.
+Each observation has its own time/error; they are not an atomic snapshot. DS
+scope, resource sampling and computational progress remain explicitly unknown.
+The log tail is diagnostic only, never full EM qualification evidence.
+
+`cst_solver._dialog_uia.read_content(hwnd)` remains read-only and does not load
+the CST SDK. An empty Control View body triggers a separate Raw View read within
+one four-second total budget. Text/Value patterns may supply text omitted from
+Name. Both attempts remain in `read_attempts`; missing or truncated content is
+never permission to answer a dialog. This is Windows UI Automation, not a CST
+native API, and does not establish solver idle or cache preservation.
+
 ## HF Tet curvature order
 
 `curvature_policy` additionally accepts exactly `automatic` or `fixedorder`,

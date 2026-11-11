@@ -7,6 +7,12 @@ description: Manage independent persistent CST environments for separate convers
 
 # Persistent conversation sessions
 
+Routine status, stop review, parameter updates and saved-baseline acceptance reuse
+the [existing operations and examples](../../docs/guides/reusable_operations.md).
+Do not turn an API status check into GUI control or a worker restart. Maintenance
+development runs independently of engineering optimization; new code/installed
+skills do not establish that the active worker loaded them.
+
 参数修改 → EM → HB 使用[强制工作流接口](../../docs/guides/workflow_enforcement.md)：
 空闲时绑定工程规格，提交入口与 worker 自动检查。不能用可选 checklist、
 `passed=true` 或助手承诺代替；旧 worker 能力不符时等待安全升级，不重启正在求解的环境。

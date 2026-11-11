@@ -7,6 +7,11 @@ description: Use when designing or configuring CST parameter sweeps, choosing li
 
 # Parameter-study selection
 
+For already authorized per-point updates, use the [direct session example](../../docs/guides/reusable_operations.md#参数修改示例):
+`set_parameters` performs the owned update; inspect its exact receipt before the
+separately authorized solve. Reuse this route, not GUI parameter editing or an
+extra full Rebuild. Native sweep remains the preferred mechanism when applicable.
+
 Actual operations use [cst-sessions](../cst-sessions/SKILL.md). Check the target
 project, independent axes, parameter formulas/units, baseline, outputs and run
 authorization. Reuse the accepted project when topology is unchanged. A request
