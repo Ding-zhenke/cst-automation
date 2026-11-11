@@ -1242,3 +1242,22 @@ remains blocking, does not select a cache option, and does not clear monitor fai
 `native_run_message_binding_verified=false`, and `repeated_snapshot` (boolean when
 both reads completed, otherwise null). Equality is an observation, not proof that
 messages are historical. Raw observations and existing acceptance rules remain intact.
+
+## HB carrier identity preflight
+
+`cst_solver.circuit.native.resolve_hb_carriers(schematic, tree_paths, *,
+read_parameters, expected_parameters, frequency_parameter, carrier_frequency, requested_id=None,
+parameter_rtol=1e-10, parameter_atol=1e-12, frequency_rtol=1e-10,
+frequency_atol=1e-8)` first resolves a single positive Schematic result ID
+common to every specified spectrum, using the caller's verified stored-parameter
+reader and the actual expected parameters (including frequency and direction).
+It then reads each spectrum at the same explicit ID and requires exactly one
+finite complex component at carrier_frequency. No max-ID, current alias,
+other-run or per-path ID fallback. Frequency is in the same units as the
+actual spectrum x axis and the named stored frequency parameter; caller must independently verify units and current
+execution provenance. Both IDs and spectra are read through the supplied
+schematic; no SDK connection, save or solve is performed by this helper.
+Evidence is configuration/data observation only; solver_verified and
+execution_identity_verified remain False. The stored-parameter reader is a
+caller-supplied native integration and is not proven safe to invoke as a
+reentrant VBA macro inside a running Post callback.

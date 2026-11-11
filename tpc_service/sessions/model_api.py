@@ -42,14 +42,21 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'blend_curve','chamfer_curve','trim_curves','boolean_imprint','blend_edge',
     'set_edge','pick_face_at','pick_edge_at','pick_point_at',
     'align_wcs','wcs_rotate_axis','scale_wcs',
-    'rename_solid','rename_component','change_component','change_material_color'))
+    'rename_solid','rename_component','change_component','change_material_color','import_step'))
 
 
 def _preflight_settings(method, bound):
     """Validate focused configuration payloads before earlier batch mutations."""
     values = dict(bound.arguments)
     values.pop('self', None)
-    if method == 'create_material_full_tensor':
+    if method == 'import_step':
+        from pathlib import Path
+        path = values['filename']
+        if not isinstance(path, str) or not Path(path).is_absolute() or Path(path).suffix.lower() not in ('.step', '.stp') or not Path(path).is_file():
+            raise ValueError('Existing absolute STEP file required')
+        if values['unit'] not in ('mm', 'um', 'nm', 'm', 'cm', 'mil', 'inch'):
+            raise ValueError('Unsupported STEP unit')
+    elif method == 'create_material_full_tensor':
         from types import SimpleNamespace
         from cst_solver.material.materials import MaterialMixin
         sink = SimpleNamespace(cst_file=SimpleNamespace(model3d=SimpleNamespace(

@@ -55,8 +55,9 @@ def assert_path_unclaimed(root, folder, operation, params):
     path = working_path(folder, params)
     for state_path in Path(root).glob('ses-*/session.json'):
         state = read(state_path)
-        records = list(state.get('projects', {}).values())
-        records += list(state.get('retired_projects', {}).values())
+        records = [] if state.get('status') == 'closed' else list(state.get('projects', {}).values())
+        if state.get('status') != 'closed':
+            records += list(state.get('retired_projects', {}).values())
         for record in records:
             if same_path(record['path'], path):
                 raise ServiceError('session_project_path_claimed', 'Project path already registered in a session')

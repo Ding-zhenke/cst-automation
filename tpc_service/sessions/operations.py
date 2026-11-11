@@ -250,6 +250,16 @@ def _execute_operation(runtime, job):
     elif operation == 'model_api':
         from .model_api import dispatch, validate_calls
         validate_calls(params['calls'])
+        for call in params['calls']:
+            if call['method'] == 'import_step':
+                from inspect import signature
+                from cst_solver import setup as CstSetup
+                bound = signature(CstSetup.import_step).bind(None, *call.get('args', []), **call.get('kwargs', {}))
+                source = Path(bound.arguments['filename']).resolve(strict=True)
+                project = runtime.state()['projects'][params['project_id']]
+                parent = Path(project['path']).resolve().parent
+                if source.parent != parent:
+                    raise ServiceError('invalid_session_argument', 'STEP source must be in the registered project directory')
         if runtime.backend == 'fake':
             app.cst_file.setdefault('api_calls', []).extend(params['calls'])
             api_result = {'python_api_calls':len(params['calls']), 'native_executed':False}

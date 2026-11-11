@@ -1,0 +1,4 @@
+interface:
+  display_name: "Keysight ADS Simulation"
+  short_description: "Automate RF circuits, layouts, EM, and fabrication in ADS"
+  default_prompt: "Use $keysight-ads-simulation to create, run, and verify a Keysight ADS design, simulation, or fabrication export in this workspace."

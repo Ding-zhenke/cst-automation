@@ -47,3 +47,5 @@ uses this directory; plugin consumers use their installed bundle. A source edit
 does not update an installed plugin or an already running worker.
 
 Current field-circuit work prioritizes functional coverage and reusable skills. Dedicated engineering validation is deferred to actual projects; existing evidence and acceptance criteria remain in force. See [development priorities](../docs/CIRCUIT_DEVELOPMENT.md).
+
+- [keysight-ads-simulation](keysight-ads-simulation/SKILL.md): ADS circuits, HB datasets, and CST-to-ADS Touchstone handoff.

@@ -289,6 +289,41 @@ def read_spectral_component(schematic, tree_path, frequency, *, result_id, rtol=
     return value
 
 
+def resolve_hb_carriers(schematic, tree_paths, *, read_parameters, expected_parameters,
+                        frequency_parameter, carrier_frequency, requested_id=None, parameter_rtol=1e-10,
+                        parameter_atol=1e-12, frequency_rtol=1e-10, frequency_atol=1e-8):
+    """Resolve one evidenced stored run, then verify carrier on every spectrum.
+
+    The stored-parameter reader must be independently verified and safe in the
+    caller's execution context. This function never calls an embedded VBA
+    bridge, falls back to another run, or certifies fresh execution.
+    """
+    if not isinstance(tree_paths, (list, tuple)) or len(set(tree_paths)) != len(tree_paths):
+        raise ValueError('Unique target spectrum paths are required')
+    if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
+           for value in (carrier_frequency, frequency_rtol, frequency_atol)) or carrier_frequency <= 0 or min(frequency_rtol, frequency_atol) < 0:
+        raise ValueError('Positive finite carrier frequency and nonnegative tolerances are required')
+    selected = resolve_schematic_result_id(schematic, tree_paths, read_parameters=read_parameters,
+        expected_parameters=expected_parameters, requested_id=requested_id,
+        rtol=parameter_rtol, atol=parameter_atol)
+    if (not isinstance(frequency_parameter, str) or frequency_parameter not in expected_parameters
+            or not math.isclose(expected_parameters[frequency_parameter], carrier_frequency,
+                                rel_tol=frequency_rtol, abs_tol=frequency_atol)
+            or not math.isclose(selected['parameters'][frequency_parameter], carrier_frequency,
+                                rel_tol=frequency_rtol, abs_tol=frequency_atol)):
+        raise ValueError('Carrier frequency differs from the expected and stored RF parameter')
+    rid = selected['result_id']
+    carriers = {}
+    for path in tree_paths:
+        try:
+            carriers[path] = read_spectral_component(schematic, path, carrier_frequency,
+                result_id=rid, rtol=frequency_rtol, atol=frequency_atol)
+        except ValueError as exc:
+            raise ValueError(f'Carrier validation failed for {path} at {carrier_frequency:g} using {rid}: {exc}') from exc
+    return {**selected, 'carrier_frequency': carrier_frequency, 'carriers': carriers,
+            'carrier_unit_verified': False, 'execution_identity_verified': False, 'solver_verified': False}
+
+
 def write_real_curve(schematic, tree_path, signal_file, x, y, *, title,
                      x_label, x_unit, y_label, y_unit, values_in_db=False, replace=False):
     """Write a real Result1D beneath Results; explicitly opt into replacement.
