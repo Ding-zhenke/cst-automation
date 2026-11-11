@@ -25,6 +25,7 @@ Build, solver, and performance are independent gates. A valid schematic or layou
 - Read [dataset-and-dds.md](references/dataset-and-dds.md) before accepting a `.ds` result or creating or inspecting a `.dds` display.
 - Read [layout-em-and-fabrication.md](references/layout-em-and-fabrication.md) for PCB layout, substrate, padstack, via, Momentum/RFPro, DVE DRC, Gerber/Drill export, or CAM round-trip work. Its `flow` and `release` gates are intentionally different.
 - Read [troubleshooting.md](references/troubleshooting.md) for startup, licensing, convergence, library, model, topology, or simulator errors.
+- Read [ads-agent-bridge.md](references/ads-agent-bridge.md) when using or repairing ADS Agent Bridge, including ADS 2025 compatibility and per-machine setup.
 - Use [official-doc-index.md](references/official-doc-index.md) to locate the installed ADS 2026 Update 1 pages and examples. Verify component identifiers and parameter names against that installed release.
 
 ## Execute the common RF workflow
