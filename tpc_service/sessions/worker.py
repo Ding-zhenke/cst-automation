@@ -202,10 +202,14 @@ def run(folder):
         with lock(folder / 'state.lock'):
             state = read(folder / 'session.json')
             native_upgrade = state.get('worker_upgrade') or {}
-            if native_upgrade.get('mode') == 'preserve_native_de_v1' and (
-                    native_upgrade.get('phase') != 'starting' or not native_upgrade.get('launch_claimed')
-                    or state.get('worker') != process_identity(os.getpid())):
-                return  # Only the atomically authorized replacement may enter.
+            if native_upgrade.get('mode') == 'preserve_native_de_v1':
+                from .native_handoff import admit_worker, STARTUP_ENV, error_record
+                try:
+                    admit_worker(state, os.environ.pop(STARTUP_ENV, None))
+                except Exception as exc:
+                    native_upgrade['startup_error'] = error_record(exc)
+                    write(folder/'session.json',state)
+                    return  # No native handle acquired; keep the original identity and freeze.
             if state.get('worker_upgrade', {}).get('phase') in ('reviewing', 'stop_requested'):
                 return  # A concurrent legacy resume must not replace the frozen worker.
             state['worker'] = process_identity(os.getpid())
@@ -221,10 +225,12 @@ def run(folder):
             from cst_automation.em_qualification import EXPLORATORY_CAPABILITY
             from .native_handoff import CAPABILITY as HANDOFF_CAPABILITY
             from .linear_sp import NETWORK_CAPABILITY as EXPLORATORY_SP_NETWORK_CAPABILITY, SP_CAPABILITY
+            from .model_api import HF_TET_ORDER_CAPABILITY
             state['worker_capabilities'] = [EXPLORATORY_CAPABILITY, BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
             state['worker_capabilities'].append(HANDOFF_CAPABILITY)
             state['worker_capabilities'].append(EXPLORATORY_SP_NETWORK_CAPABILITY)
             state['worker_capabilities'].append(SP_CAPABILITY)
+            state['worker_capabilities'].append(HF_TET_ORDER_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also

@@ -64,6 +64,21 @@ do not automatically stop a live solve or relax numerical acceptance.
 | Local tetrahedral solid size | same API → `local_solids` |
 | Pass/Delta-S refinement convergence | same API → `adaptation` |
 | Linear-equation residual | `configure_fem_solver(accuracy=...)`; independent of mesh/Delta-S convergence |
+| HF tetrahedral polynomial order | `configure_fd_linear_solver` → `tet_order` and `mixed_order`; changes discretization, not residual/Delta-S acceptance |
+
+For general-purpose HF tetrahedral calculations, `tet_order` is exactly First,
+Second or Third. `mixed_order=True` requires an explicit tet_order in the same
+request, interpreted as the maximum: CST may use lower order where appropriate.
+Example: `{"solver_type":"Direct","tet_order":"Second","mixed_order":true}`.
+False alone disables mixed order without changing the existing order; order alone
+preserves the mixed setting. Require `hf-tet-order-controls-v1` on the actual worker.
+Use the same settings-only route, preserving geometry, ports, residual and Delta-S
+thresholds. Lower order or mixed order is a new numerical trial, not a convergence
+certificate or a guarantee of lower peak memory. Prior EM/HB evidence is invalidated.
+Verify effective settings, cells/DOF, peak memory, per-excitation residual and Delta-S
+from the actual run. An iteration/pass cap or successful configuration cannot pass
+these checks. For owned-worker upgrades, follow the explicit owned handoff review
+in cst-sessions; never claim a creating worker borrowed its DE.
 
 For a parameter-linked EM model band, define the project parameters first and
 call `app.set_frequency_range("fmin", "fmax")` with expression strings. Numeric

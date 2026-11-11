@@ -14,6 +14,63 @@ from .native import Runtime, file_digest
 CAPABILITY = 'preserved-de-worker-handoff-v1'
 MODE = 'preserve_native_de_v1'
 RELEASE_MAX_AGE = 2.0
+STARTUP_ENV = 'CST_HANDOFF_STARTUP_NONCE'
+
+
+def admit_worker(state, nonce):
+    """Caller holds worker.lock and state.lock; no SDK calls before admission."""
+    record = state.get('worker_upgrade') or {}
+    require(record.get('mode') == MODE and record.get('phase') == 'starting'
+            and record.get('launch_claimed') and not record.get('startup_worker'),
+            'No unused native worker startup authorization')
+    require(isinstance(nonce, str) and bool(nonce)
+            and digest(nonce) == record.get('launch_nonce_digest'), 'Startup nonce mismatch')
+    launcher = record.get('launcher')
+    worker = process_identity(os.getpid())
+    require(launcher and state.get('worker') == launcher
+            and process_identity(launcher['pid']) == launcher, 'Launcher identity changed')
+    require(worker and os.path.normcase(os.path.realpath(worker['image'])) ==
+            os.path.normcase(os.path.realpath(record['expected_worker_image'])), 'Unexpected worker image')
+    require(worker == launcher or (os.getppid() == launcher['pid']
+            and process_identity(os.getppid()) == launcher), 'Worker is not the authorized launcher child')
+    record.update(startup_worker=worker, startup_registered_at=time.time())
+    return worker
+
+
+def recover(manager, session_id, credential, *, expected_token, expected_launcher,
+            review_note, confirm_no_worker_processes=False):
+    require(confirm_no_worker_processes is True and isinstance(review_note,str)
+            and 0 < len(review_note.strip()) <= 8192, 'Reviewed absence of failed worker process tree required')
+    folder = manager._folder(session_id)
+    with lock(folder/'handoff.lock'), lock(folder/'launch.lock'), lock(folder/'worker.lock', blocking=False):
+        def check(state):
+            record = check_frozen(folder,state)
+            require(record['phase'] == 'starting' and record['token'] == expected_token
+                    and record.get('launch_claimed') and record.get('stop_ack'), 'Exact consumed launch required')
+            require(expected_launcher and state.get('worker') == expected_launcher
+                    and record.get('launcher',expected_launcher) == expected_launcher,
+                    'Exact failed launcher identity required')
+            require(not any(record.get(k) for k in ('startup_worker','new_worker_ready','new_worker_native','new_worker_error')),
+                    'Post-admission recovery is not supported')
+            require(process_identity(expected_launcher['pid']) is None
+                    and not alive(record['old_worker']), 'Old worker or launcher is still present')
+            return record
+        with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+            state = manager._state(folder,credential);record = check(state)
+        proof = verify_native(Runtime(folder,'cst'),state)
+        require(proof == record['pre_exit_native'], 'Native state changed before recovery')
+        with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+            state = manager._state(folder,credential);record = check(state)
+            history = record.pop('failed_launches', [])
+            history.append(dict(copy.deepcopy(record), recovery_review=review_note,
+                                process_tree_absence_asserted_by_caller=True, recovered_at=time.time()))
+            for key in ('launch_attempted','launch_claimed','launch_nonce_digest','launcher',
+                        'expected_worker_image','startup_error','post_exit_native'):
+                record.pop(key,None)
+            record.update(token=uuid4().hex,phase='stop_requested',failed_launches=history)
+            state.update(worker=None,worker_capabilities=[],worker_launch_intent=False)
+            write(folder/'session.json',state)
+            return copy.deepcopy(record)
 
 
 def require(ok, message):
@@ -112,10 +169,19 @@ def verify_native(runtime, state):
 def begin(manager, session_id, credential, *, environment_identity, worker_identity,
           project_digests, review_note, required_capabilities, confirm_idle=False,
           confirm_saved_tabs=False, confirm_borrowed_worker=False,
-          accept_unverified_native_handoff=False):
+          accept_unverified_native_handoff=False, worker_ownership='borrowed',
+          confirm_owned_worker=False, accept_owned_worker_exit_risk=False):
     from .manager import UPGRADE_CAPABILITY
-    require(all(x is True for x in (confirm_idle, confirm_saved_tabs, confirm_borrowed_worker,
+    require(all(x is True for x in (confirm_idle, confirm_saved_tabs,
                                     accept_unverified_native_handoff)), 'Explicit reviewed native handoff confirmations required')
+    require(worker_ownership in ('borrowed','owned'), 'Explicit borrowed or owned worker classification required')
+    if worker_ownership == 'borrowed':
+        require(confirm_borrowed_worker is True and confirm_owned_worker is False
+                and accept_owned_worker_exit_risk is False, 'Borrowed-worker review required without owned assertions')
+    else:
+        require(confirm_borrowed_worker is False and confirm_owned_worker is True
+                and accept_owned_worker_exit_risk is True,
+                'Owned worker requires separate confirmation and explicit native exit risk acceptance')
     require(isinstance(review_note, str) and 0 < len(review_note.strip()) <= 8192, 'Review note required')
     require(isinstance(required_capabilities, list) and bool(required_capabilities)
             and all(isinstance(x,str) and 0 < len(x) <= 256 for x in required_capabilities)
@@ -134,6 +200,7 @@ def begin(manager, session_id, credential, *, environment_identity, worker_ident
             require(record['environment'] == environment_identity and record['old_worker'] == worker_identity
                     and record['project_digests'] == project_digests
                     and record['requested_capabilities'] == required_capabilities
+                    and record.get('worker_ownership','borrowed') == worker_ownership
                     and record['review_note'] == review_note, 'Existing handoff inputs differ')
             return copy.deepcopy(record)
         require(state['status'] == 'ready' and not state.get('uncertain_jobs')
@@ -151,7 +218,10 @@ def begin(manager, session_id, credential, *, environment_identity, worker_ident
             requested_capabilities=required_capabilities,
             required_capabilities=sorted(set(required_capabilities+[CAPABILITY])),started_at=time.time(),
             native_acceptance='pending',saved_tabs_asserted_by_caller=True,
-            schematic_idle_asserted_by_caller=True,borrowed_worker_asserted_by_caller=True)
+            schematic_idle_asserted_by_caller=True,
+            worker_ownership=worker_ownership,borrowed_worker_asserted_by_caller=confirm_borrowed_worker,
+            owned_worker_asserted_by_caller=confirm_owned_worker,
+            owned_worker_exit_risk_accepted=accept_owned_worker_exit_risk)
         state.update(status='closing',worker_upgrade=record)
         write(folder/'session.json',state)
         return copy.deepcopy(record)

@@ -14,6 +14,12 @@ def execute(runtime, job):
     operation, params = job['operation'], job['params']
     from . import workflow
     try:
+        if operation == 'model_api':
+            from .model_api import validate_calls, uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
+            validate_calls(params['calls'])
+            if (uses_hf_tet_order_controls(params['calls'])
+                    and HF_TET_ORDER_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'HF Tet order controls require compatible execution worker')
         workflow.preflight(runtime.folder, runtime.state(), operation, params, job=job)
     except ServiceError:
         job['workflow_preflight_rejected'] = True

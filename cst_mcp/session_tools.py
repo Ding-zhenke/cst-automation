@@ -50,6 +50,10 @@ def register_session_tools(root, *, backend='cst', replace=False):
     def finish_native_worker_handoff(a):
         return tool_payload({'upgrade': manager.finish_native_worker_handoff(a['session_id'], a['credential'])})
 
+    def recover_native_worker_handoff(a):
+        return tool_payload({'upgrade': manager.recover_native_worker_handoff(
+            a['session_id'], a['credential'], **a['review'])})
+
     def reconcile(a):
         return tool_payload({'session': manager.reconcile(a['session_id'], a['credential'],
                             a['review_note'], a['project_digests'], confirm_idle=a.get('confirm_idle', False),
@@ -59,7 +63,9 @@ def register_session_tools(root, *, backend='cst', replace=False):
                             resolve_job_ids=a.get('resolve_job_ids'))})
 
     entries = [
-        ('begin_cst_native_worker_handoff', 'Explicitly freeze a reviewed idle borrowed native worker for preserved-DE handoff; native acceptance pending.',
+        ('recover_cst_native_worker_handoff', 'Review a failed pre-admission launch; rotate authorization while frozen, without launching.',
+         dict(identity, review={'type':'object'}), list(identity)+['review'], recover_native_worker_handoff, False),
+        ('begin_cst_native_worker_handoff', 'Freeze a reviewed idle native worker for preserved-DE handoff; owned workers require distinct explicit exit-risk acceptance.',
          dict(identity, review={'type':'object'}), list(identity)+['review'], begin_native_worker_handoff, False),
         ('finish_cst_native_worker_handoff', 'Advance frozen preserved-DE handoff with exact-tab native checks; never create or reopen.',
          identity, list(identity), finish_native_worker_handoff, False),
