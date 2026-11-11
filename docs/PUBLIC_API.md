@@ -1,5 +1,22 @@
 # cst-automation 与领域包的公共接口
 
+## HF Tet curvature order
+
+`configure_tetrahedral_mesh(settings)` accepts optional `curvature_order`, a strict
+integer in `{1,2,3}`. It emits only `MeshSettings.SetMeshType "Tet"` and
+`MeshSettings.Set "CurvatureOrder", "N"` for this field, without changing field
+basis order, accuracy, geometry, ports, defaults or CurvatureOrderPolicy. Omission
+preserves existing settings. Order 1 disables mesh curving; 2/3 have official
+second-order-element guidance. This is not an expanded general numeric range.
+
+Both model_api submission to a live worker and execution require
+`hf-tet-curvature-order-v1`, alongside the existing content-bound history and
+settings-only capabilities. Entire batches validate before mutation; pure settings
+save without Rebuild/solve. MCP uses the existing submit_cst_session_operation.
+No dedicated getter is established: readback_verified/mesh_verified remain False.
+Automatic policy interactions and effective order need native acceptance, not a
+claim of fixed mode. See [source and boundaries](guides/hf_tet_curvature_order.md).
+
 ## Content-bound typed settings history
 
 Mesh, FD frequency, FD parallelization and FD linear settings now append a full

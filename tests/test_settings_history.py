@@ -40,11 +40,12 @@ class App(SolverMixin, MeshMixin):
 
 CASES = [
     ('configure_tetrahedral_mesh',
-     {'adaptation': {'refinement_type': 'automatic', 'singular_edge_refinement': 2,
+     {'curvature_order': 2, 'adaptation': {'refinement_type': 'automatic', 'singular_edge_refinement': 2,
        'snap_to_geometry': True, 'min_passes': 2, 'max_passes': 12, 'refinement_percentage': 5},
       'local_solids': [{'solid': 'device:oxide', 'max_step': .0035}]},
      {'adaptation': {'snap_to_geometry': False}},
-     {'MeshAdaption3D.SingularEdgeRefinement': '"2"', 'MeshAdaption3D.MaxPasses': '"12"',
+     {'MeshSettings.Set': '"CurvatureOrder", "2"',
+      'MeshAdaption3D.SingularEdgeRefinement': '"2"', 'MeshAdaption3D.MaxPasses': '"12"',
       'Solid.SetMeshStepwidthTet': '"device:oxide", "0.0035"', 'MeshAdaption3D.SnapToGeometry': 'False'}),
     ('configure_fd_frequency', {'output_samples': 101, 'sweep_error': .01},
      {'output_samples': 3}, {'FDSolver.SetNumberOfResultDataSamples': '"3"',

@@ -1,5 +1,20 @@
 # 验证记录
 
+## 2026-11-12：modern HF Tet 曲率阶数（0.3.55，离线）
+
+- configure_tetrahedral_mesh 新增 curvature_order 严格整数 {1,2,3}；现代 Mesh Control
+  帮助的 p..2p-1 建议覆盖二阶基函数对应的 2/3，官方 Compare Solvers 宏另有 1/3
+  的精确 MeshSettings 命令示例。来源及边界见 guides/hf_tet_curvature_order.md。
+- 仅写 Tet 组 CurvatureOrder，不写 CurvatureOrderPolicy、不改场阶数/精度或默认值。
+  新能力 hf-tet-curvature-order-v1 在提交/执行两处强制检查，已有内容绑定标题、
+  整批预检和纯设置无 Rebuild 路径保持；未自动交接活跃 worker。
+- 145 项相关离线测试通过，包括 20 项新增曲率用例、2 项新增设置保存场景及扩展
+  历史重放断言。完整回归 **2139 passed、2 deselected、9 warnings**（85.30 s），
+  日志 work/pytest-curvature-full.log；独立只读代码复核无阻塞项。
+- 无专用 getter，readback_verified/mesh_verified/solver_verified 仍 False。自动策略
+  下实际阶数与原生保存重开由所属会话在获准空闲点验收；维护端未访问主 DE、启动
+  夹具或求解。原低频失败和 1e-7 目标保持，不将网格曲率改变认定为数值修复。
+
 ## 2026-11-12：typed 设置相邻同名历史覆盖修复（0.3.54，离线）
 
 - 官方 VBA AddToHistory 规定相邻同标题旧块被移除；Python Model3D.add_to_history

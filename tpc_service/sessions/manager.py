@@ -141,6 +141,11 @@ class SessionManager:
                     and HISTORY_CAPABILITY not in state.get('worker_capabilities', [])):
                 raise ServiceError('workflow_worker_upgrade_required', 'Content-bound settings history requires a compatible idle worker')
             from .model_api import uses_hf_tet_adaptation_controls, HF_TET_ADAPTATION_CAPABILITY
+            from .model_api import uses_hf_tet_curvature, HF_TET_CURVATURE_CAPABILITY
+            if (operation == 'model_api' and uses_hf_tet_curvature(params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and HF_TET_CURVATURE_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'HF Tet curvature order requires a compatible idle worker')
             from .model_api import uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             from .model_api import uses_hf_tet_lf_controls
             from cst_automation.fd_linear import LF_CAPABILITY

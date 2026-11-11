@@ -43,6 +43,7 @@ def test_disable_limit_preserves_other_settings():
 @pytest.mark.parametrize('messages', [[], [{'type': 'WARNING', 'text': 'configuration warning'}]])
 @pytest.mark.parametrize('method,settings', [
     ('configure_fd_linear_solver', {'solver_type': 'Direct'}),
+    ('configure_tetrahedral_mesh', {'curvature_order': 2}),
     ('configure_fd_linear_solver', {'low_frequency_stabilization': True, 'allow_float_direct_solver': False}),
     ('configure_fd_linear_solver', {'solver_type': 'Direct', 'tet_order': 'Second', 'mixed_order': True}),
     ('configure_tetrahedral_mesh', {'adaptation': {'singular_edge_refinement': 3,

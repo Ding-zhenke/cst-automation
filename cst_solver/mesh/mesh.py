@@ -21,8 +21,13 @@ def normalize_tetrahedral_mesh_settings(settings):
     common_vbasolido/common_vbasolido_solid_object.htm.
     """
     source = _mapping(settings, ('steps_per_wavelength', 'minimum_steps',
-                      'material_refinement', 'local_solids', 'adaptation'), 'tetrahedral settings')
+                      'material_refinement', 'local_solids', 'adaptation', 'curvature_order'), 'tetrahedral settings')
     result = {}
+    if 'curvature_order' in source:
+        order = _integer(source['curvature_order'], 'curvature_order')
+        if order not in (1, 2, 3):
+            raise ValueError('curvature_order must be an integer in {1, 2, 3}')
+        result['curvature_order'] = order
     for key in ('steps_per_wavelength', 'minimum_steps'):
         if key in source:
             result[key] = _number(source[key], key)
@@ -85,6 +90,9 @@ class MeshMixin:
         """
         requested = normalize_tetrahedral_mesh_settings(settings)
         commands = []
+        if 'curvature_order' in requested:
+            commands.extend(['MeshSettings.SetMeshType "Tet"',
+                f'MeshSettings.Set "CurvatureOrder", "{requested["curvature_order"]}"'])
         has_global_controls = bool(set(requested) & {
             'steps_per_wavelength', 'minimum_steps', 'material_refinement'})
         warnings = ([

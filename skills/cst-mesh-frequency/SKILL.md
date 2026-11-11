@@ -53,6 +53,13 @@ do not automatically stop a live solve or relax numerical acceptance.
 
 ## Separate the controls
 
+For modern HF Tet mesh curvature, `configure_tetrahedral_mesh.curvature_order`
+accepts only strict integers 1, 2, 3; require `hf-tet-curvature-order-v1` on the
+actual worker and read [curvature scope and sources](../../docs/guides/hf_tet_curvature_order.md).
+This field is the geometry-curving polynomial order, not FDSolver.OrderTet or
+AccuracyTet. It leaves CurvatureOrderPolicy untouched; do not claim fixed mode or
+effective order without native evidence. No getter or optimization-loop cap is added.
+
 Typed mesh/frequency/parallel/linear settings require actual worker capability
 `content-bound-settings-history-v1`. Their history captions include a stable digest
 of the complete generated command content, preventing a different sparse setting
