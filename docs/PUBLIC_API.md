@@ -1,5 +1,21 @@
 # cst-automation 与领域包的公共接口
 
+## Read-only geometry review dialog preflight
+
+Before bounded native geometry getters, `inspect(read_only_review=True)`
+checks the recorded DE identity, performs a fresh synchronous dialog check
+scoped to its PID, and rechecks identity. An active blocking dialog or scan
+error refuses the review before getters; error details retain the dialog or
+scan failure. Previous `runtime_diagnostics` are returned as
+`prior_dialog_diagnostics`, not treated as a current observation or erased.
+The independent current-job monitor remains active and retains any failure
+latched during the operation. This read-only path neither resolves the fence
+nor certifies idle, geometry, solver, or persistence. Native execution of this
+new preflight remains unverified; offline tests use substituted dialog scans.
+Workers containing it advertise `geometry-review-fresh-dialog-v1`; a live
+older worker retains its prior behavior until safely replaced. This marker
+is informational and does not bypass the existing read-only review guards.
+
 ## Cooperative worker upgrade (bounded)
 
 `begin_worker_upgrade(session_id, credential, *, confirm_idle=True, required_capabilities=[...])` freezes

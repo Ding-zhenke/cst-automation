@@ -32,6 +32,7 @@ def test_cooperative_upgrade_freezes_queue_and_preserves_audit(tmp_path):
     wait_for(lambda: m.finish_worker_upgrade(sid, cred)['phase'] == 'complete')
     state = m.status(sid, cred)
     assert state['status'] == 'ready' and state['worker'] != old
+    assert 'geometry-review-fresh-dialog-v1' in state['worker_capabilities']
     assert m.finish_worker_upgrade(sid, cred)['phase'] == 'complete'
     assert read(folder/'jobs'/(job['job_id']+'.json')) == before
     close = m.close(sid, cred, 'close')
