@@ -14,6 +14,11 @@ when Control View has no body; missing text stays unknown. For a known authorize
 cache-choice prompt, reuse the guide's explicit inspect/select/independent-inspect/
 confirm API rather than writing another coordinate script. It is UI Automation,
 not a CST SDK API; cache integrity and the original call's return need separate checks.
+The published 0.3.57 wrapper has scoped real-project acceptance for that exact Qt
+prompt, including independent selection readback and retained original failure.
+Reuse it for matching authorized prompts; do not generalize to unknown Yes/No.
+Cache matrix integrity remains unverified: freeze the saved package before a new
+solve and read the copy noninteractively, never fallback to interactive on rejection.
 
 Start with `python -m cst_solver doctor --json` and preserve the complete diagnostic report. Separate installation discovery, Python ABI match, import/DLL load, project readback, and solver execution; evidence for one stage does not prove a later stage.
 

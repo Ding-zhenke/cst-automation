@@ -1,5 +1,29 @@
 # 验证记录
 
+## 2026-11-12：0.3.57 公共入口的所属工程验收回写（文档版 0.3.58）
+
+- 所属会话使用已发布 `result_cache_dialog`，完成精确 Qt 结果失效提示的
+  inspect（七控件完整）→ select → 独立 inspect（仅缓存选项 selected=True）→
+  confirm → PID 巡检无阻塞。维护只读核对 before/selection/selected/confirm/after
+  快照及 `cache_dialog_api_published_source.json`，源码版本 0.3.57、提交 f612163。
+  本项由“仅离线”提升为**该精确 Qt 提示操作链已有现场验收**，不推广到其他提示。
+- `modal_handled.json`、`configuration_resolution.json` 记录原调用已返回、原
+  `cst_dialog_blocked` 失败保留，按现有 reconcile 继续；`start_native_review.json`
+  记录原参数、目标实体/材料及端口复核。维护没有再次操作 DE 或复验这些 native getter。
+  所属会话本轮无截图/坐标控制、无 worker 升级；UIA 仍不是 CST 原生 SDK。
+- **缓存原矩阵完整性仍 unverified**：所属会话报告，非交互 reader 直接打开仍在
+  DE 中的原工程被 UserWarning 拒绝，没有回退 interactive；此前独立 ZIP/冻结矩阵
+  的保留证据不替代本次缓存验证。以后在新求解前冻结完整保存文件副本，校验摘要，
+  从副本以 allow_interactive=False 读取并比较所需全部曲线。窗口消失不能认证缓存。
+- 维护随后只读核对已落盘 `mesher_input_public_readback.json`：公共解码器返回
+  i/curvature_order=2，所属会话记录原生日志 orders=[2]、原始摘要及当前 job 绑定。
+  维护没有读活动原文件；这只涉及解码/有效阶数，不认证网格或 RF 收敛。首次整日志
+  UTF-8 解码失败使报告未落盘，所属会话改用明确 ASCII 字节模式提取后才生成该报告；
+  不将编码失败解释为无日志或默认阶数。
+- 本次仅更新技能、说明和插件版本；不修改运行代码或 EM/DC/HB 门槛，不接触正在
+  运行的 probe。0.3.57 的离线测试记录保持原范围，不以本次回写冒充新求解验收。
+  插件打包测试 1 项通过、三个改动技能校验通过；独立范围复核无阻塞项。
+
 ## 2026-11-12：常用只读核查与有限 Qt 缓存操作（0.3.57）
 
 - 新增 `run_status.inspect_owned_run`，仅复用原所属 app/job reader，分别记录 native
@@ -9,7 +33,8 @@
   证据，不从按钮猜正文。当前真实恢复提示未用新读取器验收，不能宣称已修复现场。
 - 从早期已记录的 Qt SelectionItem.Select → 独立 IsSelected → Invoke 原型抽取
   `result_cache_dialog.inspect/select/confirm`。精确身份、完整消息、控件/选择状态和
-  授权均须匹配；超时不自动重试。新封装无真机动作验收，缓存完整及原调用返回仍独立。
+  授权均须匹配；超时不自动重试。发布时无真机动作验收；后续限定现场验收见上节，
+  缓存完整及原调用返回仍独立。
 - 新增纯文件 `mesh_input.read_saved_options`，限制大小/深度/类型，拒绝变动、重复键、
   截断及非有限值。维护侧既有冻结样本完整解码 114 属性；没有访问活动工程。
 - 六个技能及通用操作指南覆盖十类复用路径，明确 strict warning-only 正式 EM 入口

@@ -59,6 +59,9 @@ mesher-input decoder instead of rewriting project-specific readers. Read the
 It returns all attributes and SHA256 without a CST connection; it is not a live
 getter. Linear iterations, adaptive passes and quality warnings are different
 evidence; no verified modern quality-optimization iteration cap is supplied.
+The owning session used the published decoder on fresh run input with order=2
+matching log.tet; maintenance checked its saved report (see VALIDATION). This is scoped
+decoder/order evidence, not mesh convergence or proof that local RF refinement is sufficient.
 
 For modern HF Tet mesh curvature, `configure_tetrahedral_mesh.curvature_order`
 accepts only strict integers 1, 2, 3; require `hf-tet-curvature-order-v1` on the

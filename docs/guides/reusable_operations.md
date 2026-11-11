@@ -11,7 +11,7 @@
 | 参数修改 | 会话 `set_parameters` → 所属 `app.update()` → 已授权 `solve` | 已有入口，补直接示例；不是逐点全 Rebuild，也不保证缓存保留 |
 | 网格设置及生效 | 原 typed `configure_tetrahedral_mesh/configure_fd_linear_solver/configure_fd_frequency`；新增 `mesh_input.read_saved_options` | 已保存 mesher input 不是实时 getter；需绑定产生该文件的 run，不能由数值设置推断收敛 |
 | 冻结结果读取 | 原结果 API；官方 `cst.results.ProjectFile(frozen_path, allow_interactive=False)` | 补冻结/读取契约；当前 `cst_solver.Result` 默认允许交互，不能冒充严格冻结 reader；未新增通用目录复制器 |
-| 缓存选择窗口 | 新增 `result_cache_dialog.inspect/select/confirm` | Windows UIA，不是原生 CST SDK；选择、独立读回、确认分开。新封装未经现场验收，缓存完整性仍独立验证 |
+| 缓存选择窗口 | `result_cache_dialog.inspect/select/confirm` | Windows UIA，不是原生 CST SDK；0.3.57 已在该精确 Qt 提示完成现场操作链验收，缓存完整性仍未验证 |
 | 接受已审阅保存基线 | 会话 `accept_saved_baseline` | 复用已有入口；所属会话报告过真实数值策略保存验收，不等于几何等价或求解合格 |
 | 保留 DE 升级 | `begin_native_worker_handoff/finish_native_worker_handoff` | 复用既有受控交接；以当前任务返回、队列冻结、完整空闲证据为准，旧验收不能覆盖新阻塞 |
 | 正式 warning-only EM | 现有 `qualify_saved_em/qualify_exploratory_em` 契约各异 | 严格 warning-only 正式资格入口仍待开发；不得将 exploratory 或短 probe 当成完整 EM/DC/HB 通过 |
@@ -68,7 +68,9 @@ Run ID、参数、全复数矩阵和轴，比较归档清单/摘要，才能评�
 返回 cache_verified=False，不因窗口消失或请求发出而提升证据等级。
 
 超时可能发生在 UIA 动作之后：保留“不确定”，先检查现场，禁止自动重试。
-原型确有真实 Qt 选中/确认记录；新增完整封装仅完成离线验证，不宣称已经处理当前窗口。
+0.3.57 公共封装已在所属工程完成精确 Qt 提示的七控件读取、缓存选中独立读回和
+确认，原调用返回后仍保留 cst_dialog_blocked，再经原流程恢复。该操作链不需截图/
+坐标或 worker 升级；不推广到未知恢复提示，也不认证缓存完整性。范围见 VALIDATION。
 
 ## 参数修改示例
 
@@ -88,7 +90,9 @@ changed = manager.submit(session_id, credential, parameter_request_id,
 
 冻结包包含 .cst、必要同名结果目录、完整日志、历史、端口映射和参数；记录每个文件
 的 SHA256、源 job、输入摘要和原错误。源文件正在变化或被锁定就报告归档未完成，
-不能复制一部分后称已冻结。读取冻结文件使用官方 ProjectFile 的
+不能复制一部分后称已冻结。缓存选项确认后，若需要验证原矩阵，应在新求解之前
+冻结完整保存副本再读。非交互 reader 直接读仍在 DE 中的原工程可能被 UserWarning
+拒绝；保留该失败，不为了读成功回退 interactive。读取冻结文件使用官方 ProjectFile 的
 `allow_interactive=False`，不回退到活动 DE 或旧 Run ID。保留全部请求的复数元素、
 频率/方向和单位；三点诊断、单自适应轮数据和正式宽带资格分别标记。
 
@@ -100,6 +104,11 @@ saved_mesh = read_saved_options(frozen_options_path)
 这个只读解码器返回全部属性；不将 CAD surface gradation iteration 误作现代 HF Tet
 质量优化上限。存储阶数与实际曲率阶数需区分；所属会话报告 automatic 下存储二阶仍
 生成三阶，而 fixedorder 后新任务输入/日志为二阶。这不证明低质量警告消失或收敛改善。
+
+0.3.57 公共解码器已由所属会话用于 fresh 输入，维护核对了保存报告中的阶数 2、
+日志 orders=[2] 及摘要。原生日志不保证整文件 UTF-8：解码失败保留错误和原始字节，
+已知 ASCII 标记可用明确字节模式独立提取并标注范围；不能丢弃乱码后宣称完整读取，
+也不能猜测未读到的内容或将编码失败判为无结果。
 
 坏单元定位还要求坏单元列表与网格几何来自同一恢复/生成代次。停止后恢复上一成功
 网格可能使当前 bad-element 文件和恢复后的网格不配套；单元 ID 范围有效也不够。

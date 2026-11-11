@@ -133,7 +133,9 @@ with de.quiet_mode_enabled():
 
 现已抽取为 `cst_solver.result_cache_dialog.inspect/select/confirm`，详见
 [完整调用及收尾链条](reusable_operations.md#有限缓存选项流程)。这不是通用 Yes/No
-回答器，也不处理正文未知的恢复提示。新增封装仅离线验收，以下为早期原型的现场证据。
+回答器，也不处理正文未知的恢复提示。0.3.57 公共封装已在所属工程完成精确提示的
+完整七控件读取、选择、独立选中读回、确认及原调用返回核对；原失败继续保留。
+缓存矩阵完整性仍未验证，详见 VALIDATION。以下为早期原型的现场证据。
 
 已在真实 CST 2026 Qt 弹窗中通过 UI Automation 读取并核对窗口归属、标题、完整选项
 和按钮，程序化选择 `Store current results in result cache`，在下一次独立只读检查
@@ -153,8 +155,8 @@ with de.quiet_mode_enabled():
 - `Online Help/mergedProjects/VBA_DES/special_vbacommands/projectobject.htm`：原理图 `DeleteResults`。
 - `Online Help/mergedProjects/3D/common_general/common_general_result_question.htm`：各个删除/缓存/另存选项的含义。
 
-上述为文档核对结论；尚未在真实工程上验收该弹窗的消除效果或缓存保留行为，
-也不代表仓库新增了自动清理接口。实际操作以当前安装版本帮助为准，不提高求解或真机验收等级。
+上述原生 API 说明为文档核对结论；它们不因 UIA 操作链通过而获得缓存保留验收，
+仓库也没有新增自动清理接口。实际操作以当前安装版本帮助为准，不提高求解验收等级。
 
 ## 服务与 MCP
 
