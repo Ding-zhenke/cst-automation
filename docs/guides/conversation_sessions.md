@@ -89,11 +89,13 @@ history 用于通用 CST 历史块，VBA 是受信任用户代码，并非隔离
 
 Windows 上，读取中的 JSON 可能短暂拒绝原子替换并返回 WinError 5 或 32。会话存储仅重试同一份已经刷盘的临时 JSON 的替换，最多等待约 0.8 秒。持续失败时保留原记录并报告替换异常。按原 job 回执、保存检查点和现场证据处理，已读到的工程结果与回执落盘分别核验。
 
-恢复失败不能回退到 connect_to_any。若需人工核对，读取 status、具体 job 与
+任务开始时确认具体工程保存基线及授权范围；同一会话已有明确确认时记录并沿用，讨论或新一轮对话不使其失效。继续已授权恢复、建模或求解前仍核对身份、摘要、任务与空闲证据；出现新的未知写入、实质性基线变化或无法确定现场时按实际风险处理。
+
+恢复失败不能回退到 connect_to_any。若需现场核对，读取 status、具体 job 与
 runtime_diagnostics 中实际弹窗的标题、正文、按钮及所属 PID。reconcile 仅供用户明确
 核对后使用：CLI `reconcile --review-file ABS.json`，内容包括 review_note、全部
-project_digests、confirm_idle=true；未知 DE 创建另需完整 environment_identity 或
-confirm_no_environment=true。它只记录人工采纳的保存基线，未知任务标 resolved，
+project_digests、confirm_idle=true，以及 `resolve_job_ids`（要解决的具体任务 ID 列表）；未知 DE 创建另需完整 environment_identity 或
+confirm_no_environment=true。它只记录经审阅的保存基线，仅指定任务标 resolved，其他 failed/blocked 保持原状，
 首次创建失败且没有落盘的工程意图可以在核对后用 abandon_projects 显式放弃；此操作
 不能删除已保存工程，也不能接管其他会话已占用的环境。
 不认证几何/求解、不重放任务。blocked 阶段如需继续，必须在核对后使用新的阶段 ID。
@@ -159,7 +161,7 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 验收边界以 `docs/VALIDATION.md` 为准。
 
 
-恢复时，如果同一已核实 DE 中的已保存工程标签已关闭，只有匹配的显式基线确认（last_resolution.human_reviewed、每个工程摘要和当前文件摘要全部相同）才允许重新打开该已登记路径。无确认或摘要变化仍拒绝；不接管其他会话、不搜索活动窗口，也不重放建模。
+恢复时，如果同一已核实 DE 中的已保存工程标签已关闭，可复用匹配的既有 `last_resolution`，或在 ready 且无未知任务/启动意图时复用该工程的原始 `adoption_review`（登记路径、授权路径和保存摘要均一致）。无匹配确认或摘要变化仍拒绝；不接管其他会话、不搜索活动窗口，也不重放建模。该规则不适用于会丢弃内存改动的 `reload_project`。
 
 
 `set_parameters` supports `expressions` alongside `values` to pass UTF-8 parameter descriptions directly to the existing Python `app.para(..., expression=...)` API. Expressions here are descriptions; executable CST formulas remain in values.

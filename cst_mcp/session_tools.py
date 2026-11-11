@@ -40,7 +40,8 @@ def register_session_tools(root, *, backend='cst', replace=False):
                             a['review_note'], a['project_digests'], confirm_idle=a.get('confirm_idle', False),
                             environment_identity=a.get('environment_identity'),
                             confirm_no_environment=a.get('confirm_no_environment', False),
-                            abandon_projects=a.get('abandon_projects'))})
+                            abandon_projects=a.get('abandon_projects'),
+                            resolve_job_ids=a.get('resolve_job_ids'))})
 
     entries = [
         ('bind_cst_workflow', 'Bind an immutable engineering specification while idle, without starting CST.',
@@ -60,10 +61,11 @@ def register_session_tools(root, *, backend='cst', replace=False):
          identity, list(identity), resume, False),
         ('close_cst_session', 'Explicitly save and close only this conversation environment after accepted work drains.',
          dict(identity, request_id=string), list(identity) + ['request_id'], close, False),
-        ('reconcile_cst_session', 'Only after explicit human scene review: adopt reviewed saved files without replay or certifying unknown operations. Never call automatically.',
+        ('reconcile_cst_session', 'Adopt a reviewed saved baseline within existing user authorization; resolve only selected job IDs without replay or certification.',
          dict(identity, review_note=string, project_digests={'type': 'object'},
               confirm_idle={'type': 'boolean'}, environment_identity={'type': 'object'},
               abandon_projects={'type': 'array', 'items': {'type': 'string'}},
+              resolve_job_ids={'type': 'array', 'items': {'type': 'string'}, 'uniqueItems': True},
               confirm_no_environment={'type': 'boolean'}),
          list(identity) + ['review_note', 'project_digests', 'confirm_idle'], reconcile, False),
     ]

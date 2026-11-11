@@ -28,3 +28,30 @@ def test_never_reopens_unreviewed_or_changed_project(tmp_path):
     p,s,a,calls=fixture(tmp_path);p.write_bytes(b'changed')
     with pytest.raises(ServiceError):restore_reviewed_projects(a,s,set())
     assert not calls
+
+
+def test_adopted_baseline_review_remains_valid_for_unchanged_ready_session(tmp_path):
+    p,s,a,calls=fixture(tmp_path)
+    record=s['projects']['p']; digest=record['saved_digest']
+    s.update(status='ready',last_resolution={})
+    record.update(saved=True, path_authorization={'operation':'adopt_project','working_path':str(p)},
+                  adoption_review={'review_note':'User approved continuation','expected_digest':digest})
+    restore_reviewed_projects(a,s,set())
+    assert calls == [str(p)]
+
+
+@pytest.mark.parametrize('change', ['fenced', 'uncertain', 'launch', 'digest', 'path', 'no_note'])
+def test_adoption_review_cannot_bypass_uncertainty_or_changed_baseline(tmp_path, change):
+    p,s,a,calls=fixture(tmp_path)
+    record=s['projects']['p']; digest=record['saved_digest']
+    s.update(status='ready',last_resolution={})
+    record.update(saved=True,path_authorization={'operation':'adopt_project','working_path':str(p)},
+                  adoption_review={'review_note':'User approved continuation','expected_digest':digest})
+    if change=='fenced': s['status']='needs_reconcile'
+    if change=='uncertain': s['uncertain_jobs']=['job-original']
+    if change=='launch': s['launch_intent']=True
+    if change=='digest': p.write_bytes(b'changed')
+    if change=='path': record['path_authorization']['working_path']=str(tmp_path/'other.cst')
+    if change=='no_note': record['adoption_review']['review_note']=' '
+    with pytest.raises(ServiceError): restore_reviewed_projects(a,s,set())
+    assert calls==[]

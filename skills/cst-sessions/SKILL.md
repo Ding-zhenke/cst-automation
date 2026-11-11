@@ -23,6 +23,16 @@ It preserves the latest requirements and binds each observation to its actual
 inputs; run its read-only checker before dependent submissions. It does not
 replace native inspection or the session's job/recovery checks.
 
+At task start identify the exact project and saved baseline and obtain explicit
+user confirmation if it has not already been given. Record the authorization,
+scope, project identity and baseline evidence in the conversation checkpoint.
+That authorization persists through discussion and later turns for the same
+baseline and already authorized recovery, modeling and solving. Do not ask the
+user to repeat it merely because another turn or review step occurred. Verify
+current job state, file identity, idle state and evidence independently; renewed
+review is needed when an unconfirmed write, material baseline change or unknown
+scene makes the existing authorization insufficient.
+
 - Before the first actual modeling call, allocate one conversation-specific recovery reference with
   the CLI or ensure_cst_session. Use an explicit authorized absolute root, normally this repository's
   `work/sessions`, and a fresh UUID reference file in `work/conversations` for each new conversation.
@@ -54,8 +64,10 @@ replace native inspection or the session's job/recovery checks.
   not geometry/dependency acceptance. For an existing geometry fence, use the explicit
   [bounded read-only review](../../docs/guides/geometry_validation_review.md) only after actual idle
   confirmation and digest checks; it never rebuilds, saves, opens missing tabs or clears the fence.
-- needs_reconcile requires scene evidence. Do not automatically call reconcile_cst_session: only
-  use it after explicit user review of the saved baseline and idle state; preserve evidence levels.
+- needs_reconcile requires actual scene evidence and a matching explicit baseline authorization.
+  Reuse existing authorization when its scope covers the reviewed recovery; do not invent user
+  approval. Resolve only the explicitly reviewed uncertain job IDs, never unrelated failures.
+  Reconcile does not certify the solver, erase original errors or authorize replay.
 - Keep the working project and its DE while the approved task is active, including replies and
   disconnects. Once modeling is complete and the formal CST plus paired data are verified, use
   session `close_project` to save, close and retire this task's process projects, then delete their

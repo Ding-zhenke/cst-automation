@@ -196,7 +196,7 @@ class SessionManager:
         return self.submit(session_id, credential, request_id, 'close')
 
     def reconcile(self, session_id, credential, review_note, project_digests, *, confirm_idle=False,
-                  environment_identity=None, confirm_no_environment=False, abandon_projects=None):
+                  environment_identity=None, confirm_no_environment=False, abandon_projects=None, resolve_job_ids=None):
         """Explicit human-reviewed baseline, never an automatic retry or success certification."""
         from .native import file_digest
         folder = self._folder(session_id)
@@ -207,6 +207,20 @@ class SessionManager:
             jobs = [read(p) for p in (folder / 'jobs').glob('*.json')]
             if any(j['status'] == 'running' for j in jobs):
                 raise ServiceError('session_busy', 'Original operation is still running; do not reconcile it')
+            selected = [] if resolve_job_ids is None else resolve_job_ids
+            if (not isinstance(selected, list) or any(not isinstance(i, str) for i in selected)
+                    or len(set(selected)) != len(selected)):
+                raise ServiceError('invalid_session_argument', 'resolve_job_ids must be a unique list of job IDs')
+            by_id = {j['job_id']: j for j in jobs}
+            if any(i not in by_id or by_id[i]['status'] not in ('needs_reconcile', 'failed', 'blocked') for i in selected):
+                raise ServiceError('session_review_required', 'Selected job is missing or not eligible for resolution')
+            required = set(state.get('uncertain_jobs') or []) | {j['job_id'] for j in jobs if j['status'] == 'needs_reconcile'}
+            if not required.issubset(selected):
+                raise ServiceError('session_review_required', 'Select every uncertain job before clearing the fence')
+            last_error = state.get('last_error')
+            matching = {j['job_id'] for j in jobs if j['status'] == 'failed' and j.get('error') == last_error} if last_error else set()
+            if not required and last_error and not matching.intersection(selected):
+                raise ServiceError('session_review_required', 'Select the failed job corresponding to the session last error')
             if not isinstance(review_note, str) or not review_note.strip():
                 raise ServiceError('session_review_required', 'Explicit human review note required')
             for pid in abandon_projects or []:
@@ -232,10 +246,11 @@ class SessionManager:
                 state['launch_intent'] = False
             audit = {'review_note': review_note, 'project_digests': project_digests,
                      'abandoned_projects': abandon_projects or [],
+                     'resolved_job_ids': selected,
                      'human_reviewed': True, 'readback_verified': False, 'solver_verified': False,
                      'at': time.time()}
             for job in jobs:
-                if job['status'] in ('needs_reconcile', 'failed', 'blocked'):
+                if job['job_id'] in selected:
                     job.update(status='resolved', resolution=audit)
                     write(folder / 'jobs' / (job['job_id'] + '.json'), job)
             for pid, record in state['projects'].items():

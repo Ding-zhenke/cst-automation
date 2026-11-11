@@ -1,5 +1,32 @@
 # cst-automation 与领域包的公共接口
 
+## Selective reconciliation of session jobs
+
+`SessionManager.reconcile(..., resolve_job_ids=[...])` resolves only explicitly
+listed failed, blocked or needs_reconcile journals. The default is an empty
+list; it never bulk-resolves historical failures. All `uncertain_jobs` and
+needs_reconcile journals must be selected before the session can become ready;
+when no uncertain journal is recorded and `last_error` identifies a failed
+journal, at least one matching journal must be selected. Unknown IDs, duplicates, ineligible statuses or omitted
+uncertainty fail before any mutation. Other failed/blocked records remain
+unchanged. CLI `reconcile --review-file` accepts the same JSON field; MCP
+`reconcile_cst_session` exposes the optional array. This manager-side change
+requires the CLI/MCP process to load the updated runtime; an old persistent
+MCP process must not be used for the new contract. It does not require a new
+worker capability and does not by itself validate or resume a solver.
+
+## Reuse of a reviewed adoption baseline
+
+On exact owned-DE reattachment, an absent saved tab may use its existing
+`adoption_review` as its baseline review when session status is `ready`, there
+is no uncertain job or launch intent, the saved record, adoption digest and
+actual file digest match, and the authorized adoption path still matches the
+registered path. Existing `last_resolution` matching remains supported. This
+does not clear a fence, discard in-memory edits, replay a job, authorize new
+work, or establish solver/geometry validity. A changed or unknown baseline
+still requires investigation; explicit reload retains its stronger separate
+review requirement because it closes a tab and can discard memory changes.
+
 ## Session status history snapshot
 
 `SessionManager.status` and `resume` retain the full `jobs` list. The session
@@ -639,15 +666,15 @@ close_cst_session。每个调用显式传递 session_id/credential，不存在�
 原生常驻和 PID 重连测试使用空环境；未据此承诺几何或 solver 已通过。
 
 人工核对入口：`reconcile(session_id, credential, review_note, project_digests, *,
-confirm_idle=False, environment_identity=None, confirm_no_environment=False, abandon_projects=None)`。只在
-needs_reconcile/close_failed 且无 running 任务时可用。调用前必须由用户核对现场；
-提供全部工程当前 SHA256 和明确的空闲确认，保留原未知任务为 resolved，不将其
+confirm_idle=False, environment_identity=None, confirm_no_environment=False, abandon_projects=None, resolve_job_ids=None)`。只在
+needs_reconcile/close_failed 且无 running 任务时可用。调用前核对现场并遵循用户已明确授权的范围；
+提供全部工程当前 SHA256 和明确的空闲确认，只把指定任务标为 resolved，不将其
 升级成 succeeded。DE 创建回执丢失时须人工给出完整进程身份，或明确确认无环境存活。
 任何已被另一活动会话记录的 DE 身份都拒绝接管；环境身份赋值由根目录锁串行化。
 首次工程未落盘时，可显式 abandon_projects 放弃不存在且未确认保存的工程意图，
 不得因此删除已有文件。关闭意图独立存储，不能解除前驱未知状态的写入屏障。
 恢复日志记录这是 human_reviewed，readback_verified/solver_verified 仍为 False。
-MCP 显式注册 `reconcile_cst_session`，不得由 agent 无人核对时自动使用。
+MCP 显式注册 `reconcile_cst_session`；既有授权不替代现场核对。
 
 ## `tpc_service` 生命周期与状态
 

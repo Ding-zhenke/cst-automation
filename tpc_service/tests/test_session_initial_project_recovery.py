@@ -84,7 +84,7 @@ def test_old_failed_copied_import_continues_only_after_real_review_api(tmp_path,
     runtime.update(projects={'new':record},status='needs_reconcile')
     with pytest.raises(ServiceError): submit(manager,ref,'no-bypass','set_parameters',project_id='new',values={'synthetic':1})
     manager.reconcile(ref['session_id'],ref['credential'],'Offline caller reviewed exact copied baseline and idle',
-                      {'new':file_digest(path)},confirm_idle=True)
+                      {'new':file_digest(path)},confirm_idle=True,resolve_job_ids=[request['job_id']])
     reviewed=read(runtime.folder/'jobs'/(request['job_id']+'.json'))
     assert reviewed['error']==original_error and reviewed['resolution']['human_reviewed'] is True
     probe=submit(manager,ref,'inspect-reviewed','inspect',project_id='new')
