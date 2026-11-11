@@ -206,14 +206,14 @@ def run(folder):
             state['worker'] = process_identity(os.getpid())
             from .manager import UPGRADE_CAPABILITY
             from .workflow import CAPABILITY
-            from .model_api import SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY
+            from .model_api import SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY
             from .read_review import CAPABILITY as READ_REVIEW_CAPABILITY
             from cst_automation.port_replacement import CAPABILITY as PORT_CAPABILITY
             from cst_automation.em_network import CAPABILITY as NETWORK_CAPABILITY
             from cst_automation.em_qualification import CAPABILITY as QUALIFICATION_CAPABILITY
             from cst_automation.embedded_network import CAPABILITY as EMBEDDED_CAPABILITY
             from .saved_baseline import CAPABILITY as BASELINE_CAPABILITY
-            state['worker_capabilities'] = [BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
+            state['worker_capabilities'] = [BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also

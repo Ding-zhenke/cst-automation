@@ -43,6 +43,8 @@ def test_disable_limit_preserves_other_settings():
 @pytest.mark.parametrize('messages', [[], [{'type': 'WARNING', 'text': 'configuration warning'}]])
 @pytest.mark.parametrize('method,settings', [
     ('configure_fd_linear_solver', {'solver_type': 'Direct'}),
+    ('configure_tetrahedral_mesh', {'adaptation': {'singular_edge_refinement': 3,
+        'refinement_type': 'automatic', 'snap_to_geometry': True}}),
     ('configure_tetrahedral_mesh', {'local_solids': [{'solid': 'component:contact', 'max_step': 0.01}],
                                   'adaptation': {'max_passes': 3}})])
 def test_settings_only_dispatch_saves_without_rebuild_or_solve(tmp_path, messages, method, settings):

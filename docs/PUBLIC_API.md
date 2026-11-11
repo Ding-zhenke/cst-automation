@@ -1005,7 +1005,20 @@ problems normally keep automatic adaptation off and use a few explicit points.
 `steps_per_wavelength`, `minimum_steps`, boolean `material_refinement`,
 `local_solids=[{solid: "component:name", max_step: positive number}]`, and
 `adaptation={enabled, min_passes, max_passes, max_delta_s, delta_s_checks,
-refinement_percentage}`. Adaptation values are optional; passes/checks are
+refinement_percentage, singular_edge_refinement, snap_to_geometry, refinement_type}`.
+`singular_edge_refinement` is a strict integer in [0,3] (not bool), and requires
+explicit `refinement_type="automatic"` in the same request. This emits
+`MeshAdaption3D.RefinementType "Automatic"` before the level; no inherited mode is assumed.
+Only `automatic` is currently supported by this optional refinement_type field.
+`snap_to_geometry` is a strict boolean, independently optional. These controls
+target `MeshAdaption3D.SetType "HighFrequencyTet"`; they do not enable adaptation
+unless `enabled=true` is also supplied. Omitted values are preserved.
+Singular-edge refinement may exceed RefThetaFactor/linear mesh-growth limits.
+Neither control is a low-quality optimization iteration budget or convergence proof.
+Native readback remains unsupported. Session requests containing these fields require
+`hf-tet-adaptation-controls-v1`, including mixed batches; old live workers are refused
+before queueing/launch. Existing service and MCP model_api routes carry the same schema.
+Adaptation values are optional; passes/checks are
 positive integers, max_delta_s is in (0,1], refinement_percentage in (0,100].
 Sizes use current project geometry units. Keys outside these schemas fail
 before history submission. These calls use documented tetrahedral commands,

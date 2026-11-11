@@ -42,8 +42,20 @@ def normalize_tetrahedral_mesh_settings(settings):
             result['local_solids'].append(dict(solid=name, max_step=_number(item['max_step'], 'max_step')))
     if 'adaptation' in source:
         item = _mapping(source['adaptation'], ('enabled', 'min_passes', 'max_passes',
-            'max_delta_s', 'delta_s_checks', 'refinement_percentage'), 'adaptation')
+            'max_delta_s', 'delta_s_checks', 'refinement_percentage',
+            'singular_edge_refinement', 'snap_to_geometry', 'refinement_type'), 'adaptation')
         adaptation = {}
+        if 'refinement_type' in item:
+            if not isinstance(item['refinement_type'], str) or item['refinement_type'] != 'automatic':
+                raise ValueError('refinement_type must be automatic')
+            adaptation['refinement_type'] = 'automatic'
+        if 'singular_edge_refinement' in item:
+            level = _integer(item['singular_edge_refinement'], 'singular_edge_refinement', minimum=0)
+            if level > 3 or item.get('refinement_type') != 'automatic':
+                raise ValueError('singular_edge_refinement requires level 0..3 and explicit refinement_type=automatic')
+            adaptation['singular_edge_refinement'] = level
+        if 'snap_to_geometry' in item:
+            adaptation['snap_to_geometry'] = _boolean(item['snap_to_geometry'], 'snap_to_geometry')
         if 'enabled' in item:
             adaptation['enabled'] = _boolean(item['enabled'], 'enabled')
         for key in ('min_passes', 'max_passes', 'delta_s_checks'):
@@ -93,6 +105,14 @@ class MeshMixin:
             commands.append(f'FDSolver.MeshAdaptionTet {adaptation["enabled"]}')
         if set(adaptation) - {'enabled'}:
             commands.append('MeshAdaption3D.SetType "HighFrequencyTet"')
+        if 'refinement_type' in adaptation:
+            commands.append('MeshAdaption3D.RefinementType "Automatic"')
+        if 'singular_edge_refinement' in adaptation:
+            commands.append(f'MeshAdaption3D.SingularEdgeRefinement "{adaptation["singular_edge_refinement"]}"')
+            if adaptation['singular_edge_refinement'] > 0:
+                warnings.append('Singular-edge refinement may exceed RefThetaFactor and linear mesh-growth limits; convergence is not verified.')
+        if 'snap_to_geometry' in adaptation:
+            commands.append(f'MeshAdaption3D.SnapToGeometry {adaptation["snap_to_geometry"]}')
         for key, native in (('min_passes', 'MinPasses'), ('max_passes', 'MaxPasses'),
                             ('max_delta_s', 'MaxDeltaS'), ('delta_s_checks', 'NumberOfDeltaSChecks'),
                             ('refinement_percentage', 'RefThetaFactor')):

@@ -133,6 +133,11 @@ class SessionManager:
                 assert_path_unclaimed(self.root, folder, operation, params)
             from .workflow import preflight
             from .model_api import settings_only, settings_capability
+            from .model_api import uses_hf_tet_adaptation_controls, HF_TET_ADAPTATION_CAPABILITY
+            if (operation == 'model_api' and uses_hf_tet_adaptation_controls(params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and HF_TET_ADAPTATION_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'HF Tet adaptation controls require a compatible idle worker')
             from cst_automation.port_replacement import CAPABILITY as PORT_CAPABILITY, METHOD as PORT_METHOD
             if (operation == 'model_api' and any(c['method'] == PORT_METHOD for c in params['calls'])
                     and state.get('worker') and alive(state['worker'])

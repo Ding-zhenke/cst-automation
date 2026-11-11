@@ -127,7 +127,19 @@ does not cover mesh batches. Mixed geometry calls still rebuild: keep them separ
 No-rebuild is not a guarantee of native result retention; archive and verify required IDs.
 
 For contact-edge quality, distinguish local size from density transition and
-active-mesher quality optimization. The local CST Mesh Object help documents
+active-mesher quality optimization. `configure_tetrahedral_mesh.adaptation` supports
+`singular_edge_refinement` (strict integer 0..3) together with explicit
+`refinement_type="automatic"`, and independently `snap_to_geometry` (boolean).
+These issue documented HighFrequencyTet MeshAdaption3D controls, not legacy
+quality-optimization commands. Level 0 disables singular-edge refinement; level 3
+considers all possible singular conductor edges. Additional refinement may exceed
+RefThetaFactor/linear-growth limits. Snap projects new interface nodes onto the
+original geometry. Neither guarantees convergence or fixes all low-quality cells.
+They do not change adaptation frequencies, pass limits, or enable adaptation unless
+those fields are explicitly supplied. Require `hf-tet-adaptation-controls-v1`
+from the actual worker; do not interrupt a running job to load it. Native readback
+and effective-mesh/solver validation remain separate and unverified by configuration.
+The local CST Mesh Object help documents
 DelaunayOptimizationLevel (0..5) and DelaunayPropagationFactor for Delaunay;
 VolumeOptimization and DensityTransitions (0..1) are Advancing Front controls.
 These legacy commands do not establish the active modern HF Tet MeshSettings
