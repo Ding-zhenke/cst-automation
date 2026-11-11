@@ -439,6 +439,9 @@ def list_dialogs(only_cst=True, *, pid=None):
         dialog['classification'] = 'decoration' if decoration else 'progress' if progress else 'dialog'
         dialog['error_code'] = ('cst_history_error' if dialog['title'].strip().lower() == 'history error'
                                 else 'cst_dialog_unknown' if dialog['blocking'] and not decoration else None)
+        # A diagnostic category is not permission to choose a retention policy.
+        if dialog['blocking'] and not decoration and dialog['title'].strip().lower() == 'results may get incompatible with model':
+            dialog['error_code'] = 'cst_results_incompatible'
         if decoration:
             dialog['blocking'] = False
         if _is_scripting_control(dialog):

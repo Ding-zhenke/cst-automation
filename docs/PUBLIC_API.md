@@ -1254,3 +1254,13 @@ The protected project also has a sidecar ownership marker. The legacy temporary
 RunService EM/circuit routes reject marked projects before constructing an app;
 they must use the owning session. This is an accidental-bypass guard, not a security
 boundary against direct SDK access or deliberate editing of session files.
+## Diagnostic observations for retained results and repeated messages
+
+Dialog snapshots with the exact title `Results May Get Incompatible With Model`
+use `error_code=cst_results_incompatible`. This identifies the prompt only: it
+remains blocking, does not select a cache option, and does not clear monitor failure.
+
+`validate_model` adds `message_consumption_verified=false`,
+`native_run_message_binding_verified=false`, and `repeated_snapshot` (boolean when
+both reads completed, otherwise null). Equality is an observation, not proof that
+messages are historical. Raw observations and existing acceptance rules remain intact.
