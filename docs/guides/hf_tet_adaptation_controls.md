@@ -46,10 +46,12 @@ mesh-settings-no-rebuild-v1；不全量 Rebuild，但结果兼容性弹窗仍可
 `finish_worker_upgrade` 仅支持无活原生 DE 的已确认空闲会话；仍拒绝活 DE。
 本次未移除该限制，未重启任何 worker。
 
-### 保留活 DE 的受控交接：已实现显式试验入口、待实机验证
+### 保留活 DE 的受控交接：已有范围受限的原生验收
 
 具体字段、调用顺序和失败边界见 [受控原生交接](native_worker_handoff.md)。
 普通升级入口仍拒绝活 DE；新入口必须获得本次原生试验的明确批准。
+所属会话已报告 borrowed 小工程及 owned 小工程/目标工程交接通过，具体保留对象与
+未认证事项以交接指南和 VALIDATION.md 为准；不提升 EM/HB 或物理结果等级。
 
 新入口没有删除普通升级的 live-DE 拒绝分支。协议与验收覆盖：
 

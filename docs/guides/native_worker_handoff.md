@@ -3,6 +3,8 @@
 状态：0.3.44 的独立小工程原生交接、失败启动恢复及客户端中断接续已由所属会话
 报告验收通过，范围见文末。普通 worker-upgrade 继续拒绝活 DE；本接口不是默认升级路径，
 不据单个小工程推断全部 SDK/旧 worker 版本兼容性或实际 EM/HB 结果保留。
+随后 0.3.46 owned 路径也由所属会话报告完成独立小工程和目标工程交接，保留原 DE、
+登记标签、全参数及当前结果树；旧矩阵仍 unqualified，详见文末及验证记录。
 
 ## 适用条件
 
@@ -128,3 +130,8 @@ Python 为 recover_native_worker_handoff，MCP 为 recover_cst_native_worker_han
 未强杀、未 create/reopen fallback、未用 Computer Use、未做电磁计算。维护端未独立
 读取私有回执，本记录来源及边界见 [验证记录](../VALIDATION.md)。这不认证物理结果、
 真实 EM/HB 数据保留、网格收敛或主工程交接；不能把小工程通过当作任意目标的放行。
+
+同日后续：所属会话报告 0.3.46 的实际 worker 创建 DE 小工程和目标工程均完成 owned
+交接，无强杀、Computer Use 或 DE 重开 fallback。小工程合成曲线逐项一致；目标工程
+登记标签、全参数及当时结果树一致。此处不扩大为真实矩阵逐值一致或 EM/HB 合格。
+随后参考标签清理和 mixed-order 求解属于独立操作，不作为交接本身的数值验收。

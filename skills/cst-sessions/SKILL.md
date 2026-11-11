@@ -77,6 +77,11 @@ scene makes the existing authorization insufficient.
   separate exit-risk acceptance; confirm_borrowed_worker must be false. Validate
   an actual owned-worker small-project handoff before the engineering target.
   A creator process exiting with its DE intact alone is not full handoff acceptance.
+  The owning session subsequently reported 0.3.46 owned-worker handoff acceptance
+  on both an independent synthetic-data project and its reviewed engineering target:
+  original DE, registered tabs, full parameters and current result tree remained.
+  Existing unqualified matrices remained unqualified. This is scoped lifecycle
+  evidence, not matrix-value equivalence, EM/HB success or universal SDK compatibility.
 - A failed circuit run_task with explicit returned/saved receipts may leave the session ready
   after project/run identity, saved and disk digests, and absence of prior uncertainty/dialogs
   are verified. The job remains failed and the solver outcome unverified/review_required.
