@@ -8,9 +8,25 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 # CST simulation
 
 原生会话的参数修改和 EM 求解必须先绑定[工程规格](../../docs/guides/workflow_enforcement.md)。
-等参数更新成功后再提交 EM；完成 EM 后提交关联本次回执和原始文件的数值报告，
+参数更新正常成功后提交 EM；若原更新因监测或几何验证而失败，先按下列
+“已审阅保存基线”规则核对，再决定是否继续，不重复写入同一参数；完成 EM 后提交关联本次回执和原始文件的数值报告，
 由服务检查后才可继续 HB。绑定工程暂不支持原生 EM 扫参配置或非托管 study，
 以下原生扫参建议不构成绕过该限制的许可。
+
+## 已审阅保存基线的接续
+
+原 `set_parameters` 失败后，若其回执证明调用和参数刷新均已返回并保存，保存摘要、
+工程身份、目标参数和当前工作流代次一致，且所属会话已审阅实际弹窗及不确定副作用、
+完成针对原 job 的定向 reconcile，且原生只读回执完整匹配目标参数与必要实体、
+与该保存基线一致（只读检查可在 reconcile 之前），
+可在既有授权范围内把该保存基线作为下一次 EM 的输入，不重写参数。保留原失败及
+resolution；`resolved` 不是 `succeeded`，实体存在和参数读回也不等于完整几何、依赖、
+网格或求解通过。缺少返回/保存证据、现场未确定或基线变化则停止审阅。
+
+提交 `solve` 前重新核对当前工程、保存摘要、用户要求、求解配置、实时空闲与弹窗；
+依然使用绑定的工作流和其提交/执行时原生设置检查。不把原失败阶段加入 `depends_on`：
+通用依赖只接受 `succeeded`，而已审阅的基线不是成功回执。只有上述完整证据支持的
+基线接续可不声明该失败任务为依赖，不能借此绕过其他必要依赖或工作流门槛。
 
 Before choosing mesh/frequency settings, use
 [cst-mesh-frequency](../cst-mesh-frequency/SKILL.md) to estimate electrical size

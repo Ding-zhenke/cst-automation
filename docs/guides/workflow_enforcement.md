@@ -13,6 +13,12 @@
    `bind-workflow --project-id <id> --spec-file <absolute-json-path>` 绑定。
    绑定不启动 CST。修改已有规格必须提供当前 `expected_revision`；忙碌时拒绝。
 3. 通过原有 submit 提交 `set_parameters`，等待其成功回执，再提交 `solve`。
+   若该任务失败但调用和刷新已返回并保存，且依据原回执、相同保存摘要、定向
+   reconcile、完整的原生参数及必要实体读回确认同一基线，所属会话可按既有授权
+   接续 EM，无需重复写参数。原任务保持 resolved/失败审计，不称 succeeded。
+   `depends_on` 只接受 succeeded，不能把原失败任务作为依赖；在审阅完备的条件下
+   可不声明该失败任务，仍必须遵守当前绑定规格、版本和执行前原生检查。
+   此路线不认证几何、外部依赖、网格或求解，现场不明或证据不足时不放行。
    不把未来参数点和求解提前排入同一队列；输入代数变化会使旧排队请求失效。
 4. EM 成功后，从该次实际数据生成数值分析报告，提交
    `accept_workflow_evidence`，参数为 `project_id/em_job_id/report_path`。
