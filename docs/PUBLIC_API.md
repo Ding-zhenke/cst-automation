@@ -1,5 +1,44 @@
 # cst-automation 与领域包的公共接口
 
+## Accept an explicitly reviewed external save while ready
+
+`accept_saved_baseline` is an explicit session submit operation, capability
+`reviewed-saved-baseline-v1`. It never opens/closes/saves/rebuilds/solves a CST
+project or launches/restarts a worker. An already-running compatible owning
+worker and exact live environment are required. An old worker is refused.
+
+Exact params: `project_id`, `old_digest`, `new_digest`, `environment_identity`,
+`expected_parameters`, `expected_blocks`, `expected_block_properties`,
+`review_path`, `review_sha256`, `review_note`, `authorization_note`,
+`confirm_idle=true`, `confirm_saved_tab=true`, `accept_external_save=true`.
+Digests are lowercase SHA-256; old_digest must match the registration, new_digest
+the different current file. The absolute review JSON must match review_sha256.
+The environment identity is the complete recorded PID/start/image object.
+expected_parameters is the complete native name -> {value: finite real,
+expression: exact string} mapping. expected_blocks is the complete schematic
+block name -> native type mapping. expected_block_properties is block name ->
+{property: finite number or exact string}, for reviewed source/load settings.
+These maps must come from actual review, not defaults or guessed names.
+
+Only ready CST sessions, no other active/unknown tasks, no launch/close intent,
+no diagnostic fence, and an existing registered open tab are accepted. Checks
+run at submission and execution; execution borrows that exact already-open tab,
+checks native EM idle before/after, all parameters/expressions, complete block
+types and specified properties, and existing workflow EM assertions. Workflow
+target parameter values must be unchanged; this operation does not authorize
+external parameter changes or silently widen the approved parameter ranges.
+CST circuit-idle and absence of unsaved edits still require explicit caller
+review; no unsupported native getter or whole-model equivalence is invented.
+
+Commit rechecks file/review/identity/session under registry + state locks and
+atomically records the audit and new saved_digest, increments EM/HB generations,
+and clears em_receipt/evidence/network_fit/network_update. The sticky network
+requirement remains. Old failed jobs, last_error and last_resolution are not
+modified. Request replay returns the original receipt; a stale queued review
+cannot accept a later save. This is baseline adoption, not geometry/result/solver
+acceptance. Normal write preflight and reconcile remain unchanged. Read-only
+refusals preserve ready; monitor failures or uncertain persistence still fence.
+
 ## 独立 DS 网络瞬态提交（开发中）
 
 未绑定工作流的所属会话可以提交 `circuit`、`kind=solve`、

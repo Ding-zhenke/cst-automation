@@ -202,3 +202,46 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 ## 几何验证失败与原生只读审阅
 
 已返回保存的几何验证失败与未知写入分别记录。对旧几何错误围栏可显式请求[受限只读检查](geometry_validation_review.md)，取得参数/实体证据但不清围栏；纯 INFO 仍不认证外部依赖或几何通过。
+
+
+## 接受已审阅的外部保存
+
+登记摘要与磁盘不同且会话仍 ready 时，普通写入继续拒绝。经授权核对原有空闲标签、
+保存文件和完整参数后，提交新操作 `accept_saved_baseline`，而不是制造失败再 reconcile。
+它只借用原 DE 内已打开的同路径标签，不打开/关闭/保存/重建/求解工程；不启动或重启
+worker。原 worker 必须已具备 `reviewed-saved-baseline-v1`，否则明确拒绝。
+维护安装本身不切换正在使用的 worker；由所属会话另行安排已授权的安全升级。
+
+通过原 `SessionManager.submit`、CLI `submit --operation accept_saved_baseline --params-file ABS.json`
+或 MCP `submit_cst_session_operation` 调用。精确字段：
+
+| 字段 | 内容 |
+|---|---|
+| project_id | 原所属会话登记的工程 |
+| old_digest / new_digest | 旧登记和当前磁盘文件的完整小写 SHA-256，必须不同 |
+| environment_identity | 当前登记的完整 pid/started/image 对象，不能只给 PID |
+| expected_parameters | 原生全部参数名到 `{value: 有限数值, expression: 精确表达式字符串}` 的映射 |
+| expected_blocks | 原生全部 schematic 块名到实际类型的映射 |
+| expected_block_properties | 已审阅块名到 `{属性名: 数值或字符串}`，可用于源/负载阻抗；没有相关条件可为空对象 |
+| review_path / review_sha256 | 已实际审阅的 JSON 报告绝对路径和完整摘要 |
+| review_note / authorization_note | 审阅范围、结果，以及用户授权依据；不能编造授权 |
+| confirm_idle / confirm_saved_tab / accept_external_save | 三项均须显式 true，分别确认全工程空闲、原标签与已保存基线一致、接受此次外部保存 |
+
+提交前和执行时检查 ready、无其他活动/未知任务、无启动或关闭意图、无诊断围栏、
+原 worker 与 DE 身份、登记/磁盘/报告摘要及工作流版本。只借用原已开标签，读回全部
+参数/表达式、块类型和所列属性，核对既有 EM 断言；结束前再读一次，防止审阅中变化。
+受工作流约束的参数必须仍等于现有目标值。本入口不扩大允许范围，也不接受未授权
+的外部改参；成功后如需调整批准的扫描范围，另用原 bind_workflow 版本检查接口。
+
+代码检查原生 EM idle；CST 电路空闲和无未保存编辑仍是调用方真实审阅确认，不能
+把 EM idle 扩大成所有引擎 idle。参数/块核对不证明磁盘与内存整个几何模型相同。
+当前若后续 HB 在其他软件执行，此入口也不会创建或启动 CST HB。
+
+成功以一次原子状态写入保存 `baseline_acceptances` 审计、更新登记摘要，递增 EM/HB
+输入代数并清空 em_receipt/evidence/network_fit/network_update；原 network_required
+保留。旧任务、错误、last_error 和 last_resolution 均不改写。完整旧工作流与原生
+读回在新任务回执内保留。重复相同 request_id 取原回执，不重复接受新文件。
+
+普通只读不匹配保留 ready 和旧登记摘要；同步弹窗检查失败、监控失败或状态落盘
+不确定仍保留围栏。此操作不写工程，不代表模型、原生结果、网格或求解已验收。
+本轮仅离线验证，实际基线接受由所属工程按上述条件执行。

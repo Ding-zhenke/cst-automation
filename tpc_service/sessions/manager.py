@@ -14,7 +14,7 @@ from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
-                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'prepare_hb_embedded_network', SCHEMATIC_RECOVERY))
+                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'prepare_hb_embedded_network', 'accept_saved_baseline', SCHEMATIC_RECOVERY))
 FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY))
 
 
@@ -157,7 +157,8 @@ class SessionManager:
                 if state['status'] != 'needs_reconcile':
                     state['status'] = 'closing'
             write(folder / 'session.json', state)
-        self._launch(folder)
+        if operation != 'accept_saved_baseline':
+            self._launch(folder)
         return self.job(session_id, credential, job['job_id'])
 
     def _launch(self, folder, *, recover=False):

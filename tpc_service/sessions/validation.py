@@ -18,6 +18,13 @@ def validate(operation, params):
         from .schematic_recovery import validate_options
         validate_options(params)
         return
+    if operation == 'accept_saved_baseline':
+        from .saved_baseline import validate as validate_baseline
+        try:
+            validate_baseline(params)
+        except (ValueError, TypeError, KeyError, OSError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+        return
     identifier(params.get('project_id'))
     if operation == 'prepare_hb_embedded_network':
         from cst_automation.embedded_network import validate as validate_embedded

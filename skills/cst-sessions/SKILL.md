@@ -54,6 +54,13 @@ replace native inspection or the session's job/recovery checks.
   not geometry/dependency acceptance. For an existing geometry fence, use the explicit
   [bounded read-only review](../../docs/guides/geometry_validation_review.md) only after actual idle
   confirmation and digest checks; it never rebuilds, saves, opens missing tabs or clears the fence.
+- A ready session with a reviewed external file save uses the separate
+  [saved-baseline acceptance](../../docs/guides/conversation_sessions.md#接受已审阅的外部保存) operation.
+  Require old/new digests, original idle open tab, complete native parameters,
+  reviewed block types/properties and explicit authorization. Do not manufacture
+  a failure fence, call reconcile on ready, or hand-edit session state. Acceptance
+  invalidates old EM/HB evidence; it does not approve a solve or change parameter ranges.
+  Existing incompatible workers are refused, never automatically restarted.
 - needs_reconcile requires scene evidence. Do not automatically call reconcile_cst_session: only
   use it after explicit user review of the saved baseline and idle state; preserve evidence levels.
 - Keep the working project and its DE while the approved task is active, including replies and

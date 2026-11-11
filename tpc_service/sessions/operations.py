@@ -25,6 +25,9 @@ def _execute_operation(runtime, job):
     """Native dispatch implementation; callers must use the guarded execute entry."""
     from . import workflow
     operation, params = job['operation'], job['params']
+    if operation == 'accept_saved_baseline':
+        from .saved_baseline import execute as accept_baseline
+        return accept_baseline(runtime, job)
     if operation == 'qualify_saved_em':
         from .em_qualification import execute as qualify_saved
         return qualify_saved(runtime, job)
