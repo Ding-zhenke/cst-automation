@@ -1,5 +1,17 @@
 # cst-automation 与领域包的公共接口
 
+## Explicit Qt History Error acknowledgement
+
+`cst_solver.qt_history_error.inspect(pid=..., hwnd=..., expected_creation_time=...)`
+reuses the bounded UIA snapshot reader. After reviewing the complete fresh message,
+`acknowledge(snapshot, authorization_note=...)` permits only exact titles
+`History Error` or `CST MICROWAVE STUDIO - History Error`, one enabled `OK`, and
+optionally one `Details >>` button. Radio choices, other buttons, incomplete or
+stale snapshots are refused. Identity and exact text/control state are rechecked
+inside the bounded action process. This never accepts a generic dialog, selects
+a retention policy, changes a session/job, or certifies recovery. Timeout leaves
+the action indeterminate; inspect and read the original job, never blindly retry.
+
 ## HF Tet adaptive pass lower bound
 
 `configure_tetrahedral_mesh.adaptation.min_passes` is a strict integer >=2,

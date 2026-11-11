@@ -37,6 +37,10 @@ Minimize Computer Use. Read the original session job/exception, CST messages and
 of the blocked SDK call. No routine screenshots or UI clicks are needed when this evidence is
 complete. Read [the recovery procedure](../../docs/guides/cst_dialogs.md#历史错误优先代码诊断)
 for bounded programmatic acknowledgement and the conditions requiring visual inspection.
+For a reviewed Qt History Error with virtual buttons, use the explicit
+`cst_solver.qt_history_error.inspect/acknowledge` flow in that procedure. It accepts
+only a fresh complete exact error with OK and optional Details >>; no choices,
+background acknowledgement or replay. This wrapper has offline tests only.
 
 For `Method or property not found`, trace the reported command to its source and check the
 installed official VBA help and existing Python wrapper before correcting it. For example,

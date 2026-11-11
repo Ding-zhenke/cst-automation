@@ -56,7 +56,8 @@ python -m cst_solver.dialogs --watch --pid 12345
 默认不点击，也不默认选择“不保存”。自动确认须显式开启 `auto_acknowledge=True`，
 且 `(title, body)` 完整命中调用方提供的 `acknowledge_messages` 白名单；还要求是单 OK 按钮的信息框。
 保存、覆盖、参数输入、错误/警告不自动确认。自动确认后也保留阻塞证据，要求核查本次步骤。
-Qt 的虚拟按钮无法用标准 Win32 Button 发送路径操作，返回 `no_match`/`stale_or_foreign`，须据实际界面处理。
+Qt 的虚拟按钮无法用标准 Win32 Button 发送路径操作。已知 History Error 使用下述
+受限 UIA 入口；其它窗口仍按实际证据处理，不把 `no_match` 当作已确认。
 
 ## 历史错误优先代码诊断
 
@@ -76,13 +77,35 @@ Qt 的虚拟按钮无法用标准 Win32 Button 发送路径操作，返回 `no_m
 3. 读取原调用最终返回/异常，确认现场和保存基线后再修正源代码与失败阶段；原调用
    仍阻塞时不追加 SDK 写入、不重放。会话进入 `needs_reconcile` 时仍遵守会话恢复
    的显式核对规则，不能为绕开它换 request_id 或新建工程。
-4. 只有正文/按钮不可读、归属不明、程序化点击返回 `no_match`/`stale_or_foreign`，
+4. Qt 虚拟按钮采用下面的受限入口。只有正文/按钮不可读、归属不明、适用的程序化确认失败，
    或需要接口无法提供的界面信息时，才升级到 Computer Use；按实际界面核对后处理。
    处理后复查原任务、CST 消息及模型，不把关闭错误框当作修复成功。
 
 新器件用空工程和经审查的建模代码避免继承旧历史；已有失败工程不能靠屏蔽错误、
-禁用历史步骤或循环点击 OK 获得验收。此流程复用现有接口，不代表已新增自动修复器，
+禁用历史步骤或循环点击 OK 获得验收。此流程不代表自动修复器，
 也不代表该截图对应的真实工程已修复。
+
+### Qt History Error 的显式确认
+
+仅在已审阅错误且授权确认以让原调用返回时使用：
+
+```python
+from cst_solver import qt_history_error
+
+before = qt_history_error.inspect(pid=owned_pid, hwnd=observed_hwnd,
+                                  expected_creation_time=owned_creation_time)
+# Review the entire snapshot against the original failure before acknowledging.
+receipt = qt_history_error.acknowledge(before, authorization_note=acknowledgement_authorization)
+```
+
+仅接受精确标题 `History Error` 或 `CST MICROWAVE STUDIO - History Error`、
+完整非空正文、唯一启用的 OK 和可选 Details >>。快照最多 30 秒；执行侧重新读取
+进程创建身份、窗口归属、全部正文和控件，与审阅快照精确匹配后仅 Invoke OK。
+额外输入控件、未知选项、文本不完整或变化均拒绝；不会选择删除、覆盖或恢复策略。
+这是显式 UIA 操作，不注册自动确认，不启动 CST、不重试原调用、不改原失败回执。
+返回 `action_requested` 只表示请求发出；超时后动作结果未知，先复查而非自动重试。
+随后独立检查原窗口和原 job，保留失败，按既有恢复流程核对现场。
+本封装仅通过离线边界测试，尚未真机验收。
 
 ## 结果失效弹窗的 API 预处理
 

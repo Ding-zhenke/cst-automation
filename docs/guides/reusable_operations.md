@@ -12,6 +12,7 @@
 | 网格设置及生效 | 原 typed `configure_tetrahedral_mesh/configure_fd_linear_solver/configure_fd_frequency`；新增 `mesh_input.read_saved_options` | 已保存 mesher input 不是实时 getter；需绑定产生该文件的 run，不能由数值设置推断收敛 |
 | 冻结结果读取 | 原结果 API；官方 `cst.results.ProjectFile(frozen_path, allow_interactive=False)` | 补冻结/读取契约；当前 `cst_solver.Result` 默认允许交互，不能冒充严格冻结 reader；未新增通用目录复制器 |
 | 缓存选择窗口 | `result_cache_dialog.inspect/select/confirm` | Windows UIA，不是原生 CST SDK；0.3.57 已在该精确 Qt 提示完成现场操作链验收，缓存完整性仍未验证 |
+| Qt 历史错误确认 | `qt_history_error.inspect/acknowledge`，见[定向确认流程](cst_dialogs.md#qt-history-error-的显式确认) | 仅已审阅的精确错误及 OK；拒绝额外输入，不恢复或重放原任务。离线测试通过，真机未验收 |
 | 接受已审阅保存基线 | 会话 `accept_saved_baseline` | 复用已有入口；所属会话报告过真实数值策略保存验收，不等于几何等价或求解合格 |
 | 保留 DE 升级 | `begin_native_worker_handoff/finish_native_worker_handoff` | 复用既有受控交接；以当前任务返回、队列冻结、完整空闲证据为准，旧验收不能覆盖新阻塞 |
 | 正式 warning-only EM | 现有 `qualify_saved_em/qualify_exploratory_em` 契约各异 | 严格 warning-only 正式资格入口仍待开发；不得将 exploratory 或短 probe 当成完整 EM/DC/HB 通过 |

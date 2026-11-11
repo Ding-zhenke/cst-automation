@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-11-12：显式 Qt History Error 确认（0.3.60）
+
+- 新增 `qt_history_error.inspect/acknowledge`，只支持已审阅的精确历史错误标题、
+  完整正文、唯一启用 OK 及可选 Details >>。执行侧重新核对进程创建身份、窗口、
+  正文和控件；额外输入、可编辑文本、未知交互模式或读取失败拒绝。
+- 不启动 CST、不注册后台自动确认、不重试 SDK、不改原 job 或解除围栏；超时保持
+  动作未知。原缓存选择流程的条件保持。使用链条同步至诊断技能和公共接口说明。
+- 完整离线回归 **2263 passed、2 deselected、9 warnings**（63.34 s），日志
+  `work/pytest-qthistory-final.log`；随后 TextPattern 只读属性加固及新增两例后，
+  Qt History Error 与缓存相关 **54 项通过**，独立复审通过，技能校验通过。
+- 本轮没有连接 DE、点击任何实际窗口、更新活跃 worker 或启动求解。新封装仍为
+  **native unverified**，不能继承缓存提示的现场验收，也不认证原任务恢复。
+
 ## 2026-11-12：HF Tet 最小适应轮数静态拦截（0.3.59）
 
 - 维护只读核对所属会话保存的 `native_minpass_error_snapshot.json`：Qt History Error

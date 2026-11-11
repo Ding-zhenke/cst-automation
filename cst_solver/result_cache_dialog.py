@@ -10,6 +10,27 @@ TITLE = 'Results May Get Incompatible With Model'
 CHOICE = 'Store current results in result cache'
 
 _GUARD_SCRIPT = r'''
+function Test-HistoryPassiveNode($node) {
+    try {
+        $kind = $node.Current.ControlType.ProgrammaticName
+        if ($kind -notin @('ControlType.Text','ControlType.Document','ControlType.Pane',
+                'ControlType.Group','ControlType.Window') -and $node.Current.ClassName -ne 'QLabel') {
+            return $false
+        }
+        foreach ($pattern in $node.GetSupportedPatterns()) {
+            if ($pattern.ProgrammaticName -eq 'ValuePatternIdentifiers.Pattern') {
+                if (-not $node.GetCurrentPattern($pattern).Current.IsReadOnly) { return $false }
+            } elseif ($pattern.ProgrammaticName -in @('TextPatternIdentifiers.Pattern','TextPattern2Identifiers.Pattern')) {
+                $readOnly = $node.GetCurrentPattern($pattern).DocumentRange.GetAttributeValue(
+                    [System.Windows.Automation.TextPattern]::IsReadOnlyAttribute)
+                if ($readOnly -isnot [bool] -or $readOnly -ne $true) { return $false }
+            } else {
+                return $false
+            }
+        }
+        return $true
+    } catch { return $false }
+}
 function Read-CacheText($node) {
     $text = $node.Current.Name
     if (-not $text) {
@@ -25,9 +46,8 @@ function Read-CacheText($node) {
     if (-not $text -or $text.Length -gt 8192) { return @{text='';complete=$false} }
     return @{text=$text;complete=$true}
 }
-function Assert-CacheSnapshot($snapshot, $expected) {
+function Assert-DialogSnapshot($snapshot, $expected) {
     if ($snapshot.complete -ne $true -or $expected.complete -ne $true -or -not $snapshot.body -or
-        $snapshot.title -cne 'Results May Get Incompatible With Model' -or
         $snapshot.title -cne $expected.title -or $snapshot.body -cne $expected.body -or
         $snapshot.root_id -cne $expected.root_id -or $snapshot.controls.Count -ne $expected.controls.Count) {
         throw 'Dialog content changed'
@@ -38,6 +58,24 @@ function Assert-CacheSnapshot($snapshot, $expected) {
             $match[0].kind -cne $control.kind -or $match[0].enabled -ne $control.enabled -or
             $match[0].selected -ne $control.selected) { throw 'Controls or selection changed' }
     }
+}
+function Assert-HistoryErrorSnapshot($snapshot, $expected) {
+    Assert-DialogSnapshot $snapshot $expected
+    if ($snapshot.unsupported_controls -or $expected.unsupported_controls) { throw 'Unsupported input controls' }
+    if ($snapshot.title -cnotin @('History Error','CST MICROWAVE STUDIO - History Error') -or
+        $snapshot.controls.Count -lt 1 -or $snapshot.controls.Count -gt 2) { throw 'Unknown history error dialog' }
+    foreach ($control in $snapshot.controls) {
+        if ($control.kind -cne 'ControlType.Button' -or $control.name -cnotin @('OK','Details >>')) {
+            throw 'History error contains a choice or unknown control'
+        }
+    }
+    $ok = @($snapshot.controls | Where-Object { $_.name -ceq 'OK' })
+    if ($ok.Count -ne 1 -or -not $ok[0].enabled) { throw 'Unique enabled OK required' }
+    return $ok[0]
+}
+function Assert-CacheSnapshot($snapshot, $expected) {
+    Assert-DialogSnapshot $snapshot $expected
+    if ($snapshot.title -cne 'Results May Get Incompatible With Model') { throw 'Unknown cache dialog' }
     $choice = @($snapshot.controls | Where-Object { $_.name -ceq 'Store current results in result cache' -and $_.kind -ceq 'ControlType.RadioButton' })
     $ok = @($snapshot.controls | Where-Object { $_.name -ceq 'OK' -and $_.kind -ceq 'ControlType.Button' })
     if ($choice.Count -ne 1 -or $ok.Count -ne 1 -or -not $choice[0].enabled -or -not $ok[0].enabled) { throw 'Unsupported controls' }
@@ -66,6 +104,7 @@ $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
 $queue = [System.Collections.Generic.Queue[System.Windows.Automation.AutomationElement]]::new()
 $queue.Enqueue($root)
 $nodes = @{}; $controls = @(); $texts = @(); $count = 0; $complete = $true; $messageNodes = 0
+$unsupported = @()
 while ($queue.Count -gt 0) {
     $node = $queue.Dequeue(); $count++
     if ($count -gt 128) { throw 'Incomplete control tree' }
@@ -73,6 +112,10 @@ while ($queue.Count -gt 0) {
     if ($current.ProcessId -ne $request.pid) { throw 'Foreign control' }
     if (-not $current.IsOffscreen -and $node -ne $root) {
         $kind = $current.ControlType.ProgrammaticName
+        if ($kind -notin @('ControlType.RadioButton','ControlType.Button') -and
+                -not (Test-HistoryPassiveNode $node)) {
+            $unsupported += $kind
+        }
         $id = $node.GetRuntimeId() -join ','
         $selected = $null
         if ($kind -eq 'ControlType.RadioButton') {
@@ -103,10 +146,18 @@ $body = $texts -join "`n"
 if ($body.Length -gt 8192) { throw 'Message exceeds bound' }
 $snapshot = @{pid=$request.pid;hwnd=$request.hwnd;creation_time=$request.creation_time;
     title=$root.Current.Name;root_id=($root.GetRuntimeId() -join ',');body=$body;
-    complete=($complete -and $messageNodes -gt 0 -and [bool]$body);controls=@($controls)}
+    complete=($complete -and $messageNodes -gt 0 -and [bool]$body);controls=@($controls);
+    unsupported_controls=@($unsupported)}
 Check-Identity
 if ($request.action -eq 'inspect') { $snapshot | ConvertTo-Json -Depth 8 -Compress; exit }
 $expected = $request.snapshot
+if ($request.action -eq 'acknowledge_history_error') {
+    $ok = Assert-HistoryErrorSnapshot $snapshot $expected
+    Check-Identity
+    $nodes[$ok.id].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    @{action=$request.action;action_requested=$true} | ConvertTo-Json -Compress
+    exit
+}
 $checked = Assert-CacheSnapshot $snapshot $expected
 $choice = $checked.choice; $ok = $checked.ok
 Check-Identity
