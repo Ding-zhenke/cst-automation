@@ -31,6 +31,11 @@ abort_solver/is_solver_running。核对 VBA DES Project、SimulationTask、Param
 
 ## Abort 范围确认未处理时
 
+另有一个不同的 Qt Yes/No/Cancel 确认：完整正文为
+`Do you really want to abort this calculation?`。已授权停止可使用
+[精确 UIA 确认接口](cst_dialogs.md#qt-停止确认的显式-yes)；它仅回答原提示，
+不负责发出停止或验证作用域。不得用这个 Yes 处理下述多选 Abort 范围窗口。
+
 所属会话报告：3D abort 返回、EM 日志已记中止及后处理完成、3D running=False、
 会话 ready 后，同一 DE 仍发现标题 Abort 的范围选择窗口；有跳过当前任务、跳过当前
 参数组合、中止整个参数扫描、中止整个仿真序列等选项。此为“3D 证据不足以放行”的

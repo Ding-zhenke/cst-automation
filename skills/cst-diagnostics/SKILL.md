@@ -26,6 +26,12 @@ For a stall, inspect the actual dialog title, body, buttons, process ID, and own
 
 For Abort scope dialogs or apparently completed 3D stops, read
 [3D stop versus DS sequence idle](../../docs/guides/solver_stop_scope.md).
+For the exact CST 2026 Qt question “Do you really want to abort this calculation?”
+with Yes/No/Cancel, use the [explicit abort confirmation](../../docs/guides/cst_dialogs.md#qt-停止确认的显式-yes)
+only under existing stop authorization. `qt_abort_dialog.inspect/confirm_yes`
+checks fresh process/window/owner/runtime identities and complete content; it is
+not the multi-option Abort scope dialog or a general Yes handler. It does not
+issue abort_solver, retry the stop, or establish that the original call returned.
 Model3D running=False and session ready do not certify DS/sequence/postprocessing
 idle. Pending scope confirmation or unknown DS state prevents new writes and handoff;
 do not guess a whole-sequence stop API or treat a locked/unlocked log as an idle getter.

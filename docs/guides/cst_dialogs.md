@@ -107,6 +107,38 @@ receipt = qt_history_error.acknowledge(before, authorization_note=acknowledgemen
 随后独立检查原窗口和原 job，保留失败，按既有恢复流程核对现场。
 本封装仅通过离线边界测试，尚未真机验收。
 
+### Qt 停止确认的显式 Yes
+
+0.3.69 提供 `cst_solver.qt_abort_dialog`，仅确认已经获用户授权且已发出的原停止请求：
+
+```python
+from cst_solver import qt_abort_dialog
+
+before = qt_abort_dialog.inspect(pid=owned_pid, hwnd=observed_hwnd,
+                                 expected_creation_time=owned_creation_time)
+# Review the full fresh snapshot and the existing stop authorization.
+receipt = qt_abort_dialog.confirm_yes(
+    before, authorization_note=existing_stop_authorization,
+    confirm_stop=True, source_job_id=original_solver_job_id,
+)
+```
+
+只接受标题 `CST MICROWAVE STUDIO 2026`、class `Qt683QWindow`、完整正文
+`Do you really want to abort this calculation?`，以及恰好三个启用的 Yes/No/Cancel。
+30 秒内快照必须包含完整 runtime IDs、同进程 owner、原 PID/创建时间和 HWND。
+虚拟按钮 HWND=0 不影响 UIA runtime-ID 定向 Invoke。执行进程重新读取并精确比较，
+文本、owner、控件或身份改变均拒绝。未知版本/翻译/按钮/输入控件不猜测、不回退坐标。
+
+这不是标题 Abort 的多选范围窗口，也不发送新的 abort_solver、不创建或连接 CST、
+不注册后台自动回答。source_job_id 只是调用方审计关联，不证明窗口与 job 的原生绑定。
+确认前须由所属会话核实原停止授权及作用域。维护开发不得调用此接口干预其他会话。
+
+`action_requested=True` 仅表示 UIA Invoke 返回，不表示原停止调用返回、solver 停止
+或整个 DS 空闲。超时后动作结果未知，先检查窗口与原请求，不自动重试。随后核对
+原停止调用和原 solver job 的终态、实际日志、仍有无范围确认，以及 DS/后处理状态；
+完成前不写模型、不启动新求解、不交接 worker。原监测失败和错误继续保留。
+本接口仅有离线测试，主工程一次人工 Yes 不构成本公共封装的实机验收。
+
 ## 结果失效弹窗的 API 预处理
 
 精确标题匹配时诊断分类为 `cst_results_incompatible`，仍保留 blocking 和首次

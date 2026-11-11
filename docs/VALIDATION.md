@@ -1,5 +1,21 @@
 # 验证记录
 
+## 2026-11-12：精确 Qt 停止确认公共接口（0.3.69）
+
+- 新增 qt_abort_dialog.inspect/confirm_yes，复用受限 Windows UIA 桥；仅支持已观察的
+  CST MICROWAVE STUDIO 2026 / Qt683QWindow / 精确 abort question 和 Yes/No/Cancel。
+  绑定 PID/创建时间/HWND、同进程 owner、root/button runtime IDs 和完整内容，
+  授权与快照新鲜度检查后在动作进程重读，唯一可执行动作为 Invoke Yes。
+- 原工程报告 abort_solver 被这个 Qt 提示阻塞；普通 Win32 按钮路径不能处理
+  HWND=0 的虚拟按钮。维护只据报告开发，没有操作主 DE、worker 或原停止请求。
+  原工程的一次人工确认不计为本公共封装实机验收。
+- action_requested 仅表示 Invoke 返回；原调用是否返回、solver 是否停止、DS
+  是否空闲及原 job 关联均不由此认证。不发送 abort，不重放、不清原错误；超时
+  保持结果未知，须先检查原请求与窗口。未知提示、额外输入、变化或缺失证据拒绝。
+- 相关离线 73 项通过，覆盖 Python 请求拒绝、真实 PowerShell 比较守卫与完整脚本
+  语法，未调用桌面。全库 **2426 passed、2 deselected、9 warnings**（78.32 s），
+  日志 `work/pytest-qt-abort-full.log`。技能/打包校验及独立审查通过；实机待验收。
+
 ## 2026-11-12：告警原始网格快照与归因实践（0.3.68）
 
 - 网格及结果技能新增同一告警代次快照、复制前/副本/复制后摘要比较，以及独立

@@ -1227,6 +1227,21 @@ FakeBackend 的 `solve` 结果保留请求的 `run_id`（默认 0），用于验
 - TPC 提供的 `tpc_toolkit.curves` 与 `.s2p` 延迟兼容入口由 TPC 维护，本仓库不分发旧 `tpc_toolkit`。
 
 
+## Exact Qt abort confirmation (0.3.69)
+
+`cst_solver.qt_abort_dialog.inspect(pid=..., hwnd=..., expected_creation_time=...)`
+reads one owned window through bounded Windows UIA. `confirm_yes(snapshot,
+authorization_note=..., confirm_stop=True, source_job_id=...)` only invokes Yes
+for the exact CST 2026 abort question. It requires a fresh complete snapshot,
+PID/creation/HWND/runtime identity, same-process owner, Qt683QWindow class,
+exact full body and exactly enabled Yes/No/Cancel buttons with unique runtime IDs.
+The action process rereads and compares all these fields before invocation.
+No automatic answering, stop request, job replay, DE/worker launch or session
+state mutation is performed. source_job_id is caller-supplied audit context,
+not proof of native dialog/job binding. action_requested does not prove original
+abort return, stopped solver or DS idle. Timeout leaves outcome unknown; inspect
+the original request/job and dialogs before any retry. Only offline tests exist.
+
 ## Session native inspection without history
 
 Session `inspect` accepts opt-in `native_readback: true`, with optional bounded

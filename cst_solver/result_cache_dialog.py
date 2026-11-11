@@ -81,6 +81,24 @@ function Assert-CacheSnapshot($snapshot, $expected) {
     if ($choice.Count -ne 1 -or $ok.Count -ne 1 -or -not $choice[0].enabled -or -not $ok[0].enabled) { throw 'Unsupported controls' }
     return @{choice=$choice[0];ok=$ok[0]}
 }
+function Assert-AbortSnapshot($snapshot, $expected) {
+    Assert-DialogSnapshot $snapshot $expected
+    if ($snapshot.title -cne 'CST MICROWAVE STUDIO 2026' -or
+        $snapshot.body -cne 'Do you really want to abort this calculation?' -or
+        $snapshot.class_name -cne 'Qt683QWindow' -or $snapshot.class_name -cne $expected.class_name -or
+        $snapshot.owner_hwnd -le 0 -or $snapshot.owner_hwnd -eq $snapshot.hwnd -or
+        $snapshot.owner_hwnd -ne $expected.owner_hwnd -or $snapshot.owner_pid -ne $snapshot.pid -or
+        $snapshot.owner_pid -ne $expected.owner_pid -or $snapshot.unsupported_controls -or
+        $expected.unsupported_controls -or $snapshot.controls.Count -ne 3) { throw 'Unknown abort dialog' }
+    $names = @(); $ids = @($snapshot.root_id)
+    foreach ($control in $snapshot.controls) {
+        if ($control.kind -cne 'ControlType.Button' -or $control.name -cnotin @('Yes','No','Cancel') -or
+            $control.enabled -ne $true -or $null -ne $control.selected -or -not $control.id -or
+            $ids -ccontains $control.id -or $names -ccontains $control.name) { throw 'Invalid abort buttons' }
+        $names += $control.name; $ids += $control.id
+    }
+    return @($snapshot.controls | Where-Object { $_.name -ceq 'Yes' })[0]
+}
 '''
 
 _SCRIPT = r'''
@@ -148,6 +166,38 @@ $snapshot = @{pid=$request.pid;hwnd=$request.hwnd;creation_time=$request.creatio
     title=$root.Current.Name;root_id=($root.GetRuntimeId() -join ',');body=$body;
     complete=($complete -and $messageNodes -gt 0 -and [bool]$body);controls=@($controls);
     unsupported_controls=@($unsupported)}
+if ($request.action -in @('inspect_abort','confirm_abort')) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AbortWindowIdentity {
+    [DllImport("user32.dll")] public static extern IntPtr GetWindow(IntPtr hWnd, uint command);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+}
+'@
+    $owner = [AbortWindowIdentity]::GetWindow([IntPtr]::new([Int64]$request.hwnd), 4)
+    [uint32]$ownerPid = 0
+    [void][AbortWindowIdentity]::GetWindowThreadProcessId($owner, [ref]$ownerPid)
+    $snapshot.owner_hwnd = $owner.ToInt64(); $snapshot.owner_pid = $ownerPid
+    $snapshot.class_name = $root.Current.ClassName
+    $checkedAbort = Assert-AbortSnapshot $snapshot $snapshot
+    Check-Identity
+    if ($request.action -eq 'inspect_abort') { $snapshot | ConvertTo-Json -Depth 8 -Compress; exit }
+    $age = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()/1000.0 - $request.snapshot.observed_at
+    if ($request.confirm_stop -ne $true -or -not ($request.authorization_note -is [string]) -or
+        -not $request.authorization_note.Trim() -or $request.authorization_note.Length -gt 2048 -or
+        $age -lt 0 -or $age -gt 30) { throw 'Fresh explicit stop authorization required' }
+    $yes = Assert-AbortSnapshot $snapshot $request.snapshot
+    Check-Identity
+    if ($root.Current.ProcessId -ne $request.pid -or $root.Current.IsOffscreen -or
+        $root.Current.NativeWindowHandle -ne $request.hwnd -or
+        ([AbortWindowIdentity]::GetWindow([IntPtr]::new([Int64]$request.hwnd), 4)).ToInt64() -ne $snapshot.owner_hwnd) {
+        throw 'Abort window identity changed'
+    }
+    $nodes[$yes.id].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    @{action=$request.action;action_requested=$true} | ConvertTo-Json -Compress
+    exit
+}
 Check-Identity
 if ($request.action -eq 'inspect') { $snapshot | ConvertTo-Json -Depth 8 -Compress; exit }
 $expected = $request.snapshot
