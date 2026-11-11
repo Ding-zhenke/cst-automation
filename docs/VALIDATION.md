@@ -1,5 +1,22 @@
 # 验证记录
 
+## 2026-11-12：typed 设置相邻同名历史覆盖修复（0.3.54，离线）
+
+- 官方 VBA AddToHistory 规定相邻同标题旧块被移除；Python Model3D.add_to_history
+  文档指向 AddToHistory。所属会话报告通过 typed 路径连续写入完整/稀疏配置后，
+  保存历史仅剩最后同名块；维护端未独立访问主工程或执行原生复现。
+- mesh/frequency/parallel/linear 四类设置标题绑定完整命令 SHA-256，只规范化换行。
+  不同内容标题不同、相同内容稳定；回执记录 history_caption，不恢复既有缺失块。
+  整批预检保持，提交和执行要求 content-bound-settings-history-v1；不自动升级 worker。
+- 新增 21 项离线用例，四类完整→稀疏→保存重放在修复前均复现丢项，修复后保持，
+  包括 A/B/A 顺序、相同内容稳定、非法末项零写入、旧 worker 混合批次拒绝及执行复检。
+  115 项历史/能力相关测试通过（原有 LF/阶次/适配能力测试显式携带新历史能力以避免遮蔽）。
+  完整离线回归 **2117 passed、2 deselected、9 warnings**（50.54 s），
+  日志 work/pytest-history-full.log；独立只读代码复核无阻塞项。测试只使用替身，无原生验收。
+- 不改命令内容、不补默认、不重建或求解、不改端口，不使用 NoModelChange 或自动
+  结果删除/窗口确认。真实保存重开和有效 profile 由所属会话在获准空闲点验收；
+  原低频失败与结果资格保持。维护侧未触碰主 DE 或升级活跃 worker。
+
 ## 2026-11-12：结果显示采样数下限修复（0.3.53，离线）
 
 - 所属工程会话报告 CST 2026 对 SetNumberOfResultDataSamples "2" 发出 History Error：

@@ -17,6 +17,10 @@ def execute(runtime, job):
         if operation == 'model_api':
             from .model_api import validate_calls, uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             validate_calls(params['calls'])
+            from cst_automation.settings_history import CAPABILITY as HISTORY_CAPABILITY, uses_settings_history
+            if (uses_settings_history(params['calls'])
+                    and HISTORY_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Content-bound settings history requires a compatible execution worker')
             from .model_api import uses_hf_tet_lf_controls
             from cst_automation.fd_linear import LF_CAPABILITY
             if (uses_hf_tet_lf_controls(params['calls'])

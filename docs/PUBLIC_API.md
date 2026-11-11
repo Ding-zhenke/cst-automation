@@ -1,5 +1,17 @@
 # cst-automation 与领域包的公共接口
 
+## Content-bound typed settings history
+
+Mesh, FD frequency, FD parallelization and FD linear settings now append a full
+SHA-256 of their generated VBA (CRLF/CR normalized to LF) to the history caption.
+Different sparse command content no longer shares an adjacent caption; identical
+content retains a stable caption. Command order and string contents are preserved,
+with no merged defaults, geometry/port edits or extra Rebuild. Receipts expose
+`history_caption`; this is submission evidence, not native persistence readback.
+The registered model_api route requires `content-bound-settings-history-v1` on
+existing workers at submission and execution, including mixed batches. Workers
+are never automatically restarted. Existing lost history is not repaired.
+
 ## HF Tet low-frequency controls
 
 `configure_fd_linear_solver(settings)` additionally accepts sparse strict boolean

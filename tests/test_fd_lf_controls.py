@@ -40,7 +40,7 @@ def test_old_worker_refuses_before_queue_and_launch(tmp_path, monkeypatch, keywo
     manager = module.SessionManager(str(tmp_path), backend='fake')
     ref = manager.ensure('lf', 'ensure'); folder = tmp_path / ref['session_id']
     state = read(folder / 'session.json')
-    state.update(status='ready', worker={'pid': 123}, worker_capabilities=['solver-settings-no-rebuild-v1'])
+    state.update(status='ready', worker={'pid': 123}, worker_capabilities=['solver-settings-no-rebuild-v1', 'content-bound-settings-history-v1'])
     write(folder / 'session.json', state)
     monkeypatch.setattr(module, 'alive', lambda *a: True)
     monkeypatch.setattr(manager, '_launch', lambda *a: pytest.fail('No worker launch'))
@@ -56,7 +56,7 @@ def test_old_worker_refuses_before_queue_and_launch(tmp_path, monkeypatch, keywo
 @pytest.mark.parametrize('keyword', [False, True])
 def test_execution_rechecks_capability_before_project_access(tmp_path, keyword):
     from tpc_service.sessions.operations import execute
-    runtime = SimpleNamespace(folder=tmp_path, backend='cst', state=lambda: {'worker_capabilities': []},
+    runtime = SimpleNamespace(folder=tmp_path, backend='cst', state=lambda: {'worker_capabilities': ['content-bound-settings-history-v1']},
         project=lambda *a: pytest.fail('No native project access'))
     job = {'operation': 'model_api', 'params': {'project_id': 'p', 'calls': calls_for(keyword)}}
     with pytest.raises(ServiceError) as exc:

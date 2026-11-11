@@ -34,7 +34,7 @@ def test_old_worker_refuses_tet_order_before_queue(tmp_path,monkeypatch,keyword,
     from tpc_service.sessions import manager as module
     from tpc_service.sessions.store import read,write
     m=module.SessionManager(str(tmp_path),backend='fake');r=m.ensure('tetorder','one');f=tmp_path/r['session_id']
-    s=read(f/'session.json');s.update(status='ready',worker={'pid':123},worker_capabilities=['solver-settings-no-rebuild-v1'])
+    s=read(f/'session.json');s.update(status='ready',worker={'pid':123},worker_capabilities=['solver-settings-no-rebuild-v1', 'content-bound-settings-history-v1'])
     write(f/'session.json',s);monkeypatch.setattr(module,'alive',lambda *a:True)
     monkeypatch.setattr(m,'_launch',lambda *a:pytest.fail('No launch'))
     calls=[dict(method='configure_fd_linear_solver',**({'kwargs':{'settings':setting}} if keyword else {'args':[setting]}))]
@@ -52,7 +52,7 @@ def test_execute_rechecks_order_capability_before_project_access(tmp_path,keywor
     from tpc_service.sessions.operations import execute
     setting={'tet_order':'Second','mixed_order':True}
     call=dict(method='configure_fd_linear_solver',**({'kwargs':{'settings':setting}} if keyword else {'args':[setting]}))
-    runtime=SimpleNamespace(folder=tmp_path,backend='cst',state=lambda:{'worker_capabilities':[]},
+    runtime=SimpleNamespace(folder=tmp_path,backend='cst',state=lambda:{'worker_capabilities':['content-bound-settings-history-v1']},
         project=lambda *a:pytest.fail('No native acquisition'))
     job={'operation':'model_api','params':{'project_id':'p','calls':[call]}}
     with pytest.raises(ServiceError) as error:execute(runtime,job)

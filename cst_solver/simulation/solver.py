@@ -208,9 +208,12 @@ End With"""
     def configure_fd_linear_solver(self, settings):
         """Sparse linear controls; no Reset/rebuild/solve or promised fallback."""
         from cst_automation.fd_linear import linear_solver_code
+        from cst_automation.settings_history import history_caption
         code = linear_solver_code(settings)
-        self.cst_file.model3d.add_to_history('FDSolver linear controls', code)
+        caption = history_caption('FDSolver linear controls', code)
+        self.cst_file.model3d.add_to_history(caption, code)
         return {'requested': dict(settings), 'native_commands': code, 'submitted': True,
+                'history_caption': caption,
                 'readback_verified': False, 'result_preservation_verified': False,
                 'direct_fallback_verified': False}
 

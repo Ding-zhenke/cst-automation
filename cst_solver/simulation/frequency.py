@@ -154,7 +154,11 @@ def configure_fd_parallelization(app, settings):
 
 
 def _submit_configuration(app, requested, commands, stage, *, warnings=(), **extra):
+    from cst_automation.settings_history import history_caption
+    code = '\n'.join(commands)
+    caption = history_caption(stage, code)
     report = dict(requested=requested, native_commands=commands,
+                  history_caption=caption,
                   scope='current_project_model3d', history_submitted=False,
                   readback=None, readback_status='unsupported',
                   readback_verified=False, mesh_verified=False,
@@ -171,7 +175,7 @@ def _submit_configuration(app, requested, commands, stage, *, warnings=(), **ext
         facade = getattr(app, '_circuit_facade', None)
         if facade is not None:
             facade._spec = None
-        submit(stage, '\n'.join(commands))
+        submit(caption, code)
     except Exception as exc:
         report['history_submitted'] = None
         raise FDomainConfigurationError('fd_configuration_partial', str(exc),

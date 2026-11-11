@@ -38,7 +38,9 @@ def test_fd_cpu_configuration_uses_documented_namespace_and_preserves_evidence()
 def test_sparse_controls_preserve_omitted_settings(settings, command):
     app = App()
     app.configure_fd_parallelization(settings)
-    assert app.history == [('Configure FD CPU parallelization', command)]
+    assert len(app.history) == 1
+    assert app.history[0][0].startswith('Configure FD CPU parallelization [sha256:')
+    assert app.history[0][1] == command
 
 
 @pytest.mark.parametrize('settings', [None, {}, [], {'gpu': True}, {'enabled': 'True'},

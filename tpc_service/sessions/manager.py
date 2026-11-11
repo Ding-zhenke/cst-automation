@@ -135,6 +135,11 @@ class SessionManager:
                 assert_path_unclaimed(self.root, folder, operation, params)
             from .workflow import preflight
             from .model_api import settings_only, settings_capability
+            from cst_automation.settings_history import CAPABILITY as HISTORY_CAPABILITY, uses_settings_history
+            if (operation == 'model_api' and uses_settings_history(params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and HISTORY_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Content-bound settings history requires a compatible idle worker')
             from .model_api import uses_hf_tet_adaptation_controls, HF_TET_ADAPTATION_CAPABILITY
             from .model_api import uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             from .model_api import uses_hf_tet_lf_controls

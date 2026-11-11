@@ -53,6 +53,16 @@ do not automatically stop a live solve or relax numerical acceptance.
 
 ## Separate the controls
 
+Typed mesh/frequency/parallel/linear settings require actual worker capability
+`content-bound-settings-history-v1`. Their history captions include a stable digest
+of the complete generated command content, preventing a different sparse setting
+from replacing the immediately preceding same-caption block under CST's documented
+history rule. Identical content keeps the same caption. This does not repair old
+missing history or certify native save/reopen; review the current complete profile
+and effective run inputs after recovery. Do not use AddToHistoryNoModelChange for
+solver/mesh mutations or upgrade a running worker. See the
+[settings history contract](../../docs/guides/settings_history.md).
+
 For documented general-purpose HF Tet low-frequency controls, use
 `configure_fd_linear_solver` with sparse strict booleans
 `low_frequency_stabilization` and `allow_float_direct_solver`; require actual

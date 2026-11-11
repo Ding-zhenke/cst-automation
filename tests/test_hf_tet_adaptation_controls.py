@@ -60,7 +60,7 @@ def test_old_worker_refused_before_queue_or_launch(tmp_path,monkeypatch,keyword,
     manager=module.SessionManager(str(tmp_path),backend='fake')
     ref=manager.ensure('tet','tet');folder=tmp_path/ref['session_id'];state=read(folder/'session.json')
     state.update(status='ready',worker={'pid':123},worker_capabilities=[
-        'parameter-em-hb-v1','solver-settings-no-rebuild-v1','mesh-settings-no-rebuild-v1','model-band-no-rebuild-v1'])
+        'content-bound-settings-history-v1','parameter-em-hb-v1','solver-settings-no-rebuild-v1','mesh-settings-no-rebuild-v1','model-band-no-rebuild-v1'])
     write(folder/'session.json',state)
     monkeypatch.setattr(module,'alive',lambda *a:True)
     monkeypatch.setattr(manager,'_launch',lambda *a:pytest.fail('Must not launch'))

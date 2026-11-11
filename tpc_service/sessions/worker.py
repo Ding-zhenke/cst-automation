@@ -233,6 +233,8 @@ def run(folder):
             state['worker_capabilities'].append(HF_TET_ORDER_CAPABILITY)
             from cst_automation.fd_linear import LF_CAPABILITY
             state['worker_capabilities'].append(LF_CAPABILITY)
+            from cst_automation.settings_history import CAPABILITY as HISTORY_CAPABILITY
+            state['worker_capabilities'].append(HISTORY_CAPABILITY)
             from cst_automation.discrete_face_port import CAPABILITY as FACE_CAPABILITY
             state['worker_capabilities'].append(FACE_CAPABILITY)
             from cst_automation.task_disable import CAPABILITY as DISABLE_CAPABILITY
