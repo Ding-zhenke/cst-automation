@@ -267,7 +267,8 @@ def test_new_worker_release_returns_to_original_fence(recovery, monkeypatch):
 
 
 @pytest.mark.parametrize('case', ['str', 'lines', 'forbidden', 'forbidden_lines', 'missing_history',
-                                'bad_history', 'params', 'ports', 'messages', 'running', 'unknown_idle'])
+                                'bad_history', 'params', 'ports', 'messages', 'running', 'unknown_idle',
+                                'reviewed_infos', 'unexpected_info', 'warning_after_review'])
 def test_restored_native_checks_use_full_parameters_ports_history_and_messages(recovery, monkeypatch, case):
     from types import SimpleNamespace
     from tpc_service.sessions.project_lifecycle import path_key
@@ -281,15 +282,25 @@ def test_restored_native_checks_use_full_parameters_ports_history_and_messages(r
     if case != 'missing_history': write(target.with_suffix('') / 'Model/3D/ModelHistory.json', {'history': [{'code': code}]})
     running = True if case == 'running' else None if case == 'unknown_idle' else False
     handle = SimpleNamespace(model3d=SimpleNamespace(is_solver_running=lambda **kw: running), filename=lambda: str(target))
+    reviewed = None
+    actual_messages = ['INFO missing dependency'] if case == 'messages' else []
+    if case in ('reviewed_infos', 'unexpected_info', 'warning_after_review'):
+        from tpc_service.sessions.archive_postopen import UNICODE_INFO, TASKS_INFO
+        reviewed = [dict(type='INFO', text=UNICODE_INFO),
+                    dict(type='INFO', text='History block 228 contains non ASCII characters either in its name or content.'),
+                    dict(type='INFO', text=TASKS_INFO)]
+        actual_messages = copy.deepcopy(reviewed)
+        if case == 'unexpected_info': actual_messages[0]['text'] = 'Missing external library'
+        if case == 'warning_after_review': actual_messages[0]['type'] = 'WARNING'
     app = SimpleNamespace(cst_file=handle, project=SimpleNamespace(list_open_projects=lambda: [str(target)]),
-                          get_messages=lambda: ['INFO missing dependency'] if case == 'messages' else [])
+                          get_messages=lambda: actual_messages)
     monkeypatch.setattr('tpc_service.sessions.read_review.borrow_open_project', lambda *args: (app, handle, {path_key(target): str(target)}))
     monkeypatch.setattr('cst_solver.dialogs.check_dialogs', lambda **kw: None)
     monkeypatch.setattr('tpc_service.sessions.inspection.inspect_native', lambda *args: dict(errors=[], parameters={} if case == 'params' else review['expected_parameters']))
     monkeypatch.setattr('cst_solver.simulation.port_replacement.port_inventory', lambda *args: {} if case == 'ports' else review['expected_ports'])
-    if case in ('str', 'lines'):
-        proof, _, _ = mod._observe(folder, state, restored=True)
+    if case in ('str', 'lines', 'reviewed_infos'):
+        proof, _, _ = mod._observe(folder, state, restored=True, reviewed_messages=reviewed)
         assert proof['parameters'] == review['expected_parameters']
         assert proof['ports'] == review['expected_ports']
     else:
-        with pytest.raises(ServiceError): mod._observe(folder, state, restored=True)
+        with pytest.raises(ServiceError): mod._observe(folder, state, restored=True, reviewed_messages=reviewed)

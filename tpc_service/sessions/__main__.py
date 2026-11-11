@@ -30,6 +30,8 @@ def main(argv=None):
     sub.add_parser('finish-model3d-archive-recovery')
     archive_drift = sub.add_parser('review-model3d-archive-drift')
     archive_drift.add_argument('--review-file', required=True)
+    archive_postopen = sub.add_parser('review-model3d-archive-postopen')
+    archive_postopen.add_argument('--review-file', required=True)
     recovery = sub.add_parser('recover-native-worker-handoff')
     recovery.add_argument('--review-file', required=True)
     bind = sub.add_parser('bind-workflow')
@@ -89,6 +91,8 @@ def main(argv=None):
                 result = manager.finish_model3d_archive_recovery(sid, credential)
             elif args.command == 'review-model3d-archive-drift':
                 result = manager.review_model3d_archive_drift(sid, credential, **read(args.review_file))
+            elif args.command == 'review-model3d-archive-postopen':
+                result = manager.review_model3d_archive_postopen(sid, credential, **read(args.review_file))
             elif args.command == 'recover-native-worker-handoff':
                 result = manager.recover_native_worker_handoff(sid, credential, **read(args.review_file))
             elif args.command == 'bind-workflow':

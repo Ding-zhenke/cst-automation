@@ -1,5 +1,17 @@
 # 验证记录
 
+## 2026-11-12：已重开工程的精确 INFO 复核（0.3.65）
+
+- 所属会话已报告原 DE 内归档重开、全参数和端口身份核对通过，但三个原生 INFO
+  触发消息拒绝。新增显式 postopen controller/CLI/MCP 续接，只读复核原事务、
+  完整历史摘要、消息原文、备份及隔离目录；不重复 close/open/restore/save。
+- 仅接受已知的非 ASCII 总提示、具体 History block 提示和 schematic 含任务提示。
+  未知 INFO、WARNING、ERROR、身份/历史/文件变化均拒绝；保留原失败及围栏，
+  通过仅准备新 worker 握手，外部依赖、几何和求解不据此认证。
+- 全库离线回归 **2352 passed、2 deselected、9 warnings**（61.10 s），日志
+  `work/pytest-postopen-full.log`；相关 128 项、技能校验、打包测试及独立审查通过。
+  维护未操作实际 CST；此 postopen 续接仍待所属会话原生验收。
+
 ## 2026-11-12：明确关闭前的 SimProps 差异复核（0.3.64）
 
 - 所属会话报告已完整备份并正常退出旧 worker，原 DE 仍在；恢复在首个 companion

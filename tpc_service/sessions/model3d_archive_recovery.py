@@ -172,7 +172,7 @@ def begin(manager, session_id, credential, **review):
         return copy.deepcopy(record)
 
 
-def _observe(folder, state, restored=False):
+def _observe(folder, state, restored=False, *, reviewed_messages=None):
     from cst_solver.dialogs import check_dialogs
     from cst_solver.simulation.port_replacement import port_inventory
     from .inspection import inspect_native
@@ -208,7 +208,12 @@ def _observe(folder, state, restored=False):
         require(all(review['forbidden_history_fragment'] not in code for code in commands),
                 'Failed history fragment remains after reopen')
         messages = list(app.get_messages())
-        if messages:
+        if reviewed_messages is not None:
+            from .archive_postopen import validate_infos
+            expected = validate_infos(reviewed_messages)
+            require(messages == expected, 'Native messages differ from the exact reviewed INFO snapshot')
+            proof['reviewed_messages'] = copy.deepcopy(messages)
+        elif messages:
             raise ServiceError('model3d_archive_recovery_refused',
                                'Reopened project reported native messages; inspect dependencies without replay',
                                messages=[str(message) for message in messages])
@@ -301,6 +306,39 @@ def _restore(folder, state):
     return dict(native=proof, quarantine=str(quarantine), restored_digest=review['source_digest'])
 
 
+def _restored_handoff_state(state):
+    restored = copy.deepcopy(state)
+    review = restored['worker_upgrade']['archive_recovery']['review']
+    project = restored['projects'][review['project_id']]
+    project['saved_digest'] = review['source_digest']
+    workflow = project.get('workflow')
+    if workflow:
+        workflow['em_generation'] += 1; workflow['hb_generation'] += 1
+        for key in ('em_receipt', 'evidence', 'network_fit', 'network_update', 'sp_network', 'sp_setup'):
+            workflow[key] = None
+    return restored
+
+
+def _commit_handoff(manager, folder, credential, state, result, proof, *, postopen_audit=None):
+    record = state['worker_upgrade']; data = record['archive_recovery']
+    with lock(manager.root / 'registry.lock'), lock(folder / 'state.lock'):
+        current = manager._state(folder, credential)
+        require(current['worker_upgrade']['token'] == record['token']
+                and current['worker_upgrade']['phase'] == 'recovery_mutation_claimed'
+                and current['projects'] == data['original_projects']
+                and not alive(record['old_worker']) and alive(record['environment']), 'Restore identity changed')
+        current['projects'] = state['projects']
+        record = current['worker_upgrade']
+        record['archive_recovery'].update(pending=False, result=result, restored_at=time.time())
+        if postopen_audit:
+            record['archive_recovery'].setdefault('postopen_reviews', []).append(postopen_audit)
+        record.update(phase='stop_requested', pre_exit_native=proof,
+                      projects_digest=digest(current['projects']), file_versions=handoff.file_versions(current),
+                      project_digests=handoff.saved_digests(current))
+        write(folder / 'session.json', current)
+        return copy.deepcopy(record)
+
+
 def finish(manager, session_id, credential):
     folder = manager._folder(session_id)
     state = manager._state(folder, credential)
@@ -338,29 +376,10 @@ def finish(manager, session_id, credential):
             result = _restore(folder, state)
             # Refresh only the registered baseline and dependent evidence. The job
             # and original last_error remain intact until explicit reconciliation.
-            project = state['projects'][review['project_id']]
-            project['saved_digest'] = review['source_digest']
-            workflow = project.get('workflow')
-            if workflow:
-                workflow['em_generation'] += 1; workflow['hb_generation'] += 1
-                for key in ('em_receipt', 'evidence', 'network_fit', 'network_update', 'sp_network', 'sp_setup'):
-                    workflow[key] = None
+            state = _restored_handoff_state(state)
             runtime = Runtime(folder, 'cst')
             proof = handoff.verify_native(runtime, state)
-            with lock(manager.root / 'registry.lock'), lock(folder / 'state.lock'):
-                current = manager._state(folder, credential)
-                require(current['worker_upgrade']['token'] == record['token']
-                        and current['worker_upgrade']['phase'] == 'recovery_mutation_claimed'
-                        and current['projects'] == data['original_projects']
-                        and not alive(record['old_worker']) and alive(record['environment']), 'Restore identity changed')
-                current['projects'] = state['projects']
-                record = current['worker_upgrade']
-                record['archive_recovery'].update(pending=False, result=result, restored_at=time.time())
-                record.update(phase='stop_requested', pre_exit_native=proof,
-                              projects_digest=digest(current['projects']), file_versions=handoff.file_versions(current),
-                              project_digests=handoff.saved_digests(current))
-                write(folder / 'session.json', current)
-                return copy.deepcopy(record)
+            return _commit_handoff(manager, folder, credential, state, result, proof)
         except Exception as exc:
             with lock(folder / 'state.lock'):
                 current = manager._state(folder, credential)

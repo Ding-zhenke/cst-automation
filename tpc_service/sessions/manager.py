@@ -298,6 +298,10 @@ class SessionManager:
         from .archive_drift import review as review_drift
         return review_drift(self, session_id, credential, **review)
 
+    def review_model3d_archive_postopen(self, session_id, credential, **review):
+        from .archive_postopen import review as review_postopen
+        return review_postopen(self, session_id, credential, **review)
+
     def finish_native_worker_handoff(self, session_id, credential):
         from .native_handoff import finish
         return finish(self, session_id, credential)

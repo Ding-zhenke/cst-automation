@@ -2,6 +2,19 @@
 
 ## Fenced 3D archive recovery
 
+`review_model3d_archive_postopen(session_id, credential, *, expected_token,
+expected_history_sha256, reviewed_messages, review_note, confirm_reopened=True,
+confirm_idle=True)` reads an already-reopened target after the exact native-message
+refusal. It never calls restore/close/open/save. It requires close intent, preserved
+quarantine, exact staged/source/current good SHA, intact original backup, original
+DE/sole target, stopped worker, full expected parameters/ports, and exact history
+hash with the failed command absent. Only the exact reviewed three INFO messages
+about non-ASCII history, its numbered block, and schematic tasks are supported;
+WARNING/ERROR, other INFO, unreadable or changed messages refuse. The review and
+original messages are retained; geometry/solver certification stays false. Success
+prepares the existing new-worker handshake, leaving the original failure fenced
+until that handshake and subsequent targeted reconcile complete.
+
 `review_model3d_archive_drift(session_id, credential, *, expected_token,
 review_note, confirm_preclose=True)` is an explicit controller review for the
 exact pre-close `Failed companion changed since its verified backup` refusal.

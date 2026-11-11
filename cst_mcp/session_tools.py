@@ -73,7 +73,13 @@ def register_session_tools(root, *, backend='cst', replace=False):
         return tool_payload({'recovery': manager.review_model3d_archive_drift(
             a['session_id'], a['credential'], **a['review'])})
 
+    def review_archive_postopen(a):
+        return tool_payload({'recovery': manager.review_model3d_archive_postopen(
+            a['session_id'], a['credential'], **a['review'])})
+
     entries = [
+        ('review_cst_model3d_archive_postopen', 'Read-only review of exact INFO after native reopen; prepare fresh-handle handoff without reopening again.',
+         dict(identity, review={'type': 'object'}), list(identity)+['review'], review_archive_postopen, False),
         ('review_cst_model3d_archive_drift', 'Explicit full-hash preclose Temp drift review; retain deltas and same frozen transaction.',
          dict(identity, review={'type': 'object'}), list(identity)+['review'], review_archive_drift, False),
         ('begin_cst_model3d_archive_recovery', 'Freeze a fenced failed 3D project for reviewed archive restore and fresh-handle handoff.',

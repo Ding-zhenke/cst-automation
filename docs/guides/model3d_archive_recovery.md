@@ -146,3 +146,42 @@ CLI 为 `review-model3d-archive-drift --review-file ABS.json`，JSON 就是上�
 确认源/目标/进程身份仍一致后，先持久记录 close_intent，再调用 close；有这个标记
 之后不可使用本接口。关闭后的原 companion 仍整体隔离保留，不拿临时变化当模型或
 数值验收，也不把差异筛查报告当“成功恢复”。
+
+## 已重开工程的精确 INFO 复核（0.3.65）
+
+当已原生关闭并重开，close_intent=True，且最后错误精确为
+`Reopened project reported native messages; inspect dependencies without replay`，
+不得再次调用恢复、关闭或打开。只读核对现场后使用：
+
+```python
+receipt = manager.review_model3d_archive_postopen(
+    session_id, credential,
+    expected_token=original_transaction_token,
+    expected_history_sha256=reviewed_new_native_history_sha256,
+    reviewed_messages=complete_reviewed_typed_message_list,
+    review_note=reviewed_reopen_and_info_basis,
+    confirm_reopened=True,
+    confirm_idle=True,
+)
+# Success prepares handoff; this finish does NOT execute restore again.
+receipt = manager.finish_model3d_archive_recovery(session_id, credential)
+```
+
+CLI `review-model3d-archive-postopen --review-file ABS.json`，MCP
+`review_cst_model3d_archive_postopen`（review 对象）。expected_history_sha256 是
+本次重开后原生 Model/3D/ModelHistory.json 的完整 SHA256，不从旧副本取值。
+
+reviewed_messages 必须是按实际顺序完整列出的三个 `{type: "INFO", text: 原文}`：
+非 ASCII history 总提示、具体编号 History block 的非 ASCII 提示、schematic window
+含任务提示。只支持这组确知语义，block 编号仍须与原拒绝及本次 native 消息精确相同。
+任何 ERROR/WARNING、其他 INFO、缺少/变化/不可读消息均拒绝，不把全部 INFO 一律放行。
+
+接口核对原错误、原 worker 已退出、原 DE/唯一打开目标、完整成功源/staged/current
+摘要、未改动原备份和隔离目录、完整参数/端口与新历史摘要/失败命令缺失；原生读回
+前后重复，原消息继续保存。隔离目录根 Model.lok 的元数据及不读取内容例外保持。
+通过后追加 postopen-review 审计并准备同一新 worker 握手，不 close/open/save/mesh，
+不混入旧日志、不解除原围栏。原生外部依赖、DS disabled、端口坐标/阻抗等独立检查
+仍由所属工程完成；geometry_verified/solver_verified/external_dependencies_verified=False。
+
+随后 finish 完成新句柄交接才回到 needs_reconcile，再按原流程定向 reconcile。
+本接口仍是离线已验证、真机待验收，不能用它声称 INFO 之外的数值验证已经通过。

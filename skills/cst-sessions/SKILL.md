@@ -130,6 +130,10 @@ scene makes the existing authorization insufficient.
   For the exact pre-close companion-difference refusal after worker exit, use the
   guide's explicit full-hash SimProps drift review. It preserves Temp deltas and
   the original backup/token; other content changes or any close intent refuse.
+  After a verified reopen rejected only for the guide's exact three reviewed INFO
+  messages, use postopen review, never restore/close/open again. This read-only
+  continuation still requires full identity/history/parameter/port checks and
+  does not certify geometry, external dependencies or solving.
 - Keep the working project and its DE while the approved task is active, including replies and
   disconnects. Once modeling is complete and the formal CST plus paired data are verified, use
   session `close_project` to save, close and retire this task's process projects, then delete their
