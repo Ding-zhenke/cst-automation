@@ -176,8 +176,15 @@ omit output_samples to preserve it, or explicitly choose an integer >=3.
 The shared validator rejects invalid display counts before the entire batch runs.
 
 Set a bounded adaptation pass count and Delta-S criterion, plus independent
-broadband interpolation error and sample/check budgets as needed. Material-only
-sweeps can change skin depth or field localization; geometry sweeps can require
+broadband interpolation error and sample/check budgets as needed.
+
+`adaptation.min_passes` requires a strict integer >=2 (observed CST 2026 range
+error); `max_passes` must also be >=2 to permit a valid minimum, and min<=max
+when both are supplied. The native MaxPasses lower bound is not independently
+verified. For an authorized fixed-mesh diagnostic, disable adaptation explicitly;
+do not encode it as min=max=1. This does not relax formal convergence criteria.
+
+Material-only sweeps can change skin depth or field localization; geometry sweeps can require
 remeshing. Do not promise cross-case mesh/solution reuse from a generic restart
 flag. Use [cst-parameter-study](../cst-parameter-study/SKILL.md) for scan design.
 

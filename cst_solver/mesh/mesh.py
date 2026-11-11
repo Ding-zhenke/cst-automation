@@ -71,7 +71,10 @@ def normalize_tetrahedral_mesh_settings(settings):
             adaptation['enabled'] = _boolean(item['enabled'], 'enabled')
         for key in ('min_passes', 'max_passes', 'delta_s_checks'):
             if key in item:
-                adaptation[key] = _integer(item[key], key)
+                # CST 2026 rejects MinPasses <2. A maximum below any valid
+                # minimum is inconsistent; this is not a native MaxPasses probe.
+                adaptation[key] = _integer(item[key], key,
+                                            minimum=1 if key == 'delta_s_checks' else 2)
         if ('min_passes' in adaptation and 'max_passes' in adaptation and
                 adaptation['min_passes'] > adaptation['max_passes']):
             raise ValueError('min_passes must not exceed max_passes')

@@ -1,5 +1,16 @@
 # cst-automation 与领域包的公共接口
 
+## HF Tet adaptive pass lower bound
+
+`configure_tetrahedral_mesh.adaptation.min_passes` is a strict integer >=2,
+matching the observed CST 2026 MinPasses range error. A supplied max_passes must
+also be >=2 because it cannot be below a valid minimum; its native lower bound
+has not been independently tested. delta_s_checks retains its separate >=1 rule.
+The shared normalizer checks the entire model_api batch at submission and again
+at execution, before earlier writes or native project access. Sparse requests do
+not insert or change an omitted minimum. A fixed-mesh probe uses explicitly
+disabled adaptation, not invalid one-pass adaptation limits.
+
 ## Bounded UIA text fallback
 
 `cst_solver.mesh_input.read_saved_options(path)` decodes a stable, bounded saved

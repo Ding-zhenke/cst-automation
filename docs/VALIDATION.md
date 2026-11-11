@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-11-12：HF Tet 最小适应轮数静态拦截（0.3.59）
+
+- 维护只读核对所属会话保存的 `native_minpass_error_snapshot.json`：Qt History Error
+  正文指出 MeshAdaption3D.MinPasses "1" 超出范围，要求 integer >=2；未操作该窗口。
+- 统一 tetrahedral normalizer 强制 min_passes 严格整数 >=2；max_passes >=2 是不能
+  小于任一合法 minimum 的一致性要求，不宣称已独立验收原生 MaxPasses 的下界。
+  delta_s_checks 仍 >=1，省略项不补默认，显式 disabled 也不能携带非法数值。
+- 整批静态验证在任何早期写入之前失败；MCP 请求不入队、不启动 worker，执行侧
+  也在 native project 访问前拒绝。固定网格诊断应显式关闭适应，不用 min=max=1。
+- 149 项相关检查通过；完整离线回归 **2237 passed、2 deselected、9 warnings**
+  （49.60 s），日志 `work/pytest-minpasses-full.log`；技能校验和独立复核通过。
+  没有改动端口、几何、精度门槛或运行中的 worker，没有新增真机求解验收。
+
 ## 2026-11-12：0.3.57 公共入口的所属工程验收回写（文档版 0.3.58）
 
 - 所属会话使用已发布 `result_cache_dialog`，完成精确 Qt 结果失效提示的
