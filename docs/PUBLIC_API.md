@@ -1,5 +1,25 @@
 # cst-automation 与领域包的公共接口
 
+## HF Tet low-frequency controls
+
+`configure_fd_linear_solver(settings)` additionally accepts sparse strict boolean
+`low_frequency_stabilization` and `allow_float_direct_solver`, mapped respectively
+to documented FDSolver.LowFrequencyStabilization and SetAllowFloatDirectSolver.
+Omitted fields are not emitted; no defaults, solver type/order or AccuracyTet are
+changed. Both are for the general-purpose tetrahedral frequency-domain solver;
+float Direct is permitted by CST only when AccuracyTet is strictly greater than
+1e-6. At a 1e-7 target the documented float permission does not apply. The IE-only
+UseDoublePrecision command is not used. No Direct defect-correction option is added.
+
+The session model_api route validates the complete batch and requires
+`hf-tet-lf-controls-v1` at submission to an existing live worker and at execution,
+including mixed batches and keyword settings. Existing settings-only batches save
+without Rebuild or solving and retain workflow invalidation; mixed geometry batches
+keep their existing rebuild behavior. There is no new standalone MCP route: use
+submit_cst_session_operation. No dedicated native getter is established; receipts
+keep readback_verified=False and do not certify effective precision, convergence
+or result retention. Installing the plugin does not upgrade a running worker.
+
 ## Picked discrete face-port creator
 
 `create_discrete_face_port(r0, id_val, fold='', invert_direction=False, *,

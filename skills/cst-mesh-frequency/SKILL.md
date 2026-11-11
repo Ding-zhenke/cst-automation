@@ -53,6 +53,16 @@ do not automatically stop a live solve or relax numerical acceptance.
 
 ## Separate the controls
 
+For documented general-purpose HF Tet low-frequency controls, use
+`configure_fd_linear_solver` with sparse strict booleans
+`low_frequency_stabilization` and `allow_float_direct_solver`; require actual
+worker capability `hf-tet-lf-controls-v1`. Read [LF control scope](../../docs/guides/hf_tet_lf_controls.md)
+before submitting. Omitted values preserve settings. Neither changes AccuracyTet,
+order or solver type unless independently requested. Float Direct permission only
+applies when AccuracyTet is worse than 1e-6; do not use IE UseDoublePrecision for
+HF Tet or invent Direct defect-correction controls. No dedicated getter is
+established: settings readback and effective precision remain unverified.
+
 | Control | Purpose / API |
 |---|---|
 | Model band | `set_frequency_range`; preserve parameter references |

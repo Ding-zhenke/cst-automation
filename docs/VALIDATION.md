@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-11-12：HF Tet 低频稳定化与 float Direct 许可（0.3.52，离线）
+
+- configure_fd_linear_solver 新增稀疏严格布尔字段 low_frequency_stabilization、
+  allow_float_direct_solver，仅生成各自官方 setter；省略项不写入，不改变 AccuracyTet。
+  整批预检和提交/执行双入口要求 hf-tet-lf-controls-v1，旧 worker 不自动升级。
+- 91 项相关测试通过，覆盖错误请求在原生访问/worker 启动前拒绝、混合批次整批校验、
+  MCP 路由、旧 worker 拒绝，以及设置批次不 Rebuild、不求解的既有保存行为。
+  完整离线回归 **2072 passed、2 deselected、9 warnings**（53.13 s），
+  日志 work/pytest-lf-full.log；独立只读代码复核通过。
+- 官方 float Direct 许可仅在 AccuracyTet 严格大于 1e-6 时生效；未放宽 1e-7 目标。
+  未建立专用 getter，readback_verified=False，实际精度、低频收敛及矩阵资格未认证。
+  本维护未连接主 DE、启动 CST/夹具/求解或交接 worker；配置更新不追认原失败 EM。
+
 ## 2026-11-11：禁用任务的父子联动修复（0.3.51，离线）
 
 - 所属会话报告：v1 初检父/子均 enabled=true，父写 False 后子的 enabled 已 false，

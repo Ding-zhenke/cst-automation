@@ -1,10 +1,17 @@
 """Finite, typed FDSolver linear controls; no CST imports or execution."""
 
+LF_CAPABILITY = 'hf-tet-lf-controls-v1'
+LF_COMMANDS = {'low_frequency_stabilization': 'LowFrequencyStabilization',
+               'allow_float_direct_solver': 'SetAllowFloatDirectSolver'}
+
 
 def linear_solver_code(settings):
     if not isinstance(settings, dict) or not settings or set(settings) - {
-            'solver_type', 'limit_iterations', 'max_iterations', 'tet_order', 'mixed_order'}:
+            'solver_type', 'limit_iterations', 'max_iterations', 'tet_order', 'mixed_order', *LF_COMMANDS}:
         raise ValueError('Explicit supported linear solver settings required')
+    for key in LF_COMMANDS:
+        if key in settings and type(settings[key]) is not bool:
+            raise ValueError(key + ' must be boolean')
     if 'solver_type' in settings and settings['solver_type'] not in ('Auto', 'Iterative', 'Direct'):
         raise ValueError('solver_type must be Auto, Iterative or Direct')
     if 'limit_iterations' in settings and type(settings['limit_iterations']) is not bool:
@@ -32,4 +39,7 @@ def linear_solver_code(settings):
         commands.append(f' .OrderTet "{settings["tet_order"]}"')
     if 'mixed_order' in settings:
         commands.append(f' .MixedOrderTet "{settings["mixed_order"]}"')
+    for key, command in LF_COMMANDS.items():
+        if key in settings:
+            commands.append(f' .{command} "{settings[key]}"')
     return 'With FDSolver\n' + '\n'.join(commands) + '\nEnd With'

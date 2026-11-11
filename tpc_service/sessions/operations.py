@@ -17,6 +17,11 @@ def execute(runtime, job):
         if operation == 'model_api':
             from .model_api import validate_calls, uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             validate_calls(params['calls'])
+            from .model_api import uses_hf_tet_lf_controls
+            from cst_automation.fd_linear import LF_CAPABILITY
+            if (uses_hf_tet_lf_controls(params['calls'])
+                    and LF_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'HF Tet LF controls require a compatible execution worker')
             from cst_automation.discrete_face_port import CAPABILITY as FACE_CAPABILITY, METHOD as FACE_METHOD
             if (any(c['method'] == FACE_METHOD for c in params['calls'])
                     and FACE_CAPABILITY not in runtime.state().get('worker_capabilities', [])):

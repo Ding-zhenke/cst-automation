@@ -35,6 +35,16 @@ def uses_hf_tet_order_controls(calls):
     return False
 
 
+def uses_hf_tet_lf_controls(calls):
+    from cst_automation.fd_linear import LF_COMMANDS
+    for call in calls:
+        if call.get('method') == 'configure_fd_linear_solver':
+            settings = call['args'][0] if call.get('args') else call['kwargs']['settings']
+            if set(settings) & LF_COMMANDS.keys():
+                return True
+    return False
+
+
 def settings_capability(calls):
     if any(call.get('method') == 'set_frequency_range' for call in calls):
         return MODEL_BAND_CAPABILITY
