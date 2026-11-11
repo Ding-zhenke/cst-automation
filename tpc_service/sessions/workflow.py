@@ -136,6 +136,16 @@ def check_evidence(folder, project):
 
 
 def preflight(folder, state, operation, params, *, job=None):
+    from cst_automation.task_disable import is_request, normalize, CAPABILITY as DISABLE_CAPABILITY
+    if is_request(operation, params):
+        try:
+            normalize(params['settings'])
+            if params.get('kind') != 'build':
+                raise ValueError('Task disable requires explicit build kind')
+        except (ValueError, TypeError) as exc:
+            reject('request_invalid', str(exc))
+        if (job is not None or state.get('worker')) and DISABLE_CAPABILITY not in state.get('worker_capabilities', []):
+            reject('worker_upgrade_required', 'Task disable requires a compatible idle worker')
     if operation == 'accept_saved_baseline':
         from .saved_baseline import preflight as baseline_preflight
         return baseline_preflight(folder, state, params, job)

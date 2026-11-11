@@ -1461,3 +1461,28 @@ Evidence is configuration/data observation only; solver_verified and
 execution_identity_verified remain False. The stored-parameter reader is a
 caller-supplied native integration and is not proven safe to invoke as a
 reentrant VBA macro inside a running Post callback.
+## Managed disabling of existing native HB tasks
+
+Session `circuit`, `kind=build`, `settings.operation=disable_tasks` accepts exactly
+`operation/tasks/confirm_idle/review_note`. Each of 1..32 unique tasks supplies
+its complete `task_name`, `expected_type` (`parameter sweep` or `spectral lines`),
+and boolean `expected_enabled`. `confirm_idle` must be true and is an owning
+caller's DS/EM/postprocessing idle assertion, not an independent native idle getter.
+The worker capability is `disable-native-tasks-v1`; absent support rejects before
+native access. Existing workflow ownership, stale-generation and digest checks
+remain active; circuit mutation invalidates dependent HB evidence.
+
+`app.circuit.disable_tasks(tasks, *, confirm_idle, review_note)` preflights every
+existing task with DoesExist/GetTypeForTask/GetProperty(enabled) before any write.
+It only sets enabled=False, reselects and reads back every target. It never creates,
+deletes, Updates, evaluates templates or runs solvers. The facade does not save;
+the session route saves using its existing handler and retains partial failure
+audit. Reports distinguish before/after settings from solver/reopen/result retention
+verification (not performed). No definition/result deletion is requested; preservation
+of native stored results still needs engineering evidence.
+
+Use existing `submit_cst_session_operation`; no new standalone MCP tool. Standalone
+RunService rejects this operation before app creation: it requires the owning
+borrowed session. This is not a running-task abort or a global solver interlock.
+Do not upgrade an active worker to obtain this capability; the owner controls any
+separately authorized, idle-only handoff.

@@ -22,6 +22,14 @@ class CircuitAPI:
     def inspect(self):
         return self.adapter.inspect()
 
+    def disable_tasks(self, tasks, *, confirm_idle, review_note):
+        """Disable existing sweep/HB tasks only; caller owns idle review and saving."""
+        from cst_automation.task_disable import normalize, OPERATION
+        from .task_disable import disable_tasks
+        normalize(dict(operation=OPERATION, tasks=tasks, confirm_idle=confirm_idle, review_note=review_note))
+        self._spec = None
+        return disable_tasks(self.adapter.schematic, tasks, confirm_idle=confirm_idle, review_note=review_note)
+
     def register_python_result_template(self, parent_task, hb_task, post_task, template_source, *,
                                         result_name, template_name, group, result_type, settings,
                                         eval_type='single_run', create=False, conflict='error', expected_registration_sha256=None):

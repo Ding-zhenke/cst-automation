@@ -47,7 +47,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "package"},
+    allowed = {"build": {"disable_tasks", "configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "package"},
                "solve": {"run_task", "run_network_transient"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
     def handle(*, project, params, job, backend):
@@ -56,6 +56,11 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             operation = params.get("operation")
             if operation not in allowed.get(job["kind"], set()):
                 raise CircuitError("circuit_spec_invalid", "Unknown kind/operation combination")
+            if operation == 'disable_tasks':
+                from cst_automation.task_disable import normalize
+                normalize(params)
+                if not borrowed_project:
+                    raise CircuitError('circuit_unavailable', 'Task disable requires the owning borrowed session')
             if project_scope is None:
                 path = contained(service.workdir, project["path"])
             else:
@@ -194,9 +199,11 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     expected_registration_sha256=params.get('expected_registration_sha256'))
                 return ok_result(saved=report['saved'], result_summary=report,
                     artifacts=[artifact(str(path), kind='project'), artifact(report['audit_path'], kind='registration_audit')])
-            if operation in ("configure", 'configure_transient_task', 'configure_steady_state_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
+            if operation in ("disable_tasks", "configure", 'configure_transient_task', 'configure_steady_state_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
                 try:
-                    if operation == 'configure_em_time_settings':
+                    if operation == 'disable_tasks':
+                        report = api.disable_tasks(params['tasks'], confirm_idle=params['confirm_idle'], review_note=params['review_note'])
+                    elif operation == 'configure_em_time_settings':
                         from cst_solver.simulation.em_time import EMTimeConfigurationError
                         try:
                             report = app.configure_em_time_settings(params['settings'])
@@ -236,7 +243,26 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     audit.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding="utf-8")
                     return fail_result(exc.code, str(exc), saved=partial["saved"], run_identity={"run_token": token},
                                        result_summary={"partial_build": partial}, artifacts=[artifact(str(audit), kind="failure_audit"), artifact(str(path), kind="partial_project")])
-                app.save()
+                try:
+                    app.save()
+                except Exception as exc:
+                    if operation != 'disable_tasks':
+                        raise
+                    # Native changes already happened. Preserve their readback even
+                    # when saving fails; never retry the save or configuration here.
+                    token = uuid4().hex
+                    partial = dict(report, stage='save', saved=False, save_error=str(exc))
+                    audit = path.parent / path.stem / 'circuit_failures' / (token + '.json')
+                    artifacts = []
+                    try:
+                        audit.parent.mkdir(parents=True, exist_ok=True)
+                        audit.write_text(json.dumps(partial, ensure_ascii=False, indent=2), encoding='utf-8')
+                        artifacts.append(artifact(str(audit), kind='failure_audit'))
+                    except Exception as audit_error:
+                        partial['audit_error'] = str(audit_error)
+                    return fail_result('circuit_build_partial', 'Task settings changed but save failed',
+                        saved=False, run_identity={'run_token': token},
+                        result_summary={'partial_build': partial}, artifacts=artifacts)
                 return ok_result(saved=True, result_summary=report, artifacts=[artifact(str(path), kind="project")])
             if operation == "package":
                 dest = contained(service.workdir, params["destination"])

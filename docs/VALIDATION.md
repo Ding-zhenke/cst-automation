@@ -1,5 +1,21 @@
 # 验证记录
 
+## 2026-11-11：托管禁用已有 HB 任务（0.3.50，离线）
+
+- 新增所属会话 circuit/build/disable_tasks 及 disable-native-tasks-v1 能力检查；
+  全部目标先核对完整名称、存在性、类型和 enabled，再只写 False 并重读。
+  使用原会话的归属、摘要、代次和保存/失败机制，不创建/删除任务，不 Update 或求解。
+- 28 项定向测试通过，包括无效请求和旧 worker 在原生访问前拒绝、MCP 实际路由、
+  原生读回不一致、部分失败审计、保存失败保留 before/after/attempted 且不重试，
+  以及工作流归属/摘要/代次拒绝和 HB 证据失效。
+- 最终完整离线回归 **2038 passed、2 deselected、9 warnings**（48.63 s），
+  日志 work/pytest-disable-approved.log。首轮受限环境运行出现失败且在末段停滞，
+  仅中止该离线测试调用后重新完整验证；未中止 CST。技能格式和插件构建通过，
+  独立只读代码复核的保存失败证据缺口已修复。
+- 维护端未连接主 DE、交接 worker、启动 CST、进行实机禁用或读取历史结果。
+  readback_verified 只指配置状态，原生兼容、保存重开和结果逐值保留仍待所属会话验收。
+  confirm_idle 是调用方声明，不新增 DS 空闲 getter；禁用不等于停止活跃任务。
+
 ## 2026-11-11：3D 停止与 DS 序列空闲边界（文档核对）
 
 所属会话报告在 3D abort 返回、EM 中止及后处理完成、Model3D running=False、session ready

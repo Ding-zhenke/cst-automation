@@ -146,6 +146,13 @@ def validate(operation, params):
     if operation == 'circuit':
         require(params.get('kind', 'build') in ('build', 'solve', 'study') and
                 isinstance(params.get('settings'), dict), 'Explicit circuit kind/settings required')
+        from cst_automation.task_disable import is_request, normalize
+        if is_request(operation, params):
+            require(params.get('kind') == 'build', 'Task disable requires explicit build kind')
+            try:
+                normalize(params['settings'])
+            except (ValueError, TypeError) as exc:
+                raise ServiceError('invalid_session_argument', str(exc)) from exc
     depends = params.get('depends_on', [])
     require(isinstance(depends, list) and all(isinstance(s, str) and s for s in depends),
             'depends_on must list predecessor operation IDs')

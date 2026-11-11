@@ -44,6 +44,12 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 ## 选择入口
 
+用户要求保留定义/结果但禁用已有 CST HB 父/子任务时，使用所属会话
+`circuit/build/disable_tasks`，按[禁用任务指南](../../docs/guides/disable_native_tasks.md)
+提供完整任务名、预期类型、原生启用状态及当前空闲审阅。只配置保存，不 Update，
+不以裸宏绕过工作流；禁用不是中止运行序列。旧 worker 缺能力时由所属会话处理，
+不为新接口打断当前任务或擅自交接。
+
 通用电路设置、读回和任务提交均使用原生 Python/API，必要时使用有依据的 VBA。
 缺少能力时报告具体缺失的接口和未完成的设置，不把 Computer Use 作为回退来
 配置、运行或绕过任务门槛。真实弹窗的诊断按所属会话规则处理，不把处理弹窗
