@@ -53,6 +53,11 @@ scene makes the existing authorization insufficient.
   the existing API, then inspect/continue the same project ID. Never hand-write human_reviewed.
 - Query original job receipts after a timeout/disconnect. Resume the original worker when lost;
   never resubmit uncertain work under a fresh ID or copy/rebuild the original model automatically.
+- Cooperative worker upgrade requires `cooperative-worker-upgrade-v1`, an idle unfenced session,
+  and, for native sessions, a verified absent DE. Freeze first through the documented begin/finish
+  API and retain the frozen state until the replacement advertises the requested capabilities.
+  Legacy workers cannot respond to this protocol; live-DE preservation is not yet validated.
+  Do not force-stop a worker, close a DE, or represent fake tests as native upgrade evidence.
 - A failed circuit run_task with explicit returned/saved receipts may leave the session ready
   after project/run identity, saved and disk digests, and absence of prior uncertainty/dialogs
   are verified. The job remains failed and the solver outcome unverified/review_required.

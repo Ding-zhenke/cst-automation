@@ -35,6 +35,14 @@ def register_session_tools(root, *, backend='cst', replace=False):
     def close(a):
         return tool_payload({'job': manager.close(a['session_id'], a['credential'], a['request_id'])})
 
+    def begin_worker_upgrade(a):
+        return tool_payload({'upgrade': manager.begin_worker_upgrade(a['session_id'], a['credential'],
+                                                                      confirm_idle=a.get('confirm_idle', False),
+                                                                      required_capabilities=a.get('required_capabilities'))})
+
+    def finish_worker_upgrade(a):
+        return tool_payload({'upgrade': manager.finish_worker_upgrade(a['session_id'], a['credential'])})
+
     def reconcile(a):
         return tool_payload({'session': manager.reconcile(a['session_id'], a['credential'],
                             a['review_note'], a['project_digests'], confirm_idle=a.get('confirm_idle', False),
@@ -61,6 +69,11 @@ def register_session_tools(root, *, backend='cst', replace=False):
          identity, list(identity), resume, False),
         ('close_cst_session', 'Explicitly save and close only this conversation environment after accepted work drains.',
          dict(identity, request_id=string), list(identity) + ['request_id'], close, False),
+        ('begin_cst_worker_upgrade', 'Freeze an idle session and request cooperative worker exit; live native DE is not supported.',
+         dict(identity, confirm_idle={'type': 'boolean'}, required_capabilities={'type': 'array', 'items': string, 'uniqueItems': True}),
+         list(identity) + ['confirm_idle'], begin_worker_upgrade, False),
+        ('finish_cst_worker_upgrade', 'Complete a previously frozen cooperative worker upgrade without replaying jobs.',
+         identity, list(identity), finish_worker_upgrade, False),
         ('reconcile_cst_session', 'Adopt a reviewed saved baseline within existing user authorization; resolve only selected job IDs without replay or certification.',
          dict(identity, review_note=string, project_digests={'type': 'object'},
               confirm_idle={'type': 'boolean'}, environment_identity={'type': 'object'},

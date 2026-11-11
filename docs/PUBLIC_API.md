@@ -1,5 +1,29 @@
 # cst-automation 与领域包的公共接口
 
+## Cooperative worker upgrade (bounded)
+
+`begin_worker_upgrade(session_id, credential, *, confirm_idle=True, required_capabilities=[...])` freezes
+new submissions using the existing `closing` state, under the same locks as
+submission, after checking no active journals, no fence, and a live worker
+advertising `cooperative-worker-upgrade-v1`. The old worker acknowledges and
+exits on its own without explicitly calling an application close. `finish_worker_upgrade` is
+repeatable: it waits for acknowledged old-process exit, launches a replacement,
+then unfreezes only after the new worker publishes its startup acknowledgement
+and every required capability. An unavailable capability leaves it frozen.
+The maintenance record persists across interrupted calls. Pending or failed
+steps stay frozen; an uncertain launch is not automatically repeated. No task
+is replayed or rewritten. CLI exposes
+`begin-worker-upgrade --confirm-idle --require-capability NAME` (repeatable)
+and `finish-worker-upgrade`; MCP exposes
+the corresponding explicit tools.
+
+Legacy workers lack this capability and are rejected before freezing. This
+initial implementation refuses a live native DE; Python process exit and CST
+DE persistence together have not been validated. For CST the recorded DE must
+be demonstrably absent and there must be no uncertain creation intent. The
+caller must independently confirm idle and dialog state. The protocol has only
+fake-backend tests and does not establish native worker/DE acceptance.
+
 ## Model frequency band without full rebuild
 
 An isolated session `model_api` batch containing `set_frequency_range` and
