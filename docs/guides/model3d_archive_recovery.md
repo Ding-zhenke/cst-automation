@@ -1,6 +1,7 @@
 # 失败 3D 历史的受管理归档恢复
 
-状态：0.3.61 离线实现，**原生恢复尚未验收**。适用于原 `model_api/history`
+状态：0.3.61–0.3.65 的一次同 DE 工程恢复已由所属会话报告验收；范围见
+docs/VALIDATION.md，不代表任意版本或工程均已验证。适用于原 `model_api/history`
 已完整返回原生 `add_to_history` 错误、原 session 处于 `needs_reconcile`，且当前
 保存文件已经偏离登记基线。超时、断连、未返回任务不能使用此入口。
 不删除单条 History，不保存失败内存，不建网格、不重建、不求解。
@@ -105,8 +106,8 @@ status 读取；不能手改 session.json、改 request ID、普通 resume/recon
 若仅在新 worker 启动、尚未 admission 时失败，可按既有 native handoff 的显式
 recover 接口核对整个失败进程树退出后恢复；不放宽其限制。
 
-尚未现场证明：隔离后原生重开是否自行生成本版本的历史 JSON、完整外部依赖、
-原生句柄交接及矩阵保留。缺项会拒绝而不是从旧文件制造证明。
+所属会话已报告本次原生重开生成历史 JSON 并完成新句柄交接；完整外部依赖、
+矩阵数值保留及其他 CST 版本仍需各自证据。缺项不能从旧文件制造证明。
 
 ## 退出后、关闭前的精确 SimProps 差异复核（0.3.64）
 
@@ -184,4 +185,4 @@ reviewed_messages 必须是按实际顺序完整列出的三个 `{type: "INFO", 
 仍由所属工程完成；geometry_verified/solver_verified/external_dependencies_verified=False。
 
 随后 finish 完成新句柄交接才回到 needs_reconcile，再按原流程定向 reconcile。
-本接口仍是离线已验证、真机待验收，不能用它声称 INFO 之外的数值验证已经通过。
+所属会话已报告本次 postopen 复核及完整交接通过；不能用它声称数值验证已经通过。

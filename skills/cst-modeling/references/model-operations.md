@@ -109,6 +109,34 @@ settings, expected_type=..., preserve_ports=...)`。必须给全部数值坐标�
 包围盒，create_field_monitor 则按类型和频率建监视器。监视器行与 F 求解器 Single/
 Automatic 采样行不同，不凭监视器行判断自适应频点是否已设置。
 
+## 离散端口原生只读
+
+0.3.66 的所属会话 `inspect` 支持以下 params，经现有
+`submit_cst_session_operation` 或 SessionManager.submit 提交：
+
+```json
+{"project_id":"原工程ID","native_readback":true,"parameter_names":[],"solid_names":[],"discrete_port_ids":[1,2,3]}
+```
+
+填写真实目标编号（1–1000 个不重复正整数），空参数/实体清单避免无关枚举。
+worker 需 `discrete-port-readback-v1`；旧 worker 会拒绝，不为读取而中断仿真升级。
+在已授权、同一 SDK 线程持有 app 的底层维护代码中，可直接使用
+`cst_solver.simulation.discrete_ports.read_discrete_ports(app, port_ids)`；它不负责
+连接或恢复工程，不能另行 attach 绕过所属会话。
+
+官方 GetCoordinates/GetProperties 的 Python 包装只传编号，分别返回
+`(success,x0,y0,z0,x1,y1,z1)` 和
+`(success,type,impedance,current,voltage,voltagePortImpedance,radius,monitor)`；
+GetLength 返回几何长度，**不是** GetGridLength 的网格长度。坐标、radius、长度使用
+工程几何单位；阻抗为 Ω，其他数值原样保存。按端口类型有些属性不生效，不能强行解释。
+回执保留 raw 及具名字段；查询错误位于 native_readback.errors，不返回部分快照。
+
+不依赖 ModelCache/Model.mif 或 DPT，不生成缓存、写 History、保存、建网格或求解。
+比较基线时核对编号、项目摘要和单位，逐端口比较实际坐标/属性；长度和端点距离可
+作为工程对照，但不将其等同于接触、面端口形状、方向、模式阻抗或数值验收。
+2026-11-12 所属工程报告十个端口原生读回与原基线一致；其中 P1/P2 为 100 Ω，
+不是默认 50 Ω。此实机证据不表示新封装已在每种 CST 版本/端口类型验证。
+
 ## 外部几何与设置边界
 
 已有 import_sat/import_dxf/import_step/import_iges/import_stl/import_subproject，

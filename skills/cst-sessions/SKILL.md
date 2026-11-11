@@ -121,7 +121,8 @@ scene makes the existing authorization insufficient.
   cooperatively retire stale handles and restore the exact archive in the same DE.
   Do not substitute schematic recovery, ordinary reload, partial companion copying
   or preemptive reconcile. Completion still requires targeted scene reconciliation;
-  ambiguous mutations are not replayed. Native archive recovery remains unverified.
+  ambiguous mutations are not replayed. The owning session reported one complete
+  0.3.61–0.3.65 native recovery and handoff; see VALIDATION for its limited scope.
   Preserve native Discrete port mode counts of 0 in recovery inventories; only
   Waveguide requires a positive count. Do not replace the observed 0 with 1.
   The archive backup excludes only its root Model.lok, recording metadata and

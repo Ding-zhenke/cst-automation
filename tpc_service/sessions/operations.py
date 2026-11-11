@@ -14,6 +14,12 @@ def execute(runtime, job):
     operation, params = job['operation'], job['params']
     from . import workflow
     try:
+        if operation == 'inspect' and 'discrete_port_ids' in params:
+            from .inspection import validate_options
+            from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
+            validate_options(params)
+            if DISCRETE_READ_CAPABILITY not in runtime.state().get('worker_capabilities', []):
+                raise ServiceError('workflow_worker_upgrade_required', 'Discrete-port inspection requires a compatible execution worker')
         if operation == 'model_api':
             from .model_api import validate_calls, uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             validate_calls(params['calls'])

@@ -134,6 +134,11 @@ class SessionManager:
                 check_project_intent(state, index.active_jobs(), operation, params)
                 assert_path_unclaimed(self.root, folder, operation, params)
             from .workflow import preflight
+            from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
+            if (operation == 'inspect' and 'discrete_port_ids' in params
+                    and state.get('worker') and alive(state['worker'])
+                    and DISCRETE_READ_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Discrete-port inspection requires a compatible idle worker')
             from .model_api import settings_only, settings_capability
             from cst_automation.settings_history import CAPABILITY as HISTORY_CAPABILITY, uses_settings_history
             if (operation == 'model_api' and uses_settings_history(params['calls'])

@@ -29,6 +29,20 @@ Rebuild 异常没有正常返回证明，不追加保存，继续围栏。保存
 
 ## 旧几何错误围栏中的显式只读入口
 
+### 已保存的 settings-only INFO 接续
+
+settings-only 调用不执行 Rebuild，因此不能要求或伪造 rebuild_returned=True。
+如果已明确 execution_returned=True、saved=True、无监测失败/未知写入，仍须逐项
+核对原 job、登记/回执/当前文件摘要、完整请求与原生 History caption/code、实际
+参数/相关实体/端口以及当前 EM、DS、后处理空闲状态。仅凭三个以前见过的 INFO
+重复出现不能自动通过；必须保存本次完整消息，确认没有新增 WARNING/ERROR 或依赖问题。
+
+已有授权覆盖当前保存基线时，所属会话可按既有 targeted reconcile 接口显式记录
+证据并处理这个具体失败 job；原错误与审计继续保留，不重放已返回的设置，不改写
+failed 为 succeeded，不伪造 geometry_verified，也不拿该失败 job 满足 depends_on。
+后续独立求解仍受原有授权、当前工程依赖及 EM/HB 强制检查约束。ready、reconcile
+或 settings-only 保存都不代表物理验证通过；未知/未返回操作不能用本路径续接。
+
 默认 inspect 在 needs_reconcile 内仍只返回围栏元数据。需要实际原生审阅时，由所属
 会话在确证原 DE 空闲、无弹窗和无其他运行/排队任务后，沿原恢复引用提交 operation=inspect：
 
@@ -57,7 +71,7 @@ Rebuild 异常没有正常返回证明，不追加保存，继续围栏。保存
 不 Rebuild/save/solve，不消费消息队列，不制造 human_reviewed/last_resolution。
 目标不在真实打开列表中就拒绝，不能以这条只读请求重新打开它。
 
-只执行既有 inspect_native 的受限参数、实体、材料、体积/点归属 getters。前后检查
+只执行既有 inspect_native 的受限参数、实体、材料、体积/点归属及显式离散端口 getters。前后检查
 原身份、文件摘要和目标句柄。readback_verified 仅指这些 getter 是否读回无错误；
 geometry_verified/solver_verified/idle_verified 仍为 False。保留原 session 状态及原错误，
 返回 message_read_status=not_read_preserve_queue。查询失败也不清围栏，另记读审阅错误；

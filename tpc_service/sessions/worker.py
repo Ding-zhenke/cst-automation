@@ -243,6 +243,8 @@ def run(folder):
             state['worker_capabilities'].append(FACE_CAPABILITY)
             from cst_automation.task_disable import CAPABILITY as DISABLE_CAPABILITY
             state['worker_capabilities'].append(DISABLE_CAPABILITY)
+            from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
+            state['worker_capabilities'].append(DISCRETE_READ_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.
             uncertain = list(state.get('uncertain_jobs') or [])
             # Audit the original receipts once at process start. This also

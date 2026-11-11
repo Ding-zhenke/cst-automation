@@ -79,6 +79,10 @@ API。不得为“一次性提交”改写整台设备。会话未路由已有�
 编号、位置、朝向、范围、模式、极化和参考面；先选择自由放置/拾取波导端口、离散
 端口或集总元件的正确 API。场监视器与传输曲线输出分开设置。
 
+离散端口坐标/阻抗/长度使用所属会话 `inspect` 的 `discrete_port_ids` 有界原生读回；
+调用示例和证据边界见 [端口原生读取](references/model-operations.md#离散端口原生只读)。
+不为获得缓存而保存、建网格或重建，不从默认 50 Ω 推断真实端口阻抗。
+
 替换已有端口使用 `replace_port_with_waveguide`，明确目标编号、原类型和保留端口；
 提交前读 [端口替换限制](references/model-operations.md)。必须使用具备
 `port-replacement-readback-v1` 的 worker；不能重启正在求解的 worker 来升级。

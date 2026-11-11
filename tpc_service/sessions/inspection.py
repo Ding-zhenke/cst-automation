@@ -11,7 +11,7 @@ def validate_options(params):
         if not condition:
             raise ServiceError('invalid_session_argument', message)
     require(not set(params) - {'project_id', 'depends_on', 'native_readback',
-                               'parameter_names', 'solid_names', 'sample_points',
+                               'parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids',
                                'read_only_review', 'confirm_idle', 'expected_digest'},
             'Unsupported inspect option')
     require(type(params.get('native_readback', False)) is bool, 'native_readback must be boolean')
@@ -30,6 +30,12 @@ def validate_options(params):
             require(isinstance(names, list) and len(names) <= LIMIT and
                     all(isinstance(n, str) and 0 < len(n) <= 512 for n in names),
                     key + ' must be a bounded list of names')
+    if 'discrete_port_ids' in params:
+        from cst_automation.discrete_ports import validate_ids
+        try:
+            validate_ids(params['discrete_port_ids'])
+        except ValueError as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     points = params.get('sample_points', [])
     require(isinstance(points, list) and len(points) <= LIMIT, 'Bounded sample_points required')
     ids = set()
@@ -43,10 +49,13 @@ def validate_options(params):
         require(isinstance(point, list) and len(point) == 3 and
                 all(type(x) in (int, float) and math.isfinite(x) for x in point), 'Finite xyz point required')
     require(params.get('native_readback', False) or not any(k in params for k in
-            ('parameter_names', 'solid_names', 'sample_points')), 'Query options require native_readback=true')
+            ('parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids')), 'Query options require native_readback=true')
 
 
 def inspect_native(app, params):
+    if 'discrete_port_ids' in params:
+        from cst_automation.discrete_ports import validate_ids
+        validate_ids(params['discrete_port_ids'])
     result = dict(native_executed=True, parameters={}, solids={}, sample_points=[], errors=[],
                   coordinate_units='project geometry units', volume_units='project geometry units cubed')
     model = app.cst_file.model3d
@@ -95,4 +104,7 @@ def inspect_native(app, params):
         inside = query('point:' + item['id'], point_data)
         if inside is not None:
             result['sample_points'].append(dict(item, inside=inside))
+    if 'discrete_port_ids' in params:
+        from cst_solver.simulation.discrete_ports import read_discrete_ports
+        result['discrete_ports'] = query('discrete_ports', lambda: read_discrete_ports(app, params['discrete_port_ids']))
     return result

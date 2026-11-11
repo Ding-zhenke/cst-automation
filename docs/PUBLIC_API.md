@@ -1231,6 +1231,20 @@ FakeBackend 的 `solve` 结果保留请求的 `run_id`（默认 0），用于验
 
 Session `inspect` accepts opt-in `native_readback: true`, with optional bounded
 `parameter_names`, `solid_names`, and `sample_points` (id, solid, xyz `point`).
+Since 0.3.66, `discrete_port_ids` is an optional list of 1–1000 unique positive
+32-bit integer IDs (booleans excluded). It requires native_readback and worker
+capability `discrete-port-readback-v1`; unsupported live workers are not restarted.
+The public owning-app reader `cst_solver.simulation.discrete_ports.read_discrete_ports`
+uses only Port.GetType and DiscretePort.GetCoordinates/GetProperties/GetLength.
+It validates the whole request before native access and returns an ID-keyed map,
+with raw tuples as JSON lists plus named coordinates/properties/length. Coordinates,
+radius and length are in project geometry units; impedance is in ohms. Current and
+voltage retain native values; inactive properties are not interpreted by port type.
+False success flags, malformed/nonfinite data, unknown types and negative length
+reject the batch. No default 50-ohm value, cache generation, save or mesh fallback.
+Inspection puts the result in native_readback.discrete_ports; failure records an
+error and no partial port map. These reads do not certify mesh length, contact,
+face-port shape, source direction, modal impedance or solver validity.
 Omitted name lists enumerate the current model (at most 10000 entries per list).
 Parameters (value and expression), solid material assignments, volumes and point
 tests use native queries on the owning worker, without history, rebuild or save.

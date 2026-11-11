@@ -1,5 +1,24 @@
 # 验证记录
 
+## 2026-11-12：有界离散端口原生读取与恢复验收记录（0.3.66）
+
+- 新增已有 app 的只读 read_discrete_ports，及 session inspect 的 discrete_port_ids。
+  输入限定 1–1000 个唯一正整数 ID，提交/执行检查 worker 能力；错误输入在启动前拒绝。
+  Port.GetType 与 DiscretePort.GetCoordinates/GetProperties/GetLength 严格验证成功标志、
+  结构及有限数值，保留 raw 和具名字段，无缓存/保存/历史/网格/求解回退。
+- 官方依据为本机 CST 2026 DiscretePort 对象帮助；Python 返回形式由所属工程实际
+  十端口报告 restored_discrete_ports_native.json 支持。维护已读取全部十组返回值：
+  P1/P2=100 Ω，其余=50 Ω；坐标、类型、阻抗与原基线比较均为 true。该报告针对
+  恢复后的旧成功基线，不认证后续改动或新封装在其他版本/端口类型的原生行为。
+- 所属会话报告 0.3.61–0.3.65 本次归档恢复、postopen 复核及同 DE 新 worker 交接
+  完成；448 参数、10 端口坐标/阻抗、3 个 DS tasks disabled 核对，6 个关闭登记保持。
+  维护读取 recovery_complete.json 的 handoff_readback_verified 和 recovery_resolution.json
+  的 ready/original_failure_preserved；原失败审计保留。此为一次生命周期验收，不代表
+  矩阵值保留、外部依赖全部有效、网格收敛或新 EM 结果通过。
+- 全库离线 **2381 passed、2 deselected、9 warnings**（68.24 s），日志
+  `work/pytest-discrete-read-full.log`；相关 83 项及打包测试通过，两个技能校验通过，
+  独立代码审查无阻塞。维护未调用实际 CST，也未重启正在工作的 worker。
+
 ## 2026-11-12：已重开工程的精确 INFO 复核（0.3.65）
 
 - 所属会话已报告原 DE 内归档重开、全参数和端口身份核对通过，但三个原生 INFO
