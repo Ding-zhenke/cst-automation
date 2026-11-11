@@ -1,7 +1,7 @@
 {
   "name": "cst-automation",
-  "version": "0.3.39",
-  "description": "CST modeling, simulation, device characterization, circuits, figures, results, diagnostics, and in-situ validation through twelve independently selected skills.",
+  "version": "0.3.41",
+  "description": "CST modeling, simulation, device characterization, circuits, figures, results, diagnostics, and in-situ validation through thirteen independently selected skills.",
   "author": {
     "name": "Ding-zhenke"
   },
@@ -16,7 +16,7 @@
   "interface": {
     "displayName": "CST Automation",
     "shortDescription": "CST 建模、仿真、结果分析与诊断",
-    "longDescription": "包含十二个独立 skill，按当前任务选择并读取指令。实际 CST 操作需要另行配置本机 Python、cst-automation 和 CST SDK。",
+    "longDescription": "包含十三个独立 skill，按当前任务选择并读取指令。实际 CST 操作需要另行配置本机 Python、cst-automation 和 CST SDK。",
     "developerName": "Ding-zhenke"
   }
 }

@@ -13,6 +13,10 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 由服务检查后才可继续 HB。绑定工程暂不支持原生 EM 扫参配置或非托管 study，
 以下原生扫参建议不构成绕过该限制的许可。
 
+正常返回保存但有原生警告的 EM，可按 [探索性保存结果证据](../../docs/guides/saved_em_qualification.md#警告结果的外部探索性证据)
+创建外部 ADS 探索用独立回执，保留失败和警告；它不生成 Touchstone、不满足
+服务内 HB 放行、不认证网格收敛。必须分别核对外部文件映射、DC 和全部混频覆盖。
+
 ## 已审阅保存基线的接续
 
 原 `set_parameters` 失败后，若其回执证明调用和参数刷新均已返回并保存，保存摘要、

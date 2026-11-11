@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-11-11：HF Tet 奇异边细化和几何投影（离线）
+
+- 官方 MeshAdaption3D 文档核对 SingularEdgeRefinement 0..3、Automatic refinement 前提和 SnapToGeometry bool；新增受限 typed 设置，沿用显式注册的 service/MCP model_api 路径。未增加猜测的现代 MeshSettings 键或 legacy 质量优化替代。
+- 新增 33 项回归（含现有纯设置路径的两个参数化用例）；定向回归通过，整合远端更新后完整离线回归 1870 项通过、2 项实机/界面测试排除、9 项既有警告。覆盖命令顺序、稀疏配置、非法类型/范围、整批预检、旧 worker 拦截、MCP 传输和无 Rebuild/solve。
+- 需要实际 worker 宣告 hf-tet-adaptation-controls-v1；新字段对旧活 worker 在排队前拒绝。未重启、接管或操作正在运行的 CST、工程或 worker。
+- 命令实际生效、参数原生读回、结果保留、保存重开、网格改善和收敛仍未实机验收。奇异边细化可能突破普通增长限制，不等于低质量优化迭代预算。
+- 活 DE 协作交接仍被拒绝，未实现/宣称安全热升级；所需冻结、原身份保留、无创建/重开 fallback 和独立实机验收路径见 guides/hf_tet_adaptation_controls.md。
+
+## 2026-11-11：警告 EM 的外部探索性证据
+
+- 新增独立 `qualify_exploratory_em`：只读核对返回保存、WARNING、原生直接采样/各激励残差、正 Run ID 全矩阵和绑定代次；失败和 WARNING 保留，mesh 为 unknown，不设置正式 EM/HB 放行回执。
+- 离线替身验证拒绝异常、未返回、监测故障、代次变化、缺频点/端口、旧 worker 和不完整日志。实际存档 Model.log 的只读解析不代表真实 SDK 矩阵资格或器件验收。该入口不输出 ADS 文件，原生执行与保存数据读取集成仍未实机验证。
+
 ## 2026-11-11：结果兼容性弹窗分类与重复消息观测（离线）
 
 - 新增 5 项回归，先复现缺失字段/未知分类，再修复；完整离线回归 1821 项通过、2 项实机/界面测试排除、9 项既有警告。首次受限运行出现失败且未完成，未计为验收；在允许测试子进程的环境完整重跑通过。诊断 skill 格式检查通过。

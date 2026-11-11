@@ -154,13 +154,13 @@ EndSubProject
         导入 STEP 格式文件
 
         :param filename: str, STEP 文件路径
-        :param unit: str, 导入单位，默认 'mm'
+        :param unit: str, legacy compatibility argument; STEP source units are embedded in the file.
         """
         f1 = f"""With STEP
      .Reset
      .FileName "{filename}"
      .ScaleToUnit "True"
-     .FileUnit "{unit}"
+     .ImportAttributes "True"
      .Read
 End With"""
         self.cst_file.model3d.add_to_history(f"Import STEP: {filename}", f1)

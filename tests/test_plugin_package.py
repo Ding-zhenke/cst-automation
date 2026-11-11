@@ -38,7 +38,7 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
             "cst-circuit", "cst-device-characterization", "cst-diagnostics",
             "cst-diode-loading", "cst-figures", "cst-mesh-frequency", "cst-modeling",
             "cst-parameter-study", "cst-results", "cst-sessions", "cst-simulation",
-            "cst-in-situ-validation"}
+            "cst-in-situ-validation", "keysight-ads-simulation"}
         for name, content in before.items():
             if '__pycache__' in Path(name).parts or name.endswith('.pyc'):
                 assert name not in names

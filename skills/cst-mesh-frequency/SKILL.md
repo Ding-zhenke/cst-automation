@@ -139,6 +139,8 @@ They do not change adaptation frequencies, pass limits, or enable adaptation unl
 those fields are explicitly supplied. Require `hf-tet-adaptation-controls-v1`
 from the actual worker; do not interrupt a running job to load it. Native readback
 and effective-mesh/solver validation remain separate and unverified by configuration.
+Read [the HF Tet controls and upgrade boundary](../../docs/guides/hf_tet_adaptation_controls.md)
+when submitting these fields or arranging a worker upgrade.
 The local CST Mesh Object help documents
 DelaunayOptimizationLevel (0..5) and DelaunayPropagationFactor for Delaunay;
 VolumeOptimization and DensityTransitions (0..1) are Advancing Front controls.
