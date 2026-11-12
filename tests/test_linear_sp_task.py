@@ -126,6 +126,59 @@ def test_inspect_existing_is_read_only_and_does_not_certify_sources():
     assert not report['zero_external_sources_verified'] and not report['solver_verified']
 
 
+def test_completes_existing_reviewed_task_without_recreation():
+    from cst_solver.circuit.linear_sp import inspect_existing_linear_sp, complete_existing_linear_sp_task
+    schematic = FakeSchematic()
+    task = schematic.SimulationTask
+    task.Type('S-Parameters'); task.Create(); task.units = {'Frequency':'GHz', 'Resistance':'Ohm'}
+    task.props = {'maximum frequency range':'false', 'circuit simulator':'cst', 'broadband sweep':'true',
+                  'logarithmic sweep':'false', 'fmin':'0', 'fmax':'1000'}
+    expected = inspect_existing_linear_sp(schematic, 'LinearSP', ['P1', 'P2'])
+    report = complete_existing_linear_sp_task(schematic, 'LinearSP', expected=expected,
+        frequency_unit='GHz', fmin=2, fmax=5, samples=4, port_impedances={'P1':50, 'P2':75})
+    assert report['solver_verified'] is False and task.exists
+    assert ('sweep', '2', '5', '4') in task.calls
+    assert ('impedance', 'P2', '75', '0') in task.calls
+
+
+def test_existing_task_changed_since_review_is_rejected_before_writes():
+    from cst_solver.circuit.linear_sp import inspect_existing_linear_sp, complete_existing_linear_sp_task
+    schematic = FakeSchematic()
+    task = schematic.SimulationTask
+    task.Type('S-Parameters'); task.Create(); task.units = {'Frequency':'GHz', 'Resistance':'Ohm'}
+    task.props = {'maximum frequency range':'false', 'circuit simulator':'cst', 'broadband sweep':'true',
+                  'logarithmic sweep':'false', 'fmin':'0', 'fmax':'1000'}
+    expected = inspect_existing_linear_sp(schematic, 'LinearSP', ['P1', 'P2'])
+    task.props['fmax'] = '999'
+    with pytest.raises(ValueError, match='changed'):
+        complete_existing_linear_sp_task(schematic, 'LinearSP', expected=expected,
+            frequency_unit='GHz', fmin=2, fmax=5, samples=4, port_impedances={'P1':50, 'P2':75})
+    assert not task.calls
+
+
+def test_existing_task_failure_records_attempt_and_completed_steps():
+    from cst_solver.circuit.adapter import CircuitError
+    from cst_solver.circuit.linear_sp import inspect_existing_linear_sp, complete_existing_linear_sp_task
+    schematic = FakeSchematic()
+    task = schematic.SimulationTask
+    task.Type('S-Parameters'); task.Create(); task.units = {'Frequency':'GHz', 'Resistance':'Ohm'}
+    task.props = {'maximum frequency range':'false', 'circuit simulator':'cst', 'broadband sweep':'true',
+                  'logarithmic sweep':'false', 'fmin':'0', 'fmax':'1000'}
+    expected = inspect_existing_linear_sp(schematic, 'LinearSP', ['P1', 'P2'])
+    original = task.SetProperty
+    def set_property(key, value):
+        if key == 'broadband sweep': raise RuntimeError('native setter failed')
+        original(key, value)
+    task.SetProperty = set_property
+    with pytest.raises(CircuitError) as caught:
+        complete_existing_linear_sp_task(schematic, 'LinearSP', expected=expected,
+            frequency_unit='GHz', fmin=2, fmax=5, samples=4, port_impedances={'P1':50, 'P2':75})
+    detail = caught.value.details
+    assert detail['attempted'] == {'stage':'set_broadband_sweep', 'arguments':['broadband sweep', 'False']}
+    assert detail['completed'][0]['stage'] == 'set_maximum_frequency_range'
+    assert detail['original_message'] == 'native setter failed'
+
+
 @pytest.mark.parametrize('ports', [[], ['P1'], ['P1', 'P1'], [True]])
 def test_inspect_rejects_bad_ports(ports):
     from cst_solver.circuit.linear_sp import inspect_existing_linear_sp

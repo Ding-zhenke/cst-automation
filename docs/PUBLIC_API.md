@@ -300,6 +300,10 @@ Native S-parameter task readback on CST 2026 rejects `GetPortSourceType`; static
 SP inspection and the impedance query must not call it. Source type readback is
 reported unsupported and independent source-zero evidence remains mandatory.
 Partial task errors retain the exact native call stage and underlying exception.
+`cst_solver.circuit.linear_sp.complete_existing_linear_sp_task` compares a
+caller-reviewed native task snapshot before setting only that task's sweep and impedances. It does not
+create a task, alter nets or save. Its presence alone cannot release a session
+fence or replace a protected recovery and handoff.
 
 `cst_solver.circuit.static_sp.detach_source_endpoint(adapter, net_name, endpoint,
 expected_members)` is an explicitly mutating, low-level transaction primitive for

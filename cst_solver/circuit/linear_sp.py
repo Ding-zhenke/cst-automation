@@ -30,6 +30,56 @@ def inspect_existing_linear_sp(schematic, task_name, ports):
             'native_bridge_verified': False, 'solver_verified': False}
 
 
+def complete_existing_linear_sp_task(schematic, task_name, *, expected, frequency_unit,
+                                     fmin, fmax, samples, port_impedances):
+    """Complete a reviewed existing task only; caller owns the session fence."""
+    if (not isinstance(port_impedances, dict) or not port_impedances
+            or frequency_unit not in ('Hz', 'kHz', 'MHz', 'GHz')
+            or any(type(v) not in (int, float) or not math.isfinite(v) for v in (fmin, fmax))
+            or not 0 <= fmin < fmax or type(samples) is not int or not 2 <= samples <= 100000
+            or any(not isinstance(k, str) or not k or type(v) not in (int, float)
+                   or not math.isfinite(v) or v <= 0 for k, v in port_impedances.items())):
+        raise ValueError('Explicit task settings required')
+    before = inspect_existing_linear_sp(schematic, task_name, list(port_impedances))
+    if before != expected:
+        raise ValueError('Native task changed after review')
+    if (before['frequency_unit'] != frequency_unit or before['resistance_unit'] != 'Ohm'
+            or before['properties']['circuit simulator'].casefold() != 'cst'):
+        raise ValueError('Reviewed units or simulator differ')
+    task = schematic.SimulationTask
+    task.Reset(); task.Name(task_name)
+    completed, stage, attempted = [], 'set_maximum_frequency_range', None
+    def write(stage_name, fn, *args):
+        nonlocal stage, attempted
+        stage = stage_name
+        attempted = {'stage': stage_name, 'arguments': list(args)}
+        fn(*args)
+        completed.append(attempted)
+    try:
+        write('set_maximum_frequency_range', task.SetProperty, 'maximum frequency range', 'False')
+        write('set_broadband_sweep', task.SetProperty, 'broadband sweep', 'False')
+        write('set_sweep_data', task.SetSweepData, format(fmin, '.17g'), format(fmax, '.17g'), str(samples))
+        write('set_logarithmic_sweep', task.SetProperty, 'logarithmic sweep', 'False')
+        for name, value in port_impedances.items():
+            write('set_port_impedance:' + name, task.SetConstPortImpedance, name, format(value, '.17g'), '0')
+        stage = 'read_task_settings'
+        attempted = None
+        after = inspect_existing_linear_sp(schematic, task_name, list(port_impedances))
+        props = after['properties']
+        if (after['frequency_unit'] != frequency_unit or after['resistance_unit'] != 'Ohm'
+                or props['circuit simulator'].casefold() != 'cst'
+                or any(props[k].casefold() != 'false' for k in ('maximum frequency range', 'broadband sweep', 'logarithmic sweep'))
+                or not math.isclose(float(props['fmin']), fmin, rel_tol=1e-10, abs_tol=0)
+                or not math.isclose(float(props['fmax']), fmax, rel_tol=1e-10, abs_tol=0)
+                or any(v['impedance_type'].casefold() != 'constant' for v in after['ports'].values())):
+            raise ValueError('Native task readback differs')
+    except Exception as exc:
+        raise CircuitError('circuit_build_partial', 'Existing S-parameter task may be partially updated',
+                           failure_stage=stage, original_type=type(exc).__name__, original_message=str(exc),
+                           attempted=attempted, completed=completed) from exc
+    return {'before': before, 'after': after, 'completed': completed, 'solver_verified': False}
+
+
 def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax,
                              samples, port_impedances):
     if (not isinstance(task_name, str) or not task_name.strip()
