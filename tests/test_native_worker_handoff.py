@@ -94,7 +94,8 @@ def test_dead_worker_recovery_freezes_and_reviews_existing_de(handoff,monkeypatc
     snapshot={'blocks':[]};write(f/'jobs'/'complete.json',{'job_id':'complete','session_id':sid,'status':'succeeded',
         'operation':'complete_failed_static_task','params':{'project_id':'p','failed_job_id':'failed'},
         'result':{'original_failed_job_id':'failed','saved':True,'saved_digest':args['project_digests']['p'],'after':snapshot}})
-    live.remove(11);monkeypatch.setattr(h,'process_identity',lambda pid:None)
+    live.remove(11);monkeypatch.setattr(h,'process_identity',lambda pid:{'pid':11,'started':999,'image':'other.exe'} if pid==11 else None)
+    monkeypatch.setattr(h,'worker_process_snapshot',lambda identity:[])
     monkeypatch.setattr(h.JobIndex,'load',lambda folder:type('Index',(),{'active_jobs':lambda self: []})())
     proof={'tabs':['original'],'parameters':{'p':{}},'static_partial':{'p':digest(snapshot)}}
     monkeypatch.setattr(h,'verify_native',lambda runtime,state:observed(runtime,proof))
@@ -122,16 +123,34 @@ def test_dead_worker_recovery_freezes_and_reviews_existing_de(handoff,monkeypatc
     assert len(launched)==1 and launched[0]['recover'] is True
 
 
-def test_dead_worker_recovery_rejects_pid_reuse_before_freeze(handoff,monkeypatch):
+def test_dead_worker_recovery_rejects_original_live_identity_before_freeze(handoff,monkeypatch):
     m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
     state=read(f/'session.json');state['status']='needs_reconcile';write(f/'session.json',state)
-    monkeypatch.setattr(h,'process_identity',lambda pid:{'pid':pid,'started':999,'image':'other.exe'})
+    monkeypatch.setattr(h,'process_identity',lambda pid:args['worker_identity'])
     with pytest.raises(ServiceError):
         h.begin_dead_static_worker_recovery(m,sid,cred,failed_job_id='failed',completion_job_id='complete',
             project_id='p',snapshot_digest='a'*64,environment_identity=args['environment_identity'],
             worker_identity=args['worker_identity'],project_digests=args['project_digests'],review_note='Review',
             confirm_idle=True,confirm_no_worker_processes=True)
     assert read(f/'session.json')['status']=='needs_reconcile'
+
+
+def test_old_worker_child_blocks_recovery_even_when_pid_is_reused():
+    from tpc_service.sessions.native_handoff import old_worker_children
+    old={'pid':11,'started':100,'image':'old.exe'}
+    current={'pid':11,'started':300,'image':'other.exe'}
+    rows=[{'pid':12,'parent_pid':11,'started':200},{'pid':13,'parent_pid':11,'started':400}]
+    assert old_worker_children(old,current,rows)==[12]
+    assert old_worker_children(old,current,rows[1:])==[]
+
+
+def test_exact_preserved_de_may_be_the_old_workers_child(monkeypatch):
+    from tpc_service.sessions import native_handoff as h
+    old={'pid':11,'started':100,'image':'old.exe'};de={'pid':22,'started':150,'image':'cst.exe'}
+    monkeypatch.setattr(h,'process_identity',lambda pid:de if pid==22 else None)
+    monkeypatch.setattr(h,'worker_process_snapshot',lambda worker:[{'pid':22,'parent_pid':11,'started':150}])
+    assert h.verify_dead_worker(old,de)['preserved_de_direct_child'] is True
+    with pytest.raises(ServiceError): h.verify_dead_worker(old,dict(de,image='other.exe'))
 
 
 def test_failed_static_handoff_rejects_unrelated_failure(handoff, monkeypatch):

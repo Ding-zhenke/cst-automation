@@ -2,11 +2,13 @@
 
 ## 已退出 worker 的静态失败围栏恢复
 
-`begin_dead_static_worker_recovery` 只接受原静态准备失败、后续成功保存的明确任务回执、原 DE 身份、全部保存摘要和完整电路快照摘要，并要求明确确认旧 worker 进程树不存在和 DE 空闲。它冻结队列，以精确 PID 借用既有 DE 验证标签、参数、完整电路与空闲状态，再进入原有受控交接；保留原失败回执和围栏，不重开工程、不重放操作。旧 PID 仍存在、任务未完整返回、现场不匹配或原生核验失败时拒绝或保持冻结。该入口不运行求解，实机验收另计。
+`begin_dead_static_worker_recovery` 只接受原静态准备失败、后续成功保存的明确任务回执、原 DE 身份、全部保存摘要和完整电路快照摘要，并要求明确确认旧 worker 进程树不存在和 DE 空闲。它冻结队列，以精确 PID 借用既有 DE 验证标签、参数、完整电路与空闲状态，再进入原有受控交接；保留原失败回执和围栏，不重开工程、不重放操作。旧 worker 的完整进程身份仍存活、任务未完整返回、现场不匹配或原生核验失败时拒绝或保持冻结。该入口不运行求解，实机验收另计。
 
 Python：`manager.begin_dead_static_worker_recovery(session_id, credential, **review)`；CLI：`begin-dead-static-worker-recovery --review-file <JSON>`；MCP：`begin_cst_dead_static_worker_recovery`。`review` 包含 `failed_job_id`, `completion_job_id`, `project_id`, `snapshot_digest`（完成回执 `after` 的规范摘要）, `environment_identity`, `worker_identity`, `project_digests`, `review_note`, `confirm_idle=true`, `confirm_no_worker_processes=true`；若后续需要静态排除及保护运行，另传 `require_self_em_exclusion=true`, `require_guarded_static_run=true`。成功返回 `stop_requested` 后由原工程所属会话继续 `finish_native_worker_handoff` 直至 `complete`；保持原失败和 `needs_reconcile`。若原生审阅失败，队列仍冻结，先调查现场，禁止自行修改状态或重放。
 
 0.3.81 将旧 worker 已不存在记录为 `dead_worker_absence_verified_at`，不虚报旧 worker 的主动退出确认；继续沿用相同交接检查。0.3.80 的该新入口不应使用。
+
+0.3.83 起，当旧 PID 已由其他进程复用时，恢复入口按 PID、启动时间和映像的完整身份区分；核查进程快照中仍存活且出生于旧 worker 生命周期的直接子进程，并重复核对旧身份和原生现场。唯一例外是完整身份匹配、需要保留的原 DE 本身；其他旧子进程仍拒绝。不终止占用 PID 的进程。进程快照不能证明已退出中间进程的历史后代均已消失，仍须由所属会话核实整个旧进程树后明确确认；身份或检查不可读时拒绝。
 
 ## Fenced 3D archive recovery
 

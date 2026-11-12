@@ -24,6 +24,65 @@ def stop_proven(record):
              record['dead_worker_absence_verified_at']>0))
 
 
+def old_worker_children(worker, current, rows):
+    """Identify visible direct children born during the old PID lifetime."""
+    start=worker['started'];end=current['started'] if current else None
+    require(type(start) is int and (end is None or type(end) is int and end>start),
+            'Process creation times do not establish PID reuse order')
+    return [row['pid'] for row in rows if row['parent_pid']==worker['pid']
+            and row['started']>=start and (end is None or row['started']<end)]
+
+
+def worker_process_snapshot(worker):
+    """Enumerate live direct children using Windows process snapshots; never terminate them."""
+    require(os.name=='nt','Automatic child-process review requires Windows')
+    import ctypes
+    from ctypes import wintypes
+    class Entry(ctypes.Structure):
+        _fields_=[('dwSize',wintypes.DWORD),('cntUsage',wintypes.DWORD),('th32ProcessID',wintypes.DWORD),
+                  ('th32DefaultHeapID',ctypes.c_size_t),('th32ModuleID',wintypes.DWORD),('cntThreads',wintypes.DWORD),
+                  ('th32ParentProcessID',wintypes.DWORD),('pcPriClassBase',ctypes.c_long),
+                  ('dwFlags',wintypes.DWORD),('szExeFile',wintypes.WCHAR*260)]
+    kernel=ctypes.WinDLL('kernel32',use_last_error=True)
+    kernel.CreateToolhelp32Snapshot.argtypes=[wintypes.DWORD,wintypes.DWORD]
+    kernel.CreateToolhelp32Snapshot.restype=wintypes.HANDLE
+    kernel.Process32FirstW.argtypes=[wintypes.HANDLE,ctypes.POINTER(Entry)]
+    kernel.Process32NextW.argtypes=[wintypes.HANDLE,ctypes.POINTER(Entry)]
+    kernel.CloseHandle.argtypes=[wintypes.HANDLE]
+    handle=kernel.CreateToolhelp32Snapshot(2,0)
+    require(handle not in (None,ctypes.c_void_p(-1).value),'Process snapshot unavailable')
+    rows=[];entry=Entry();entry.dwSize=ctypes.sizeof(entry)
+    try:
+        ok=kernel.Process32FirstW(handle,ctypes.byref(entry))
+        require(bool(ok),'Process snapshot enumeration failed')
+        while ok:
+            if entry.th32ParentProcessID==worker['pid'] and entry.th32ProcessID!=worker['pid']:
+                identity=process_identity(entry.th32ProcessID)
+                if identity: rows.append({'pid':identity['pid'],'parent_pid':worker['pid'],'started':identity['started']})
+            ok=kernel.Process32NextW(handle,ctypes.byref(entry))
+        require(ctypes.get_last_error()==18,'Process snapshot enumeration incomplete')
+    finally:
+        kernel.CloseHandle(handle)
+    return rows
+
+
+def verify_dead_worker(worker, preserved_environment=None):
+    current=process_identity(worker['pid'])
+    require(current!=worker,'Original worker identity is still alive')
+    rows=worker_process_snapshot(worker)
+    require(process_identity(worker['pid'])==current,'Worker PID identity changed during process review')
+    children=old_worker_children(worker,current,rows)
+    de_child=bool(preserved_environment and preserved_environment.get('pid') in children)
+    if de_child:
+        require(process_identity(preserved_environment['pid'])==preserved_environment,
+                'Preserved DE child identity differs')
+        children.remove(preserved_environment['pid'])
+    require(not children,'Live direct child of original worker remains')
+    return {'pid_reused':current is not None,'visible_direct_old_children':0,
+            'preserved_de_direct_child':de_child,
+            'historical_descendant_absence':'caller_reviewed_not_independently_proven'}
+
+
 def admit_worker(state, nonce):
     """Caller holds worker.lock and state.lock; no SDK calls before admission."""
     record = state.get('worker_upgrade') or {}
@@ -354,8 +413,8 @@ def begin_dead_static_worker_recovery(manager, session_id, credential, *, failed
             and all(c in '0123456789abcdef' for c in snapshot_digest), 'Reviewed circuit digest required')
     for value in (failed_job_id,completion_job_id,project_id): identifier(value)
     require(isinstance(worker_identity,dict) and type(worker_identity.get('pid')) is int
-            and worker_identity['pid']>0 and process_identity(worker_identity['pid']) is None,
-            'Old worker PID must be absent, including PID reuse')
+            and worker_identity['pid']>0, 'Exact worker identity required')
+    process_review=verify_dead_worker(worker_identity,environment_identity)
     folder=manager._folder(session_id)
     with lock(folder/'handoff.lock'),lock(folder/'launch.lock'),lock(folder/'worker.lock',blocking=False):
         with lock(manager.root/'registry.lock'),lock(folder/'state.lock'):
@@ -381,7 +440,7 @@ def begin_dead_static_worker_recovery(manager, session_id, credential, *, failed
                         and (state.get('runtime_diagnostics') or {}).get('state','clear')=='clear',
                         'Idle fenced session without uncertain work required')
                 require(state.get('worker')==worker_identity and not alive(worker_identity)
-                        and process_identity(worker_identity['pid']) is None, 'Exact dead worker required')
+                        and verify_dead_worker(worker_identity,environment_identity)==process_review, 'Exact dead worker required')
                 require(state.get('environment')==environment_identity and alive(environment_identity), 'Exact live DE required')
                 original=read(folder/'jobs'/(failed_job_id+'.json')) or {};error=original.get('error') or {}
                 require(original.get('job_id')==failed_job_id and original.get('session_id')==session_id
@@ -422,10 +481,10 @@ def begin_dead_static_worker_recovery(manager, session_id, credential, *, failed
         with lock(manager.root/'registry.lock'),lock(folder/'state.lock'):
             current=manager._state(folder,credential);record=check_frozen(folder,current)
             require(record['token']==token and record['phase']=='reviewing' and current['worker']==worker_identity
-                    and process_identity(worker_identity['pid']) is None and not alive(worker_identity),
+                    and not alive(worker_identity) and verify_dead_worker(worker_identity,environment_identity)==process_review,
                     'Dead worker or recovery changed during native review')
             record.update(phase='stop_requested',pre_exit_native=proof,
-                          dead_worker_absence_verified_at=time.time())
+                          dead_worker_absence_verified_at=time.time(),dead_worker_process_review=process_review)
             write(folder/'session.json',current)
             return copy.deepcopy(record)
 
@@ -489,6 +548,8 @@ def finish(manager, session_id, credential):
                 record.update(phase='stop_requested',pre_exit_native=proof)
             else:
                 require(stop_proven(record) and not alive(record['old_worker']), 'Original worker has not exited')
+                if record.get('dead_worker_recovery'):
+                    verify_dead_worker(record['old_worker'],record['environment'])
                 require(current.get('worker') in (None,record['old_worker']), 'Unexpected replacement worker')
                 record.update(phase='starting',launch_attempted=True,post_exit_native=proof)
                 current.update(worker=None,worker_capabilities=[])
