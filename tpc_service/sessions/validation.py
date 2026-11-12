@@ -26,6 +26,20 @@ def validate(operation, params):
             raise ServiceError('invalid_session_argument', str(exc)) from exc
         return
     identifier(params.get('project_id'))
+    if operation == 'capture_failed_static':
+        from .static_fenced_recovery import validate as validate_static_capture
+        try:
+            validate_static_capture(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation in ('complete_failed_static_task', 'inspect_failed_static_task'):
+        from .static_fenced_recovery import validate_completion
+        try:
+            validate_completion(params)
+            if operation == 'inspect_failed_static_task' and params['expected_task'] != {}:
+                raise ValueError('Inspection requires an empty expected task')
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'prepare_static_sp':
         require(set(params) == {'project_id', 'expected_digest', 'confirm_idle', 'spec'} and params.get('confirm_idle') is True,
                 'Exact saved identity, static specification and idle assertion required')

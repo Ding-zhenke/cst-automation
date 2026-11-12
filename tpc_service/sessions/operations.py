@@ -244,6 +244,30 @@ def _execute_operation(runtime, job):
         runtime.check_saved(record)
         app.cst_file = handle
         return circuit(runtime, app, record, params)
+    if operation == 'capture_failed_static':
+        from .static_fenced_recovery import capture
+        try:
+            return capture(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'complete_failed_static_task':
+        from .static_fenced_recovery import complete_task
+        try:
+            return complete_task(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'inspect_failed_static_task':
+        from .static_fenced_recovery import inspect_task
+        try:
+            return inspect_task(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
     mark_stage(runtime, 'project.acquire')
     if operation == 'prepare_static_sp':
         from .store import alive

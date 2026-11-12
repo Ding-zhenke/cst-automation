@@ -166,6 +166,11 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
         state['last_read_review_error'] = error
         evidence.update(decision=prior, reason='read_only_review_preserved_state')
         return  # A bounded getter failure neither lifts nor adds a write fence.
+    if (job.get('operation') in ('capture_failed_static','complete_failed_static_task','inspect_failed_static_task')
+            and error.get('code') == 'session_static_recovery_refused' and not monitor_failure):
+        state['last_static_recovery_error'] = error
+        evidence.update(decision=prior, reason='static_recovery_refused_before_mutation')
+        return
     if job['operation'] == SCHEMATIC_RECOVERY and error.get('code') != ROLLBACK_ERROR and not monitor_failure:
         state['last_schematic_recovery_error'] = error
         evidence.update(decision=prior, reason='schematic_recovery_refused_before_mutation')
@@ -246,6 +251,7 @@ def run(folder):
             state['worker_capabilities'].append('sp-impedance-read-v1')
             state['worker_capabilities'].append('circuit-source-property-readback-v1')
             state['worker_capabilities'].append('static-sp-prepare-v1')
+            state['worker_capabilities'].append('static-sp-fenced-recovery-v1')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             state['worker_capabilities'].append(DISCRETE_READ_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.

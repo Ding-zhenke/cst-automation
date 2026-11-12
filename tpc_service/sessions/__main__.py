@@ -24,6 +24,8 @@ def main(argv=None):
     sub.add_parser('finish-worker-upgrade')
     native_handoff = sub.add_parser('begin-native-worker-handoff')
     native_handoff.add_argument('--review-file', required=True)
+    failed_static_handoff = sub.add_parser('begin-failed-static-worker-handoff')
+    failed_static_handoff.add_argument('--review-file', required=True)
     sub.add_parser('finish-native-worker-handoff')
     archive_recovery = sub.add_parser('begin-model3d-archive-recovery')
     archive_recovery.add_argument('--review-file', required=True)
@@ -83,6 +85,8 @@ def main(argv=None):
                 result = manager.finish_worker_upgrade(sid, credential)
             elif args.command == 'begin-native-worker-handoff':
                 result = manager.begin_native_worker_handoff(sid, credential, **read(args.review_file))
+            elif args.command == 'begin-failed-static-worker-handoff':
+                result = manager.begin_failed_static_worker_handoff(sid, credential, **read(args.review_file))
             elif args.command == 'finish-native-worker-handoff':
                 result = manager.finish_native_worker_handoff(sid, credential)
             elif args.command == 'begin-model3d-archive-recovery':

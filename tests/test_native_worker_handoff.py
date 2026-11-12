@@ -19,7 +19,7 @@ def handoff(tmp_path,monkeypatch):
     worker={'pid':11,'started':1,'image':'python.exe'}
     de={'pid':22,'started':2,'image':'cstd.exe'}
     state=read(folder/'session.json');state.update(status='ready',worker=worker,environment=de,
-        worker_capabilities=['cooperative-worker-upgrade-v1'],projects={
+        worker_capabilities=['cooperative-worker-upgrade-v1','preserved-de-worker-handoff-v1'],projects={
             'p':{'project_id':'p','path':str(p),'saved':True,'saved_digest':file_digest(p)}})
     write(folder/'session.json',state)
     live={11,22}
@@ -64,6 +64,159 @@ def test_freeze_verify_ack_attach_then_release(handoff,monkeypatch):
     assert h.verify_release(Runtime(f,'cst'))
     assert m.finish_native_worker_handoff(sid,cred)['phase']=='complete'
     assert read(f/'session.json')['environment']==args['environment_identity']
+
+
+def test_failed_static_handoff_preserves_original_fence(handoff, monkeypatch):
+    m,r,f,live,args,h=handoff; sid,cred=r['session_id'],r['credential']
+    error={'code':'session_static_sp_prepare_failed','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=error)
+    write(f/'session.json',state)
+    job={'job_id':'job-failed','session_id':sid,'status':'failed','finished_at':1,
+         'operation':'prepare_static_sp','params':{'project_id':'p'},'error':error}
+    write(f/'jobs'/'job-failed.json',job)
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder: type('Index',(),{'active_jobs':lambda self: []})())
+    review=dict(failed_job_id='job-failed',project_id='p',
+        snapshot_digest='a'*64,environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+        project_digests=args['project_digests'],review_note='Reviewed partial state',confirm_idle=True,
+        confirm_borrowed_worker=True,accept_unverified_native_handoff=True)
+    report=h.begin_failed_static(m,sid,cred,**review)
+    assert report['return_to_fence'] is True and report['static_partial']['snapshot_digest']=='a'*64
+    assert report['phase']=='reviewing' and read(f/'session.json')['last_error']==error
+    assert h.begin_failed_static(m,sid,cred,**review)['token']==report['token']
+
+
+def test_failed_static_handoff_rejects_unrelated_failure(handoff, monkeypatch):
+    m,r,f,live,args,h=handoff; sid,cred=r['session_id'],r['credential']
+    error={'code':'other','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=error)
+    write(f/'session.json',state)
+    job={'job_id':'job-failed','session_id':sid,'status':'failed','finished_at':1,
+         'operation':'prepare_static_sp','params':{'project_id':'p'},'error':error}
+    write(f/'jobs'/'job-failed.json',job)
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder: type('Index',(),{'active_jobs':lambda self: []})())
+    with pytest.raises(ServiceError):
+        h.begin_failed_static(m,sid,cred,failed_job_id='job-failed',project_id='p',snapshot_digest='a'*64,
+            environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+            project_digests=args['project_digests'],review_note='Review',confirm_idle=True,
+            confirm_borrowed_worker=True,accept_unverified_native_handoff=True)
+    assert read(f/'session.json')['status']=='needs_reconcile'
+
+
+def test_failed_static_owned_worker_requires_exit_risk_acknowledgment(handoff,monkeypatch):
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    error={'code':'session_static_sp_prepare_failed','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=error)
+    write(f/'session.json',state)
+    write(f/'jobs'/'job-failed.json',{'job_id':'job-failed','session_id':sid,'status':'failed','finished_at':1,
+        'operation':'prepare_static_sp','params':{'project_id':'p'},'error':error})
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder:type('Index',(),{'active_jobs':lambda self: []})())
+    review=dict(failed_job_id='job-failed',project_id='p',snapshot_digest='a'*64,
+        environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+        project_digests=args['project_digests'],review_note='Reviewed',confirm_idle=True,
+        worker_ownership='owned',confirm_owned_worker=True,accept_unverified_native_handoff=True)
+    with pytest.raises(ServiceError): h.begin_failed_static(m,sid,cred,**review)
+    assert read(f/'session.json')['status']=='needs_reconcile'
+    review['accept_owned_worker_exit_risk']=True
+    assert h.begin_failed_static(m,sid,cred,**review)['worker_ownership']=='owned'
+
+
+def test_failed_static_old_worker_without_preserved_de_capability_is_rejected(handoff,monkeypatch):
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    error={'code':'session_static_sp_prepare_failed','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=error,
+        worker_capabilities=['cooperative-worker-upgrade-v1']);write(f/'session.json',state)
+    write(f/'jobs'/'job-failed.json',{'job_id':'job-failed','session_id':sid,'status':'failed','finished_at':1,
+        'operation':'prepare_static_sp','params':{'project_id':'p'},'error':error})
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder:type('Index',(),{'active_jobs':lambda self: []})())
+    with pytest.raises(ServiceError):
+        h.begin_failed_static(m,sid,cred,failed_job_id='job-failed',project_id='p',snapshot_digest='a'*64,
+            environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+            project_digests=args['project_digests'],review_note='Reviewed',confirm_idle=True,
+            confirm_borrowed_worker=True,accept_unverified_native_handoff=True)
+    assert read(f/'session.json')['status']=='needs_reconcile'
+
+
+def test_failed_static_cli_and_mcp_use_same_frozen_handoff(handoff,monkeypatch,capsys):
+    from tpc_service.sessions.__main__ import main
+    from cst_mcp import tools
+    from cst_mcp.session_tools import register_session_tools
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    error={'code':'session_static_sp_prepare_failed','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=error);write(f/'session.json',state)
+    write(f/'jobs'/'job-failed.json',{'job_id':'job-failed','session_id':sid,'status':'failed','finished_at':1,
+        'operation':'prepare_static_sp','params':{'project_id':'p'},'error':error})
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder:type('Index',(),{'active_jobs':lambda self: []})())
+    review=dict(failed_job_id='job-failed',project_id='p',snapshot_digest='a'*64,
+        environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+        project_digests=args['project_digests'],review_note='Reviewed',confirm_idle=True,
+        confirm_borrowed_worker=True,accept_unverified_native_handoff=True)
+    write(f/'review.json',review);write(f/'reference.json',dict(r,root=str(m.root)))
+    assert main(['--root',str(m.root),'--reference',str(f/'reference.json'),
+                 'begin-failed-static-worker-handoff','--review-file',str(f/'review.json')])==0
+    assert 'reviewing' in capsys.readouterr().out
+    for name in ('TOOL_SPECS','HANDLERS','READ_TOOLS','WRITE_TOOLS'):
+        monkeypatch.setattr(tools,name,getattr(tools,name).copy())
+    register_session_tools(str(m.root),backend='cst')
+    result=tools.dispatch('begin_cst_failed_static_worker_handoff',dict(session_id=sid,credential=cred,review=review))
+    assert result['ok'] and result['upgrade']['return_to_fence']
+
+
+def test_dirty_static_snapshot_drift_is_not_handoff_proof(monkeypatch):
+    from types import SimpleNamespace
+    from cst_solver.circuit import adapter
+    from tpc_service.sessions.native_handoff import verify_static_partial
+    expected={'blocks':[{'name':'one'}], 'unknown':[]}
+    app=SimpleNamespace(circuit=SimpleNamespace(adapter=SimpleNamespace(inspect=lambda:expected)))
+    monkeypatch.setattr(adapter,'NativeAdapter',lambda app:app.circuit.adapter)
+    review={'project_id':'p','snapshot_digest':digest(expected)}
+    assert verify_static_partial(app, review, 'p') == digest(expected)
+    expected['blocks'][0]['name']='changed'
+    with pytest.raises(ServiceError): verify_static_partial(app, review, 'p')
+
+
+def test_dirty_snapshot_uses_new_adapter_for_selected_project(monkeypatch):
+    from types import SimpleNamespace
+    from cst_solver.circuit import adapter
+    from tpc_service.sessions.native_handoff import verify_static_partial
+    target={'blocks':[{'name':'target'}], 'unknown':[]}
+    app=SimpleNamespace(cst_file=SimpleNamespace(snapshot=target),
+        circuit=SimpleNamespace(adapter=SimpleNamespace(inspect=lambda:pytest.fail('stale cached adapter used'))))
+    monkeypatch.setattr(adapter,'NativeAdapter',lambda current:SimpleNamespace(inspect=lambda:current.cst_file.snapshot))
+    assert verify_static_partial(app,{'project_id':'p','snapshot_digest':digest(target)},'p')==digest(target)
+
+
+def test_failed_static_handoff_returns_to_fence_without_saving(handoff, monkeypatch):
+    from tpc_service.sessions.native import Runtime
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    original={'code':'session_static_sp_prepare_failed','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=original)
+    write(f/'session.json',state)
+    job={'job_id':'job-failed','session_id':sid,'status':'failed','finished_at':1,
+         'operation':'prepare_static_sp','params':{'project_id':'p'},'error':original}
+    write(f/'jobs'/'job-failed.json',job)
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder: type('Index',(),{'active_jobs':lambda self: []})())
+    proof={'tabs':['original'],'parameters':{'p':{}},'static_partial':{'p':'a'*64}}
+    monkeypatch.setattr(h,'verify_native',lambda runtime,state:observed(runtime,proof))
+    review=dict(failed_job_id='job-failed',project_id='p',snapshot_digest='a'*64,
+        environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+        project_digests=args['project_digests'],review_note='Reviewed partial state',confirm_idle=True,
+        confirm_borrowed_worker=True,accept_unverified_native_handoff=True)
+    h.begin_failed_static(m,sid,cred,**review)
+    assert m.finish_native_worker_handoff(sid,cred)['phase']=='stop_requested'
+    state=read(f/'session.json');state['worker_upgrade']['stop_ack']=True;write(f/'session.json',state);live.remove(11)
+    monkeypatch.setattr(m,'_launch',lambda *a,**kw:None)
+    assert m.finish_native_worker_handoff(sid,cred)['phase']=='starting'
+    state=read(f/'session.json');new={'pid':33,'started':3,'image':'python.exe'};live.add(33)
+    state.update(worker=new,worker_capabilities=[h.CAPABILITY,'static-sp-fenced-recovery-v1'])
+    state['worker_upgrade'].update(new_worker_ready=new,new_worker_native=proof)
+    write(f/'session.json',state)
+    monkeypatch.setattr(h,'process_identity',lambda pid:new)
+    assert m.finish_native_worker_handoff(sid,cred)['phase']=='release_requested'
+    assert h.verify_release(Runtime(f,'cst'))
+    assert m.finish_native_worker_handoff(sid,cred)['phase']=='complete'
+    state=read(f/'session.json')
+    assert state['status']=='needs_reconcile' and state['last_error']==original
+    assert state['projects']['p']['saved_digest']==args['project_digests']['p']
 
 
 @pytest.mark.parametrize('failure',['native','disk','de','parameter'])

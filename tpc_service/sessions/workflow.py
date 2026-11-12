@@ -146,6 +146,14 @@ def preflight(folder, state, operation, params, *, job=None):
             reject('request_invalid', str(exc))
         if (job is not None or state.get('worker')) and DISABLE_CAPABILITY not in state.get('worker_capabilities', []):
             reject('worker_upgrade_required', 'Task disable requires a compatible idle worker')
+    if operation == 'capture_failed_static':
+        from .static_fenced_recovery import preflight as static_capture_preflight
+        static_capture_preflight(folder, state, params, job=job)
+        return None
+    if operation in ('complete_failed_static_task', 'inspect_failed_static_task'):
+        from .static_fenced_recovery import completion_preflight
+        completion_preflight(folder, state, params, job=job)
+        return None
     if operation == 'accept_saved_baseline':
         from .saved_baseline import preflight as baseline_preflight
         return baseline_preflight(folder, state, params, job)

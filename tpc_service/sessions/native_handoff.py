@@ -7,7 +7,7 @@ from uuid import uuid4
 from pathlib import Path
 
 from tpc_service.errors import ServiceError
-from .store import alive, assert_environment_unclaimed, digest, lock, process_identity, read, write
+from .store import alive, assert_environment_unclaimed, digest, identifier, lock, process_identity, read, write
 from .job_index import JobIndex
 from .native import Runtime, file_digest
 
@@ -121,6 +121,19 @@ def check_frozen(folder, state):
     return record
 
 
+def verify_static_partial(app, review, project_id):
+    """Read the full reviewed dirty circuit; never infer it from disk bytes."""
+    if project_id != review['project_id']:
+        return None
+    from cst_solver.circuit.adapter import NativeAdapter
+    snapshot = NativeAdapter(app).inspect()
+    require(isinstance(snapshot, dict) and all(u == {'field':'parameter_dimensions','status':'unknown'}
+            for u in snapshot.get('unknown', [])), 'Incomplete native static circuit snapshot')
+    actual = digest(snapshot)
+    require(actual == review['snapshot_digest'], 'Dirty static circuit changed since review')
+    return actual
+
+
 def verify_native(runtime, state):
     """Borrow exact existing tabs. Never use Runtime.environment's create/reopen fallback."""
     from cst_solver.dialogs import check_dialogs
@@ -135,7 +148,8 @@ def verify_native(runtime, state):
     projects = {k:p for k,p in state['projects'].items() if not p.get('tab_closed')}
     require(bool(projects), 'At least one registered open tab required')
     expected = {path_key(p['path']) for p in projects.values()}
-    parameters, handles, app = {}, {}, None
+    parameters, handles, app, static_proof = {}, {}, None, {}
+    static_review = (state.get('worker_upgrade') or {}).get('static_partial')
     def parameter_snapshot(app):
         observed = inspect_native(app, {'solid_names': []})
         require(not observed['errors'], 'Full native parameter readback failed')
@@ -149,6 +163,10 @@ def verify_native(runtime, state):
         require(handle.model3d.is_solver_running(timeout=5) is False, 'Native EM idle not proven')
         app.cst_file = handle
         parameters[key] = parameter_snapshot(app)
+        if static_review:
+            value = verify_static_partial(app, static_review, key)
+            if value is not None:
+                static_proof[key] = value
         handles[key] = handle
         runtime.app = app
     require(set(map(path_key, app.project.list_open_projects())) == expected and alive(identity),
@@ -156,6 +174,8 @@ def verify_native(runtime, state):
     for key, handle in handles.items():
         app.cst_file = handle
         require(parameter_snapshot(app) == parameters[key], 'Native parameter state changed during review')
+        if static_review and key == static_review['project_id']:
+            require(verify_static_partial(app, static_review, key) == static_proof.get(key), 'Dirty static circuit drifted')
         require(path_key(handle.filename()) == path_key(projects[key]['path'])
                 and handle.model3d.is_solver_running(timeout=5) is False, 'Tab identity or idle changed')
     check_dialogs(label='native_worker_handoff_complete', pid=identity['pid'])
@@ -164,7 +184,11 @@ def verify_native(runtime, state):
     require(file_versions(state) == versions, 'Saved files changed during native review')
     runtime.handoff_native_observed_at = observed_at
     runtime.handles = handles
-    return {'tabs': sorted(expected), 'parameters': parameters}
+    result = {'tabs': sorted(expected), 'parameters': parameters}
+    if static_review:
+        require(set(static_proof) == {static_review['project_id']}, 'Dirty static project missing')
+        result['static_partial'] = static_proof
+    return result
 
 
 def begin(manager, session_id, credential, *, environment_identity, worker_identity,
@@ -224,6 +248,76 @@ def begin(manager, session_id, credential, *, environment_identity, worker_ident
             owned_worker_asserted_by_caller=confirm_owned_worker,
             owned_worker_exit_risk_accepted=accept_owned_worker_exit_risk)
         state.update(status='closing',worker_upgrade=record)
+        write(folder/'session.json',state)
+        return copy.deepcopy(record)
+
+
+def begin_failed_static(manager, session_id, credential, *, failed_job_id, project_id,
+                        snapshot_digest, environment_identity, worker_identity, project_digests,
+                        review_note, confirm_idle=False, confirm_borrowed_worker=False,
+                        accept_unverified_native_handoff=False, worker_ownership='borrowed',
+                        confirm_owned_worker=False, accept_owned_worker_exit_risk=False):
+    """Freeze the exact failed static session without treating its dirty tab as saved."""
+    from .manager import UPGRADE_CAPABILITY
+    require(confirm_idle is True and accept_unverified_native_handoff is True,
+            'Explicit idle and handoff review required')
+    require(worker_ownership in ('borrowed','owned'), 'Explicit worker ownership required')
+    if worker_ownership == 'borrowed':
+        require(confirm_borrowed_worker is True and confirm_owned_worker is False
+                and accept_owned_worker_exit_risk is False, 'Borrowed worker review required')
+    else:
+        require(confirm_borrowed_worker is False and confirm_owned_worker is True
+                and accept_owned_worker_exit_risk is True, 'Owned worker and native exit risk review required')
+    require(isinstance(review_note, str) and 0 < len(review_note.strip()) <= 8192, 'Review note required')
+    require(isinstance(snapshot_digest, str) and len(snapshot_digest) == 64
+            and all(c in '0123456789abcdef' for c in snapshot_digest), 'Reviewed circuit digest required')
+    failed_job_id, project_id = identifier(failed_job_id), identifier(project_id)
+    folder = manager._folder(session_id)
+    with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
+        state = manager._state(folder, credential)
+        existing = state.get('worker_upgrade')
+        if existing:
+            record = check_frozen(folder, state)
+            review = record.get('static_partial') or {}
+            require(record.get('return_to_fence') is True and review.get('failed_job_id') == failed_job_id
+                    and review.get('project_id') == project_id and review.get('snapshot_digest') == snapshot_digest
+                    and record.get('environment') == environment_identity and record.get('old_worker') == worker_identity
+                    and record.get('project_digests') == project_digests and record.get('review_note') == review_note
+                    and record.get('worker_ownership') == worker_ownership, 'Existing handoff inputs differ')
+            return copy.deepcopy(record)
+        require(manager.backend == state['backend'] == 'cst' and state.get('status') == 'needs_reconcile' and not state.get('uncertain_jobs')
+                and not state.get('launch_intent') and not state.get('close_requested')
+                and (state.get('runtime_diagnostics') or {}).get('state','clear') == 'clear'
+                and not JobIndex.load(folder).active_jobs(), 'Exact idle failed session required')
+        job = read(folder/'jobs'/(failed_job_id+'.json')) or {}
+        error = job.get('error') or {}
+        require(job.get('job_id') == failed_job_id and job.get('session_id') == session_id
+                and job.get('status') == 'failed' and job.get('finished_at')
+                and job.get('operation') == 'prepare_static_sp' and job.get('params', {}).get('project_id') == project_id
+                and error == state.get('last_error') and error.get('code') == 'session_static_sp_prepare_failed'
+                and error.get('details', {}).get('mutation_may_have_occurred') is True
+                and not (error.get('details', {}).get('session_monitor') or {}).get('failure_latched')
+                and not (error.get('details', {}).get('session_monitor') or {}).get('first_failure'),
+                'Exact partial static preparation failure required')
+        require(project_id in state['projects'] and not state['projects'][project_id].get('tab_closed'), 'Open owned target required')
+        require(state.get('worker') == worker_identity and alive(worker_identity)
+                and UPGRADE_CAPABILITY in state.get('worker_capabilities', [])
+                and CAPABILITY in state.get('worker_capabilities', []), 'Exact preserved-DE cooperative worker required')
+        require(state.get('environment') == environment_identity and alive(environment_identity), 'Exact live DE required')
+        require(saved_digests(state) == project_digests, 'Exact disk baseline required')
+        assert_environment_unclaimed(manager.root, session_id, environment_identity)
+        needed = ['static-sp-fenced-recovery-v1']
+        record = dict(mode=MODE, token=uuid4().hex, phase='reviewing', old_worker=worker_identity,
+            environment=environment_identity, projects_digest=digest(state['projects']), project_digests=project_digests,
+            file_versions=file_versions(state), review_note=review_note, stop_ack=False,
+            requested_capabilities=needed, required_capabilities=sorted(needed+[CAPABILITY]), started_at=time.time(),
+            native_acceptance='pending', saved_tabs_asserted_by_caller=False, schematic_idle_asserted_by_caller=True,
+            worker_ownership=worker_ownership, borrowed_worker_asserted_by_caller=confirm_borrowed_worker,
+            owned_worker_asserted_by_caller=confirm_owned_worker,
+            owned_worker_exit_risk_accepted=accept_owned_worker_exit_risk, return_to_fence=True,
+            static_partial={'failed_job_id':failed_job_id,'project_id':project_id,'snapshot_digest':snapshot_digest,
+                            'failed_job_digest':digest(job),'saved_disk_only':True})
+        state.update(status='closing', worker_upgrade=record)
         write(folder/'session.json',state)
         return copy.deepcopy(record)
 

@@ -41,6 +41,37 @@ these operations and should expose missing functionality as pending.
 
 ## Native zero-bias SP gap
 
+### Recover a returned partial static preparation (offline-tested only)
+
+The owning session reviews the original failed `prepare_static_sp` receipt,
+complete current in-memory `circuit.inspect()` snapshot, saved disk digests,
+DE/worker identities, dialogs and actual task idle state. Compute `snapshot_digest`
+with `cst_automation.workflow.digest(snapshot)`, not the hash of a JSON file.
+`begin_failed_static_worker_handoff` takes `failed_job_id`, `project_id`,
+`snapshot_digest`, `environment_identity`, `worker_identity`, all registered
+`project_digests`, `review_note`, `confirm_idle=true`, and
+`accept_unverified_native_handoff=true`. Set `worker_ownership` to `borrowed`
+with `confirm_borrowed_worker=true`, or to `owned` with
+`confirm_owned_worker=true` and `accept_owned_worker_exit_risk=true`.
+Advance using the existing `finish_native_worker_handoff` until complete; it
+compares full circuit snapshots on the original DE and returns to the same fence.
+The pre-handoff disk digest is not a claim that the dirty circuit was saved.
+
+With the compatible worker advertising `static-sp-fenced-recovery-v1`, submit
+`capture_failed_static` with exactly `project_id`, `failed_job_id`,
+`expected_disk_digest`, `snapshot_digest` and `confirm_idle=true`. Its new
+receipt saves and identifies the reviewed partial state but leaves the fence.
+For task inspection submit `inspect_failed_static_task` with exactly
+`project_id`, `failed_job_id`, `capture_job_id`, `expected_saved_digest`,
+`snapshot_digest`, `expected_task={}` and `confirm_idle=true`. Use its returned
+`expected_task` with the same remaining fields in `complete_failed_static_task`.
+That operation uses the failed job's original task intent, does not recreate the
+task, ports or connections, retains all failure receipts and remains fenced.
+Any incomplete or uncertain write is not replayed. Native array binding,
+save/attach behavior and this complete chain require in-project acceptance; none
+of these operations runs SP or EM. A later run still needs the no-new-EM gate,
+actual impedance evidence and a separate protected run/read implementation.
+
 ### Prepare a dedicated static circuit (new, offline-tested only)
 
 Using the existing owned session submission interface, operation

@@ -314,6 +314,19 @@ does not prove that task initialization cannot trigger 3D work; if that behavior
 cannot be established, the run must be refused. No existing static run route
 provides this guarantee yet.
 
+`SessionManager.begin_failed_static_worker_handoff` (MCP
+`begin_cst_failed_static_worker_handoff`, CLI `begin-failed-static-worker-handoff`)
+freezes an exact returned `prepare_static_sp` failure and binds the full reviewed
+native circuit digest, saved disk digests and exact DE/worker identities. Existing
+`finish_native_worker_handoff` checks the circuit snapshot before and after
+worker replacement and returns to the original fence. The saved digest continues
+to describe the old disk image until a separate save succeeds. The session
+operations `capture_failed_static`, `inspect_failed_static_task` and
+`complete_failed_static_task` require that completed handoff and the matching
+original failure; they do not launch a worker or clear the fence. See the
+integration guide for exact request fields. They require owner-confirmed DS idle;
+3D idle and no dialogs are checked separately. These APIs have offline tests only.
+
 `cst_solver.circuit.static_sp.detach_source_endpoint(adapter, net_name, endpoint,
 expected_members)` is an explicitly mutating, low-level transaction primitive for
 one existing voltage/current source block endpoint. It checks source type, all

@@ -47,6 +47,10 @@ def register_session_tools(root, *, backend='cst', replace=False):
         return tool_payload({'upgrade': manager.begin_native_worker_handoff(
             a['session_id'], a['credential'], **a['review'])})
 
+    def begin_failed_static_worker_handoff(a):
+        return tool_payload({'upgrade': manager.begin_failed_static_worker_handoff(
+            a['session_id'], a['credential'], **a['review'])})
+
     def finish_native_worker_handoff(a):
         return tool_payload({'upgrade': manager.finish_native_worker_handoff(a['session_id'], a['credential'])})
 
@@ -78,6 +82,8 @@ def register_session_tools(root, *, backend='cst', replace=False):
             a['session_id'], a['credential'], **a['review'])})
 
     entries = [
+        ('begin_cst_failed_static_worker_handoff', 'Freeze an exact failed static preparation for dirty-circuit preserved-DE handoff; retain its original fence.',
+         dict(identity, review={'type':'object'}), list(identity)+['review'], begin_failed_static_worker_handoff, False),
         ('review_cst_model3d_archive_postopen', 'Read-only review of exact INFO after native reopen; prepare fresh-handle handoff without reopening again.',
          dict(identity, review={'type': 'object'}), list(identity)+['review'], review_archive_postopen, False),
         ('review_cst_model3d_archive_drift', 'Explicit full-hash preclose Temp drift review; retain deltas and same frozen transaction.',
