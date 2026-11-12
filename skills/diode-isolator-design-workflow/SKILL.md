@@ -33,10 +33,15 @@ geometry, materials, ports, model, source conditions and EM input. A changed ADS
 bias or pump alone does not invalidate matching EM or zero-bias SP. Keep zero-bias
 SP and HB source settings distinct. Never claim a configured task was executed.
 
-The existing exploratory SP setup explicitly rejects unsupported native sample
-count and constant-impedance readback, and does not adapt an existing external-port
-and SP-task topology. Until a supported native route is implemented and verified,
-report the precise missing capability as pending; do not bypass session gates.
+The ordinary exploratory SP setup still rejects unsupported native sample-count
+readback and does not adapt existing external ports and SP-task topology. The
+separate fenced static-recovery route reads numerical constant impedances through
+the project-bound native bridge, checks the actual result frequency axis after
+the task, and can retain the reviewed existing topology. Its guarded run and read
+interfaces are implemented and offline tested; actual native execution, sample
+coverage and result identity must be established by that project's receipts.
+The ordinary successful-preparation and later candidate-reuse route remains pending;
+do not substitute the failure-recovery route or claim it is a complete loop.
 Inspect each source's actual connection and impedance when adding measurement
 ports. A zero-amplitude source may still load the same net, and a second port
 impedance may create an unintended parallel termination; do not remove sources
