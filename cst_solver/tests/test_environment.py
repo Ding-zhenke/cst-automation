@@ -143,7 +143,8 @@ assert issubclass(result, Result)
 assert before == sys.path
 assert 'cst' not in sys.modules
 '''
-    run = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True)
+    from cst_automation.process import hidden_console_flags
+    run = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert run.returncode == 0, run.stderr
     assert run.stdout == ''
 
@@ -168,9 +169,10 @@ def _doctor(*args):
     `PYTHONIOENCODING=utf-8` 的环境里随机失败。
     """
     env = dict(os.environ, PYTHONIOENCODING='utf-8')
+    from cst_automation.process import hidden_console_flags
     run = subprocess.run([sys.executable, '-m', 'cst_solver', 'doctor', *args],
                          capture_output=True, text=True, encoding='utf-8',
-                         errors='replace', env=env)
+                         errors='replace', env=env, creationflags=hidden_console_flags())
     assert run.returncode in (0, 1), run.stderr
     return json.loads(run.stdout), run
 

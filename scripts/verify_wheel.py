@@ -21,6 +21,7 @@ assert 'cst' not in sys.modules
 from cst_solver import get_cst_paths
 assert get_cst_paths(environ={}, search_roots=[]).install_path is None
 from cst_automation.curves import contiguous_bands
+from cst_automation.process import hidden_console_flags
 bands = contiguous_bands([1., 2., 3.], [-20., -30., -5.], threshold_db=-10.)
 assert bands[0]['fmin_ghz'] == 1. and bands[0]['fmax_ghz'] == 2.
 
@@ -30,7 +31,7 @@ env = dict(os.environ, CST_CONFIG_FILE=str(config), CST_AUTOMATION_BACKEND='fake
 for key in ('CST_INSTALL_PATH', 'CST_PYTHON_LIB', 'CST_MATERIAL_LIB'):
     env.pop(key, None)
 doctor = subprocess.run([sys.executable, '-B', '-m', 'cst_solver', 'doctor', '--json'],
-                        env=env, capture_output=True, text=True, timeout=15)
+                        env=env, capture_output=True, text=True, timeout=15, creationflags=hidden_console_flags())
 assert doctor.returncode == 1, doctor.stderr
 assert json.loads(doctor.stdout)['status'] == 'unavailable'
 

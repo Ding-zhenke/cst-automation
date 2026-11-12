@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 import pytest
+from cst_automation.process import hidden_console_flags
 
 
 def test_offline_imports_do_not_load_cst_or_domain_packages():
@@ -18,7 +19,7 @@ sys.meta_path.insert(0, Block())
 import cst_solver, tpc_service, cst_mcp, cst_automation
 assert "cst" not in sys.modules
 '''
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert result.returncode == 0, result.stderr
 
 
@@ -85,7 +86,7 @@ sys.meta_path.insert(0, Block())
 backend = CstBackend()
 assert backend.name == "cst"
 '''
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert result.returncode == 0, result.stderr
 
 

@@ -20,6 +20,12 @@ archive per-candidate inputs, matrices, raw outputs, logs and plots outside the
 project without routinely copying the entire project. Verify actual native history
 association and retention; a positive run ID alone is not persistence evidence.
 
+Run noninteractive helpers, test processes and background solvers without opening
+a console window. On Windows use `cst_automation.process.hidden_console_flags`
+with existing process flags; keep pipes, logs, process groups and lifecycle rules.
+An already detached worker must not combine `DETACHED_PROCESS` and
+`CREATE_NO_WINDOW`. Interactive user tools and CST windows retain their own UI.
+
 Use [sessions](../cst-sessions/SKILL.md), [circuit](../cst-circuit/SKILL.md),
 [results](../cst-results/SKILL.md), and [ADS](../keysight-ads-simulation/SKILL.md)
 for their actual stages and existing enforced gates. Bind results to the exact

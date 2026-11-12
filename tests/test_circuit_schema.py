@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 import pytest
+from cst_automation.process import hidden_console_flags
 
 from cst_automation.circuit_schema import CircuitSpecError, validate_circuit_spec
 from cst_automation.circuit_preview import preview_circuit
@@ -64,7 +65,7 @@ def test_preview_contains_connections_parameters_and_digest(tmp_path):
 
 def test_preview_does_not_load_cst(tmp_path):
     code = "import sys; from cst_automation.circuit_preview import preview_circuit; import cst_solver.circuit; assert not any(n == 'cst' or n.startswith('cst.') for n in sys.modules)"
-    result = subprocess.run([sys.executable, "-B", "-c", code], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, "-B", "-c", code], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert result.returncode == 0, result.stderr
 
 

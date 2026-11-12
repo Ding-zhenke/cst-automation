@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 from tpc_service.backends.cst_backend import CstBackend
+from cst_automation.process import hidden_console_flags
 
 
 def test_backend_import_isolated_from_cst_and_domain_packages():
@@ -18,7 +19,7 @@ from tpc_service.backends.cst_backend import CstBackend
 sys.meta_path.insert(0, Block())
 assert CstBackend().name == "cst"
 '''
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert result.returncode == 0, result.stderr
 
 

@@ -330,6 +330,21 @@ all geometric or physical properties and is not a run authorization.
 same excluded circuit, and records the original bridge's native-verification
 limitations; it neither saves nor runs a solver.
 
+The planned static run gate checks a leaf S-parameters task and its native CST
+network settings, all four source amplitudes and the control termination, the
+exact retained Touchstone payload and frequency coverage, complete file
+dependencies, the measurement-port topology, and an explicit whitelist of
+supported circuit block types. Any remaining 3D link, unknown component or task
+child must fail before submission. The associated run/read route is not yet
+available; structural inspection is distinct from observed solver execution.
+
+`cst_automation.process.hidden_console_flags(existing=0)` prepares creation
+flags for an explicitly noninteractive child. On Windows it adds
+`CREATE_NO_WINDOW` unless the child is already detached; a conflicting
+`CREATE_NEW_CONSOLE` or detached/no-window combination is rejected. Existing
+process-group flags and caller-owned pipes remain unchanged. Interactive CST and
+user-facing terminals must not be routed through this helper.
+
 `SessionManager.begin_failed_static_worker_handoff` (MCP
 `begin_cst_failed_static_worker_handoff`, CLI `begin-failed-static-worker-handoff`)
 freezes an exact returned `prepare_static_sp` failure and binds the full reviewed

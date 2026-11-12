@@ -4,6 +4,7 @@ import sys
 import os
 
 import pytest
+from cst_automation.process import hidden_console_flags
 
 from cst_mcp import tools, runtime
 from cst_mcp.circuit_tools import register_circuit_tools
@@ -103,7 +104,8 @@ def test_circuit_stdio_handshake_and_offline_preview(tmp_path):
     messages = queue.Queue()
     with (tmp_path / "stdio-stderr.log").open("w", encoding="utf-8") as err:
         proc = subprocess.Popen([command, "-B", "-u", "-m", "cst_mcp", "--enable-circuit", "--workdir", str(tmp_path)],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=err, text=True, encoding="utf-8", env=env)
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=err, text=True, encoding="utf-8", env=env,
+                                creationflags=hidden_console_flags())
         def receive():
             for line in proc.stdout:
                 messages.put(line)

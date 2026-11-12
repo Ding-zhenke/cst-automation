@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 import pytest
+from cst_automation.process import hidden_console_flags
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'skills/cst-sessions/scripts/check_workflow.py'
@@ -116,13 +117,13 @@ def test_cli_exit_status_and_no_mutation(checker, case):
     path = artifact.parent / 'workflow.json'
     path.write_text(json.dumps(manifest), encoding='utf-8')
     before = path.read_bytes()
-    result = subprocess.run([sys.executable, str(SCRIPT), str(path), '--stage', 'hb'], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(SCRIPT), str(path), '--stage', 'hb'], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert result.returncode == 1
     assert not json.loads(result.stdout)['consistent']
     assert path.read_bytes() == before
     observe(checker, manifest, artifact)
     path.write_text(json.dumps(manifest), encoding='utf-8')
-    result = subprocess.run([sys.executable, str(SCRIPT), str(path), '--stage', 'hb'], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(SCRIPT), str(path), '--stage', 'hb'], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert result.returncode == 0
     assert json.loads(result.stdout)['consistent']
 
@@ -136,6 +137,6 @@ def test_json_pointer_array_and_escaped_keys(checker):
 def test_cli_malformed_manifest_fails_closed(checker, tmp_path):
     path = tmp_path / 'bad.json'
     path.write_text('[]', encoding='utf-8')
-    result = subprocess.run([sys.executable, str(SCRIPT), str(path), '--stage', 'hb'], capture_output=True, text=True)
+    result = subprocess.run([sys.executable, str(SCRIPT), str(path), '--stage', 'hb'], capture_output=True, text=True, creationflags=hidden_console_flags())
     assert result.returncode == 2
     assert not json.loads(result.stdout)['consistent']
