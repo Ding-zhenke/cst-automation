@@ -1,5 +1,11 @@
 # Repository skills
 
+For repository work, run commands and background processes without showing a
+console window. On Windows use hidden process-launch options, such as
+`Start-Process -WindowStyle Hidden` or Python's `CREATE_NO_WINDOW`, as
+appropriate; retain output and error diagnostics. Show an interactive console
+only when the user explicitly requests one.
+
 For parameter → EM → HB work, use the mandatory
 [session workflow contract](../docs/guides/workflow_enforcement.md).
 The submission and execution gates run automatically; the optional checkpoint

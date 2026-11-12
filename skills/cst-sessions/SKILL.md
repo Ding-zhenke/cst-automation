@@ -7,6 +7,11 @@ description: Manage independent persistent CST environments for separate convers
 
 # Persistent conversation sessions
 
+Run session commands and background workers without a visible console window.
+On Windows use the applicable hidden launch options and retain logs and errors;
+show an interactive console only when the user explicitly requests one. This
+does not dismiss or conceal CST dialogs needed for diagnosis.
+
 Routine status, stop review, parameter updates and saved-baseline acceptance reuse
 the [existing operations and examples](../../docs/guides/reusable_operations.md).
 Do not turn an API status check into GUI control or a worker restart. Maintenance
