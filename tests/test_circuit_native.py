@@ -62,6 +62,23 @@ def test_native_sweep_keeps_parent_and_children_and_replaces_sequences():
     assert calls == []
 
 
+def test_sweep_explicit_enabled_states_and_validation_before_mutation():
+    calls = []
+    sweep = SimpleNamespace(**{name: (lambda *args, n=name: calls.append((n, args))) for name in
+        ['SetSimulationType', 'DeleteAllSequences', 'AddSequence', 'AddParameter_ArbitraryPoints', 'EnableSequence']})
+    app = SimpleNamespace(SimulationTask=NativeTask('parameter sweep'), ParameterSweep=sweep)
+    sequences = {'forward': {'RF': [1]}, 'reverse': {'RF': [2]}}
+    for invalid in ({'forward': True}, {'forward': True, 'reverse': 1}, {'forward': True, 'reverse': False, 'extra': True}):
+        with pytest.raises(ValueError):
+            replace_parameter_sweep_sequences(app, 'Sweep', sequences, enabled=invalid)
+        assert calls == []
+    result = replace_parameter_sweep_sequences(app, 'Sweep', sequences, enabled={'forward': True, 'reverse': False})
+    assert [entry for entry in calls if entry[0] == 'EnableSequence'] == [
+        ('EnableSequence', ('forward', True)), ('EnableSequence', ('reverse', False))]
+    assert result['enabled_requested'] == {'forward': True, 'reverse': False}
+    assert result['readback_verified'] is False
+
+
 def test_spectral_read_requires_unique_frequency_and_passes_explicit_id():
     seen = []
     result = SimpleNamespace(GetArray=lambda axis: {'x': [5., 140.], 'yre': [2., 3.], 'yim': [0., -4.]}[axis])

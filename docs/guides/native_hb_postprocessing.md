@@ -32,7 +32,7 @@ replace_parameter_sweep_sequences(s, "RF_Sweep", {
         "rf_frequency": reviewed_frequency_points,
         "rf_direction": reviewed_direction_values,
     },
-})
+}, enabled={"FrequencyDirection": True})
 app.save()
 ```
 
@@ -109,27 +109,16 @@ replace_parameter_sweep_sequences(s, "RF_Sweep", {
         "rf_frequency": [frequency_1, frequency_2],
         "rf_direction": [direction_forward, direction_reverse],
     },
-})
+}, enabled={"FrequencyDirection": True})
 app.save()
 ```
 
 `frequency_1/2` 和两个方向值必须是调用方核对的不同实际值；两轴在同一
 sequence 中形成 2×2 笛卡尔积，共四组。函数先 `DeleteAllSequences()`，再
 `AddSequence()` 和 `AddParameter_ArbitraryPoints()`，会替换该父任务全部旧
-序列；当前实现**没有显式调用 `EnableSequence`**。原生序列是否启用须在
-目标 CST 版本和工程中读回；如需明确启用，仅在核对本机官方 API 后使用
-`ParameterSweep.EnableSequence(sequence_name, True)`，再读回状态。不能把
-函数返回或一条旧结果当作四组扫描成功。
-
-本机 CST 2026 的 Design Studio 官方 `ParameterSweep` 帮助已列出
-`EnableSequence(name, bool)`；对于该版本，可在上述替换序列后显式调用：
-
-```python
-sweep = s.ParameterSweep
-sweep.SetSimulationType("RF_Sweep")
-sweep.EnableSequence("FrequencyDirection", True)
-app.save()
-```
+序列；传入 `enabled={"FrequencyDirection": True}` 时封装会调用本机 CST 2026
+官方提供的 `EnableSequence(name, bool)`。省略时不改变旧接口行为。显式设置
+不代表已读回；不能把函数返回或一条旧结果当作四组扫描成功。
 
 这是明确设置启用状态，不等于原生启用状态已经读回。若本机公开接口没有
 getter，应保留下发记录并报告读回未验证；不要因此停止配置其他已知步骤。

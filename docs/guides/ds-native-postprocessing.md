@@ -195,7 +195,7 @@ DSParameterSweep.Start() -> int
   disabled sequence 会禁用全部子任务，这是 Task Sequence 的层级语义；不等于 sweep 内的 sequence enabled。
 - 扫描序列启用：官方另有 `EnableSequence(name, bool)`，与任务 enabled 独立。
   `AddSequence` 文档未在本次阅读范围明示默认 enabled 值，不把“已经 Add”当作显式启用证据。
-  既有序列配置封装尚未调用 EnableSequence；这是需显式验收的配置缺项，不是当前等待的已证根因。
+  序列配置封装可通过 `enabled` 显式设置；设置不等于原生读回，也不是当时等待的已证根因。
   本次没有修改运行代码或在活动任务中补调用。
 - 子任务顺序：HB 必须产生模板所需输入后再执行模板；原生 Post-Processing 模板步骤列表也有自己的顺序。
   `On (Parametric)` 控制模板计算/参数化结果保留，不能替代上述任务和 sequence 的 enabled。

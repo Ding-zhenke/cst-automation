@@ -156,16 +156,21 @@ def configure_hb_task(schematic, task_name, tones, *, diamond=False, create=Fals
             'created': create, 'readback_verified': False, 'solver_verified': False}
 
 
-def replace_parameter_sweep_sequences(schematic, task_name, sequences):
+def replace_parameter_sweep_sequences(schematic, task_name, sequences, *, enabled=None):
     """Replace all sequences of an existing native sweep, retaining its children.
 
     ``sequences`` maps sequence names to parameter-name -> explicit point lists.
     Values may be finite real numbers or CST expressions without semicolons.
-    This configures native sweep sequences; it does not run a Python sweep loop.
+    ``enabled`` may map every new sequence name to an explicit boolean. The
+    returned setting is a request, not native readback. A native error can leave
+    a partial replacement. This function never starts a sweep.
     """
     _text(task_name)
     if not isinstance(sequences, dict) or not sequences:
         raise ValueError('At least one explicit sequence is required')
+    if enabled is not None and (not isinstance(enabled, dict) or set(enabled) != set(sequences)
+                                or any(type(value) is not bool for value in enabled.values())):
+        raise ValueError('enabled must provide a boolean for every sequence')
     normalized = []
     for sequence, parameters in sequences.items():
         _text(sequence)
@@ -204,7 +209,10 @@ def replace_parameter_sweep_sequences(schematic, task_name, sequences):
         for seq, parameter, points in normalized:
             if seq == sequence:
                 sweep.AddParameter_ArbitraryPoints(sequence, parameter, points)
+        if enabled is not None:
+            sweep.EnableSequence(sequence, enabled[sequence])
     return {'task_name': task_name, 'sequences': normalized,
+            'enabled_requested': dict(enabled) if enabled is not None else None,
             'readback_verified': False, 'solver_verified': False}
 
 
