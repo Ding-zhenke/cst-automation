@@ -97,6 +97,40 @@ def test_run_rejects_wrong_mode_before_submission(env):
     assert adapter.updated == []
 
 
+def test_static_s_parameter_selectors_resolve_actual_task_paths_after_update(env,monkeypatch):
+    from cst_solver.circuit import results
+    api,adapter,_=env
+    adapter.snapshot['tasks']=[{'name':'T','type':'s-parameters','properties':{}}]
+    paths=[f'Tasks\\T\\S-Parameters\\S{k[0]},{k[1]}' for k in ('11','12','21','22')]
+    adapter.execution_evidence=lambda task,token:{'completed':True,'task_name':task,'run_token':token,'mode':'network',
+        'circuit_runs':[{'tree_path':p,'run_id':0} for p in paths]}
+    monkeypatch.setattr(results,'CircuitResult',lambda path:SimpleNamespace(read_curve=lambda tree_path,run_id:
+        {'tree_path':tree_path,'run_id':run_id,'parameters':{},'x':[],'y':[]}))
+    result=api.run_checked('T',mode='network',expected_results=[],result_selectors=['11','12','21','22'])
+    assert result['status']=='succeeded' and adapter.updated==['T']
+    assert [x['tree_path'] for x in result['expected_results']]==paths
+
+
+def test_invalid_static_s_parameter_selectors_refuse_before_update(env):
+    api,adapter,_=env
+    adapter.snapshot['tasks']=[{'name':'T','type':'s-parameters','properties':{}}]
+    result=api.run_checked('T',mode='network',expected_results=[],result_selectors=['11','12'])
+    assert result['status']=='failed' and not adapter.updated
+
+
+def test_ambiguous_native_static_result_paths_remain_unverified(env,monkeypatch):
+    from cst_solver.circuit import results
+    api,adapter,_=env
+    adapter.snapshot['tasks']=[{'name':'T','type':'s-parameters','properties':{}}]
+    paths=[f'Tasks\\T\\S-Parameters\\S{k[0]},{k[1]}' for k in ('11','12','21','22')]
+    paths.append('T\\S-Parameters\\S1,1')
+    adapter.execution_evidence=lambda task,token:{'completed':True,'task_name':task,'run_token':token,'mode':'network',
+        'circuit_runs':[{'tree_path':p,'run_id':0} for p in paths]}
+    monkeypatch.setattr(results,'CircuitResult',lambda path:pytest.fail('Ambiguous paths must not be read'))
+    result=api.run_checked('T',mode='network',expected_results=[],result_selectors=['11','12','21','22'])
+    assert result['status']=='unverified' and adapter.updated==['T']
+
+
 def test_update_selected_task_and_missing_evidence_is_unverified(env):
     api, adapter, saves = env
     api.apply(raw_spec())

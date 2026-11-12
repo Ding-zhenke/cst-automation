@@ -12,11 +12,12 @@ from tpc_service.errors import ServiceError
 from .job_index import JobIndex
 from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY
 from .static_fenced_recovery import CAPTURE as STATIC_CAPTURE, COMPLETE as STATIC_COMPLETE, INSPECT as STATIC_INSPECT, EXCLUDE as STATIC_EXCLUDE, READ_IMPEDANCES as STATIC_IMPEDANCES
+from .static_sp_run import OPERATION as STATIC_RUN, READ_OPERATION as STATIC_READ
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
-                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network', 'prepare_exploratory_sp_network', 'configure_exploratory_linear_sp', 'run_exploratory_linear_sp', 'prepare_static_sp', 'accept_saved_baseline', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES))
-FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES))
+                        'set_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network', 'prepare_exploratory_sp_network', 'configure_exploratory_linear_sp', 'run_exploratory_linear_sp', 'prepare_static_sp', 'accept_saved_baseline', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ))
+FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ))
 UPGRADE_CAPABILITY = 'cooperative-worker-upgrade-v1'
 
 
@@ -209,7 +210,7 @@ class SessionManager:
                 if state['status'] != 'needs_reconcile':
                     state['status'] = 'closing'
             write(folder / 'session.json', state)
-        if operation not in ('accept_saved_baseline', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES):
+        if operation not in ('accept_saved_baseline', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ):
             self._launch(folder)
         return self.job(session_id, credential, job['job_id'])
 
@@ -302,6 +303,10 @@ class SessionManager:
     def begin_failed_static_worker_handoff(self, session_id, credential, **review):
         from .native_handoff import begin_failed_static
         return begin_failed_static(self, session_id, credential, **review)
+
+    def accept_completed_static_recovery(self, session_id, credential, **review):
+        from .static_sp_finalize import accept
+        return accept(self, session_id, credential, **review)
 
     def begin_model3d_archive_recovery(self, session_id, credential, **review):
         from .model3d_archive_recovery import begin

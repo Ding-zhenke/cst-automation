@@ -157,7 +157,12 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             if operation in ("run_task", "parameter_sequence"):
                 if not isinstance(params.get("task_name"), str) or not params["task_name"] or params.get("mode") not in ("network", "transient_cosim"):
                     raise CircuitError("circuit_spec_invalid", "Explicit task_name and valid mode required")
-                if operation == "run_task" and not params.get("expected_results"):
+                selectors=params.get('result_selectors')
+                if selectors is not None and (not borrowed_project or operation!='run_task'
+                        or selectors!=['11','12','21','22'] or params.get('expected_results')!=[]
+                        or params.get('mode')!='network' or params.get('reuse','never')!='never'):
+                    raise CircuitError('circuit_spec_invalid','Four static SP selectors require the owned network task')
+                if operation == "run_task" and not params.get("expected_results") and selectors is None:
                     raise CircuitError("circuit_spec_invalid", "Required result paths/run IDs must be explicit")
             if operation == "read_results":
                 from cst_solver.circuit.results import CircuitResult
@@ -307,8 +312,9 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                 result = api.run_checked(params['task_name'], mode='network', expected_results=params['expected_results'],
                                          reuse='never', note=params.get('note', ''))
                 return _outcome(result)
+            selector_options = {'result_selectors': params['result_selectors']} if 'result_selectors' in params else {}
             result = api.run_checked(params["task_name"], mode=params["mode"], expected_results=params["expected_results"],
-                                     reuse=params.get("reuse", "never"), note=params.get("note", ""))
+                                     reuse=params.get("reuse", "never"), note=params.get("note", ""), **selector_options)
             return _outcome(result)
         except CircuitError as exc:
             return fail_result(exc.code, str(exc), **exc.details)

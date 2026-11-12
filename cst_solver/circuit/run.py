@@ -27,7 +27,7 @@ def _log_observation(path):
         return None, f'{type(exc).__name__}: {exc}'
 
 
-def run_checked(api, task_name, *, mode, expected_results, reuse="never", note=""):
+def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="", result_selectors=None):
     token = uuid4().hex
     out = {"run_token": token, "task_name": task_name, "mode": mode, "status": "unverified", "errors": [],
            "saved": False, "submitted": False, "execution_returned": False, "saved_digest": None,
@@ -50,7 +50,11 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
     try:
         if mode not in ("network", "transient_cosim") or reuse not in ("never", "verified"):
             raise CircuitError("circuit_spec_invalid", "Invalid mode or reuse policy")
-        if not isinstance(task_name, str) or not task_name or not isinstance(expected_results, list) or not expected_results:
+        selectors_valid = (result_selectors == ['11','12','21','22'] and mode == 'network' and reuse == 'never'
+                           and expected_results == [])
+        if (result_selectors is not None and not selectors_valid):
+            raise CircuitError('circuit_spec_invalid', 'Exactly four ordered SP selectors and no explicit paths required')
+        if not isinstance(task_name, str) or not task_name or not isinstance(expected_results, list) or (not expected_results and not selectors_valid):
             raise CircuitError("circuit_spec_invalid", "Target task and required expected_results must be explicit")
         for expected in expected_results:
             if not isinstance(expected, dict) or not isinstance(expected.get("tree_path"), str) or not task_result_path(expected["tree_path"], task_name) or type(expected.get("run_id")) is not int:
@@ -59,6 +63,8 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
         if not validation["ok"]:
             raise CircuitError("circuit_dependency_missing", "Missing circuit dependencies", validation=validation)
         task = validation["task"]
+        if selectors_valid and str(task.get('type','')).casefold() != 's-parameters':
+            raise CircuitError('circuit_mode_unsupported', 'SP selectors require an S-parameter task')
         actual_cosim = task["type"] == "transient" and task["properties"].get("circuit simulator", "").lower() == "cosimulation"
         if actual_cosim != (mode == "transient_cosim"):
             raise CircuitError("circuit_mode_unsupported", "Requested mode differs from actual task properties")
@@ -126,7 +132,20 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
                      and proof.get("mode") == mode and dependencies_unchanged
                      and (mode != "transient_cosim" or proof.get("em_completed") is True))
             observed = {(r.get("tree_path"), r.get("run_id")) for r in proof.get("circuit_runs", [])}
-            valid = valid and all((r["tree_path"], r["run_id"]) in observed for r in expected_results)
+            selected = expected_results
+            if selectors_valid:
+                selected=[]
+                for key in result_selectors:
+                    suffix='\\S-Parameters\\S'+key[0]+','+key[1]
+                    paths=sorted({path for path,rid in observed if isinstance(path,str) and rid==0
+                                  and task_result_path(path,task_name) and path.endswith(suffix)})
+                    if len(paths)!=1:
+                        valid=False
+                        break
+                    selected.append({'tree_path':paths[0],'run_id':0})
+                out['resolved_result_paths']={k:v['tree_path'] for k,v in zip(result_selectors,selected)}
+                valid=valid and len(selected)==4
+            valid = valid and all((r["tree_path"], r["run_id"]) in observed for r in selected)
             if mode == "transient_cosim":
                 em_runs = proof.get("em_runs", [])
                 valid = valid and bool(em_runs) and all(r.get("domain") == "3d" and type(r.get("run_id")) is int for r in em_runs)
@@ -135,7 +154,7 @@ def run_checked(api, task_name, *, mode, expected_results, reuse="never", note="
             else:
                 from .results import CircuitResult
                 reader = CircuitResult(str(path))
-                for expected in expected_results:
+                for expected in selected:
                     curve = reader.read_curve(expected["tree_path"], run_id=expected["run_id"])
                     if expected.get("parameters") is not None and expected["parameters"] != curve["parameters"]:
                         raise CircuitError("circuit_result_unverified", "Result parameters differ from requested input")

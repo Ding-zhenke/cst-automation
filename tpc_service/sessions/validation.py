@@ -52,6 +52,18 @@ def validate(operation, params):
             validate_impedance_read(params)
         except (ValueError, TypeError, KeyError) as exc:
             raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'run_fenced_static_sp':
+        from .static_sp_run import validate as validate_static_run
+        try:
+            validate_static_run(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'read_fenced_static_sp':
+        from .static_sp_run import validate_read
+        try:
+            validate_read(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'prepare_static_sp':
         require(set(params) == {'project_id', 'expected_digest', 'confirm_idle', 'spec'} and params.get('confirm_idle') is True,
                 'Exact saved identity, static specification and idle assertion required')

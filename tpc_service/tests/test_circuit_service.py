@@ -10,6 +10,40 @@ from tpc_service.circuit import register_circuit_handlers
 from tpc_service.errors import ServiceError
 
 
+def test_static_result_selectors_require_owned_session_before_app_open(tmp_path):
+    opened=[]
+    service=RunService(str(tmp_path),backend=FakeBackend())
+    register_circuit_handlers(service,app_factory=lambda path:opened.append(path))
+    project=tmp_path/'p.cst';project.write_text('fixture')
+    try:
+        job=service.submit('solve',project_path=str(project),copy=False,params={'workflow':'circuit',
+            'operation':'run_task','task_name':'SP','mode':'network','expected_results':[],
+            'result_selectors':['11','12','21','22']})
+        result=service.wait(job['job_id'],timeout=3)
+        assert result['status']=='failed' and not opened
+    finally:
+        service.shutdown()
+
+
+def test_owned_static_result_selectors_reach_checked_runner(tmp_path):
+    from unittest.mock import Mock
+    project=tmp_path/'p.cst';project.write_text('fixture')
+    runner=Mock(return_value={'status':'succeeded','run_token':'token','task_name':'SP','mode':'network',
+                              'saved':True,'audit_path':None})
+    app=SimpleNamespace(circuit=SimpleNamespace(run_checked=runner),close=lambda:None)
+    service=RunService(str(tmp_path),backend=FakeBackend())
+    register_circuit_handlers(service,app_factory=lambda path:app,authorized_project_path=str(project),borrowed_project=True)
+    try:
+        job=service.submit('solve',project_path=str(project),copy=False,params={'workflow':'circuit',
+            'operation':'run_task','task_name':'SP','mode':'network','expected_results':[],
+            'result_selectors':['11','12','21','22']})
+        result=service.wait(job['job_id'],timeout=3)
+        assert result['status']=='succeeded'
+        assert runner.call_args.kwargs['result_selectors']==['11','12','21','22']
+    finally:
+        service.shutdown()
+
+
 @pytest.mark.parametrize('operation,payload', [
     ('configure_steady_state_task', {'task_name': 'SS', 'settings': {'period': {'value': 12.5, 'unit': 'ns'}}, 'create': True}),
     ('configure_task_ports', {'task_name': 'TR', 'ports': {'1': {'source_type': 'none',

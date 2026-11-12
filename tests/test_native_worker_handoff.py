@@ -146,8 +146,10 @@ def test_failed_static_handoff_can_require_new_exclusion_capability(handoff,monk
     record=h.begin_failed_static(m,sid,cred,failed_job_id='job-failed',project_id='p',snapshot_digest='a'*64,
         environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
         project_digests=args['project_digests'],review_note='Reviewed',confirm_idle=True,
-        confirm_borrowed_worker=True,accept_unverified_native_handoff=True,require_self_em_exclusion=True)
+        confirm_borrowed_worker=True,accept_unverified_native_handoff=True,require_self_em_exclusion=True,
+        require_guarded_static_run=True)
     assert 'static-sp-self-em-exclusion-v1' in record['required_capabilities']
+    assert 'static-sp-guarded-run-v1' in record['required_capabilities']
 
 
 def test_failed_static_cli_and_mcp_use_same_frozen_handoff(handoff,monkeypatch,capsys):

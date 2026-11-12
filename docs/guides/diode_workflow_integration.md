@@ -70,7 +70,7 @@ task, ports or connections, retains all failure receipts and remains fenced.
 Any incomplete or uncertain write is not replayed. Native array binding,
 save/attach behavior and this complete chain require in-project acceptance; none
 of these operations runs SP or EM. A later run still needs the no-new-EM gate,
-actual impedance evidence and a separate protected run/read implementation.
+actual impedance evidence and the separate protected run/read operation below.
 
 After successful completion, an owning session with worker capability
 `static-sp-self-em-exclusion-v1` may submit `exclude_unconnected_self_em` using
@@ -92,6 +92,42 @@ After successful exclusion, submit `read_fenced_static_impedances` with exactly
 constant impedances. Its bridge and schematic identity flags retain their original
 unverified meaning until independent native acceptance. Both operations retain the
 original failure fence and do not solve.
+
+After a successful exclusion and native impedance observation, an owning session
+whose worker advertises `static-sp-guarded-run-v1` can submit
+`run_fenced_static_sp` with exactly `project_id`, `failed_job_id`,
+`exclude_job_id`, `impedance_job_id`, `expected_saved_digest`, `snapshot_digest`
+of the excluded circuit, `confirm_idle=true`, and `confirm_run=true`. A further
+reviewed preserved-DE handoff may request `require_guarded_static_run=true` if
+the current worker is older; it keeps the original fence. The run checks the
+actual enabled SP leaf, supported pure-circuit blocks, full source/control and
+measurement-port topology, DC-through-band embedded Touchstone, complete
+dependencies and the native impedance observation. A changed 3D model inventory
+or 3D log is flagged after execution; it is not a claim of absolute process-level
+observation. No parent task or 3D solver is submitted. The four result paths are
+resolved uniquely from the actual returned task tree. The full current complex
+curves and actual grid are archived; common positive IDs are compared to them.
+If no unique matching positive ID exists, retain the run and inspect actual IDs;
+do not rerun merely to manufacture one.
+
+`read_fenced_static_sp` takes exactly `project_id`, `failed_job_id`, `run_job_id`,
+`expected_saved_digest` from the run, an explicitly selected `positive_run_id`,
+and `confirm_idle=true`. It reads that actual ID and all four complex curves;
+their values, units and stored parameters must match the archived current run.
+This content match does not establish that a historical positive ID is immutable
+or uniquely attributable to the latest execution. The request does not solve.
+Run/read, native task semantics and the positive-ID association are offline-tested
+only until the owning project records actual native evidence.
+
+After a successful matching positive-ID read, the owning session can call
+`accept_completed_static_recovery` with `failed_job_id`, `run_job_id`,
+`read_job_id`, the complete current `project_digests`, the exact
+`environment_identity`, `review_note`, and `confirm_idle=true`. The finalizer
+rechecks the original failure, saved run and read receipts, raw artifact hashes,
+all registered saved files and the native current circuit before setting the
+session ready. The original failed job remains failed. Clearing this operational
+fence does not accept HB, source qualification, performance, or positive-ID
+freshness; the normal engineering gates remain independently required.
 
 ### Prepare a dedicated static circuit (new, offline-tested only)
 
@@ -151,9 +187,8 @@ type getter is unsupported for the native SP task and is not queried. Sample cou
 constant impedance values remain `unsupported` in this prepare receipt; use the
 owned `read_sp_impedances` bridge for a separate native check. Isolated source
 branches, ByRef array binding, real solver behavior and four-result coverage are
-not certified by preparation. This build operation does not run SP or EM; a
-separate protected static run/read path is still being implemented. Until it is
-available, do not bypass the workflow or claim completed SP.
+not certified by preparation. This build operation does not run SP or EM; use the
+separate protected static run/read path only when all of its evidence is present.
 
 Existing `configure_exploratory_linear_sp` intentionally refuses setup when native
 sample-count and constant-impedance readback are unsupported. Its current path

@@ -330,13 +330,26 @@ all geometric or physical properties and is not a run authorization.
 same excluded circuit, and records the original bridge's native-verification
 limitations; it neither saves nor runs a solver.
 
-The planned static run gate checks a leaf S-parameters task and its native CST
-network settings, all four source amplitudes and the control termination, the
-exact retained Touchstone payload and frequency coverage, complete file
-dependencies, the measurement-port topology, and an explicit whitelist of
-supported circuit block types. Any remaining 3D link, unknown component or task
-child must fail before submission. The associated run/read route is not yet
-available; structural inspection is distinct from observed solver execution.
+`run_fenced_static_sp` checks the enabled leaf S-parameters task and its native
+CST network settings, source amplitudes and control termination, the exact retained
+Touchstone payload and DC-through-band coverage, complete file dependencies,
+measurement-port topology, observed native impedances and an explicit whitelist
+of circuit block types. Remaining 3D links, unknown components, task children or
+unsupported file dependencies fail before Update. The target task alone is updated;
+four native task-scoped S-parameter paths are uniquely resolved from the resulting
+tree rather than guessed before the first run. It archives the full complex current
+curves, checks the actual frequency grid, and compares common positive Run IDs to
+those curves. `read_fenced_static_sp` reads an explicit positive ID and refuses it
+unless its full content and parameters match the preserved current run. A match
+does not independently certify historical-ID freshness or persistence. Both routes
+remain fenced and have offline tests only; structural absence of 3D dependencies,
+observed task execution and numerical acceptance are separately reported.
+`SessionManager.accept_completed_static_recovery` (MCP
+`accept_cst_completed_static_recovery`, CLI `accept-completed-static-recovery`)
+clears only the original preparation failure fence after successful saved run and
+positive-ID read receipts are independently matched and the current native
+circuit is reviewed. It retains the original failed job and does not certify
+source qualification, historical-ID freshness, device performance or an HB gate.
 
 `cst_automation.process.hidden_console_flags(existing=0)` prepares creation
 flags for an explicitly noninteractive child. On Windows it adds
@@ -376,9 +389,9 @@ zeros the supported sources and creates the reviewed ports and task. Partial or
 uncertain writes require the owning session's failure fence. See
 `docs/guides/diode_workflow_integration.md` for the exact request and limitations.
 The native array binding, isolated source branches, impedance bridge and actual
-solver behavior remain unverified. A protected run/read route is not implemented;
-this operation does not authorize or perform a solve. Actual sampling coverage
-must be checked against resulting complex frequency curves.
+solver behavior remain incompletely verified. This operation does not authorize
+or perform a solve. Actual sampling coverage must be checked against resulting
+complex frequency curves.
 
 `cst_automation.static_sp_results.verify_curves` takes all four independently read complex
 schematic curves from one explicit positive run ID and one matching parameter
@@ -1010,6 +1023,7 @@ session circuit 使用同一登记 project_id/规范路径；外部正式工程�
 - `CircuitResult(path)` 选择 `get_schematic()`，读取结果必须显式指定实际树路径和 run ID；复数 CSV 分实虚列并附元数据。
 - CST 2026 实测电路树路径为 `Tasks\\<task_name>\\...`；任务筛选/运行同时兼容原先离线规格的 `<task_name>\\...`，不改写返回的真实路径。结果原始数组无 Quantity 时，单位读取 SDK 的轴标签；仅明确的 S 参数树及空纵轴标签可识别为无量纲，其他缺失单位继续报错。
 - `run_checked(task_name, *, mode, expected_results, reuse='never', note='')` 区分 `network` 与 `transient_cosim`，缺目标执行、模式、归属或两侧耦合证据时返回 `unverified`。未实测的证据提取不得推定成功。
+- 仅在 `s-parameters` 任务的 `network`、`reuse='never'` 和空 `expected_results` 下，可指定 `result_selectors=['11','12','21','22']`；返回后从实际结果树唯一解析四条曲线，缺失或歧义时保留未验证状态，不猜路径或重跑。会话服务只允许已借用的原有工程使用此选项。
 - `register_circuit_handlers(service, *, replace=False)` 显式安装路由；已有 handler 默认冲突，显式 replace 时组合旧路由。`params.workflow='circuit'` 才进入电路实现。`build` 对应 configure/configure_transient_task/configure_em_time_settings/inspect/read_results/package，`solve` 对应 run_task，`study` 对应 parameter_sequence。
 - `RunService.register_workflow(workflow, handlers, *, replace=False)` 原子注册按 workflow 分流的 build/solve/study handler；显式 replace 允许与已有领域 handler 共存，未匹配 workflow 的任务仍走原 handler，不读取/覆盖其私有状态。
 - 保留现有任务 kind/status；电路 `unverified` 映射服务 failed，错误 `circuit_result_unverified`；失败返回可携带 artifacts/run_identity/result_summary/saved，旧默认值不变。

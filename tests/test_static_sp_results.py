@@ -21,6 +21,15 @@ def test_four_native_curves_are_kept_asymmetric():
     assert report['fresh_execution_verified'] is False
 
 
+def test_run_zero_is_only_allowed_as_explicit_current_snapshot():
+    values=curves()
+    for value in values.values(): value['run_id']=0
+    args=dict(task_name='SP',run_id=0,project_path='project.cst',parameters={'L':'1'},
+              frequency_unit='GHz',fmin=110,fmax=170,samples=3)
+    with pytest.raises(ValueError): verify_curves(values,**args)
+    assert verify_curves(values,allow_current=True,**args)['fresh_execution_verified'] is False
+
+
 @pytest.mark.parametrize('change', ['missing', 'wrong_run', 'wrong_path', 'grid', 'nonfinite', 'parameters'])
 def test_invalid_or_mismatched_curves_are_rejected(change):
     values = copy.deepcopy(curves())

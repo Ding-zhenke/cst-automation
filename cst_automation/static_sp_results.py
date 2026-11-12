@@ -4,10 +4,11 @@ from pathlib import Path
 
 
 def verify_curves(curves, *, task_name, run_id, project_path, parameters,
-                  frequency_unit, fmin, fmax, samples):
+                  frequency_unit, fmin, fmax, samples, allow_current=False):
     if (not isinstance(curves, dict) or set(curves) != {'11', '12', '21', '22'}
             or not isinstance(task_name, str) or not task_name or '\\' in task_name
-            or type(run_id) is not int or run_id <= 0 or not isinstance(parameters, dict)
+            or type(run_id) is not int or run_id < 0 or (run_id == 0 and allow_current is not True)
+            or not isinstance(parameters, dict)
             or frequency_unit not in ('Hz', 'kHz', 'MHz', 'GHz')
             or type(samples) is not int or samples < 2
             or any(type(v) not in (int, float) or not math.isfinite(v) for v in (fmin, fmax))

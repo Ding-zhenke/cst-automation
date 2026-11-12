@@ -257,7 +257,7 @@ def begin_failed_static(manager, session_id, credential, *, failed_job_id, proje
                         review_note, confirm_idle=False, confirm_borrowed_worker=False,
                         accept_unverified_native_handoff=False, worker_ownership='borrowed',
                         confirm_owned_worker=False, accept_owned_worker_exit_risk=False,
-                        require_self_em_exclusion=False):
+                        require_self_em_exclusion=False, require_guarded_static_run=False):
     """Freeze the exact failed static session without treating its dirty tab as saved."""
     from .manager import UPGRADE_CAPABILITY
     require(confirm_idle is True and accept_unverified_native_handoff is True,
@@ -273,6 +273,7 @@ def begin_failed_static(manager, session_id, credential, *, failed_job_id, proje
     require(isinstance(snapshot_digest, str) and len(snapshot_digest) == 64
             and all(c in '0123456789abcdef' for c in snapshot_digest), 'Reviewed circuit digest required')
     require(type(require_self_em_exclusion) is bool, 'Explicit exclusion capability choice required')
+    require(type(require_guarded_static_run) is bool, 'Explicit guarded-run capability choice required')
     failed_job_id, project_id = identifier(failed_job_id), identifier(project_id)
     folder = manager._folder(session_id)
     with lock(manager.root/'registry.lock'), lock(folder/'state.lock'):
@@ -287,7 +288,9 @@ def begin_failed_static(manager, session_id, credential, *, failed_job_id, proje
                     and record.get('project_digests') == project_digests and record.get('review_note') == review_note
                     and record.get('worker_ownership') == worker_ownership
                     and ('static-sp-self-em-exclusion-v1' in record.get('requested_capabilities', []))
-                        == require_self_em_exclusion, 'Existing handoff inputs differ')
+                        == require_self_em_exclusion
+                    and ('static-sp-guarded-run-v1' in record.get('requested_capabilities', []))
+                        == require_guarded_static_run, 'Existing handoff inputs differ')
             return copy.deepcopy(record)
         require(manager.backend == state['backend'] == 'cst' and state.get('status') == 'needs_reconcile' and not state.get('uncertain_jobs')
                 and not state.get('launch_intent') and not state.get('close_requested')
@@ -313,6 +316,8 @@ def begin_failed_static(manager, session_id, credential, *, failed_job_id, proje
         needed = ['static-sp-fenced-recovery-v1']
         if require_self_em_exclusion:
             needed.append('static-sp-self-em-exclusion-v1')
+        if require_guarded_static_run:
+            needed.append('static-sp-guarded-run-v1')
         record = dict(mode=MODE, token=uuid4().hex, phase='reviewing', old_worker=worker_identity,
             environment=environment_identity, projects_digest=digest(state['projects']), project_digests=project_digests,
             file_versions=file_versions(state), review_note=review_note, stop_ack=False,

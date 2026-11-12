@@ -284,6 +284,22 @@ def _execute_operation(runtime, job):
             raise
         except Exception as exc:
             raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'run_fenced_static_sp':
+        from .static_sp_run import execute as execute_static_run
+        try:
+            return execute_static_run(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_static_run_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'read_fenced_static_sp':
+        from .static_sp_run import read_positive
+        try:
+            return read_positive(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_static_read_refused',str(exc),original_type=type(exc).__name__) from exc
     mark_stage(runtime, 'project.acquire')
     if operation == 'prepare_static_sp':
         from .store import alive

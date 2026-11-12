@@ -177,9 +177,10 @@ class CircuitAPI:
         self.app.save()
         return bundle_project(self.app.cst_file.filename(), self.inspect_dependencies(), destination)
 
-    def run_checked(self, task_name, *, mode, expected_results, reuse="never", note=""):
+    def run_checked(self, task_name, *, mode, expected_results, reuse="never", note="", result_selectors=None):
         from .run import run_checked
-        return run_checked(self, task_name, mode=mode, expected_results=expected_results, reuse=reuse, note=note)
+        return run_checked(self, task_name, mode=mode, expected_results=expected_results, reuse=reuse, note=note,
+                           result_selectors=result_selectors)
 
     def run_parameter_study(self, spec):
         """Run a fixed-topology point sequence with append-only case archives."""
