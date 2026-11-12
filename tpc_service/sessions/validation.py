@@ -26,6 +26,12 @@ def validate(operation, params):
             raise ServiceError('invalid_session_argument', str(exc)) from exc
         return
     identifier(params.get('project_id'))
+    if operation == 'initialize_parameters':
+        from .initial_parameters import validate as validate_initial_parameters
+        try:
+            validate_initial_parameters(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'capture_failed_static':
         from .static_fenced_recovery import validate as validate_static_capture
         try:

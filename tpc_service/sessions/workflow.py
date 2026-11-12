@@ -136,6 +136,10 @@ def check_evidence(folder, project):
 
 
 def preflight(folder, state, operation, params, *, job=None):
+    if operation == 'initialize_parameters':
+        from .initial_parameters import preflight as initial_preflight
+        initial_preflight(folder, state, params, job=job)
+        return None
     from cst_automation.task_disable import is_request, normalize, CAPABILITY as DISABLE_CAPABILITY
     if is_request(operation, params):
         try:

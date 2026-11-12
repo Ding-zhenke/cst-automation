@@ -252,6 +252,14 @@ def _execute_operation(runtime, job):
         runtime.check_saved(record)
         app.cst_file = handle
         return circuit(runtime, app, record, params)
+    if operation == 'initialize_parameters':
+        from .initial_parameters import execute as initialize_parameters
+        try:
+            return initialize_parameters(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_initial_parameters_refused', str(exc), original_type=type(exc).__name__) from exc
     if operation == 'capture_failed_static':
         from .static_fenced_recovery import capture
         try:

@@ -55,6 +55,10 @@ scene makes the existing authorization insufficient.
   code rather than importing an old CST as a template. Use an existing project for requested
   continuation/recovery or required project content. Once bound, retain that project across stages,
   scans and retries; a clean start is not permission to discard uncertain work.
+- For reviewed initial parameters on an unbound saved empty project, use the owned session's
+  `initialize_parameters` batch instead of authoring raw StoreParameter history. Bind the
+  saved digest and complete mapping digest; the worker must already be compatible and idle.
+  Native readback/save are separately evidenced; a partial write is never silently retried.
 - Complete actual-parameter geometry preview and wait for review under cst-modeling before history
   submission. Stable stage_id and request_id identify retries. A preview hash does not prove review.
 - Initial create/import obtains the existing environment before registering the new project
