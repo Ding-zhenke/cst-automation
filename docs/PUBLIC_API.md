@@ -1880,3 +1880,5 @@ RunService rejects this operation before app creation: it requires the owning
 borrowed session. This is not a running-task abort or a global solver interlock.
 Do not upgrade an active worker to obtain this capability; the owner controls any
 separately authorized, idle-only handoff.
+
+`setup.create_point_lumped_element(name, *, r, l=0, c=0, p1, p2, folder='')` 创建原生 `LumpedElement` 串联 RLC 点元件，端点使用显式坐标和 `SetP1/SetP2(False, ...)`；它不同于现有 `LumpedFaceElement` 接口。只生成受校验的建模命令，不求解。`read_lumped_elements` 接受完整原生 ByRef 元组；`read_lumped_elements_via_bridge` 在精确工程与空闲审阅下执行内部固定 ByRef 查询并校验一次性回执，不猜测。会话通过 `model_api` 与 `inspect(read_only_review=true, lumped_element_names=[...])` 暴露；桥接和真实工程读回尚待实测，`native_bridge_verified=False`。

@@ -70,13 +70,18 @@ def inspect_saved_geometry(runtime, job):
         raise ServiceError('session_environment_mismatch', 'Environment changed during dialog scan')
     app, handle, _ = borrow_open_project(runtime, identity, record['path'])
     app.cst_file = handle
-    result = inspect_native(app, params)
+    if 'lumped_element_names' in params:
+        result = inspect_native(app,params,receipt_root=runtime.folder/'lumped_element_queries')
+    else:
+        result = inspect_native(app, params)
     if not alive(identity) or file_digest(record['path']) != expected or path_key(handle.filename()) != path_key(record['path']):
         raise ServiceError('session_read_review_refused', 'Identity or saved baseline changed during read-only review')
     runtime.app = app
     runtime.handles[params['project_id']] = handle
     return dict(project=record, backend='cst', native_readback=result,
-                readback_verified=not result['errors'], geometry_verified=False, solver_verified=False,
+                readback_verified=not result['errors'] and ('lumped_element_names' not in params or
+                    (result.get('lumped_bridge') or {}).get('native_bridge_verified') is True),
+                geometry_verified=False, solver_verified=False,
                 message_read_status='not_read_preserve_queue', messages=[],
                 session_state=state['status'], read_only_review=True,
                 idle_asserted_by_caller=True, idle_verified=False,

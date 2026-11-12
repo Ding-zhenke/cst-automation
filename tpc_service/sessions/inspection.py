@@ -11,7 +11,7 @@ def validate_options(params):
         if not condition:
             raise ServiceError('invalid_session_argument', message)
     require(not set(params) - {'project_id', 'depends_on', 'native_readback',
-                               'parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids',
+                               'parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids', 'lumped_element_names',
                                'read_only_review', 'confirm_idle', 'expected_digest'},
             'Unsupported inspect option')
     require(type(params.get('native_readback', False)) is bool, 'native_readback must be boolean')
@@ -36,6 +36,11 @@ def validate_options(params):
             validate_ids(params['discrete_port_ids'])
         except ValueError as exc:
             raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if 'lumped_element_names' in params:
+        from cst_solver.simulation.lumped_elements import validate_lumped_names
+        try: validate_lumped_names(params['lumped_element_names'])
+        except ValueError as exc: raise ServiceError('invalid_session_argument',str(exc)) from exc
+        require(params.get('read_only_review') is True,'Lumped ByRef read requires an explicit idle saved-project review')
     points = params.get('sample_points', [])
     require(isinstance(points, list) and len(points) <= LIMIT, 'Bounded sample_points required')
     ids = set()
@@ -49,10 +54,10 @@ def validate_options(params):
         require(isinstance(point, list) and len(point) == 3 and
                 all(type(x) in (int, float) and math.isfinite(x) for x in point), 'Finite xyz point required')
     require(params.get('native_readback', False) or not any(k in params for k in
-            ('parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids')), 'Query options require native_readback=true')
+            ('parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids', 'lumped_element_names')), 'Query options require native_readback=true')
 
 
-def inspect_native(app, params):
+def inspect_native(app, params, *, receipt_root=None):
     if 'discrete_port_ids' in params:
         from cst_automation.discrete_ports import validate_ids
         validate_ids(params['discrete_port_ids'])
@@ -107,4 +112,14 @@ def inspect_native(app, params):
     if 'discrete_port_ids' in params:
         from cst_solver.simulation.discrete_ports import read_discrete_ports
         result['discrete_ports'] = query('discrete_ports', lambda: read_discrete_ports(app, params['discrete_port_ids']))
+    if 'lumped_element_names' in params:
+        from cst_solver.simulation.lumped_elements import read_lumped_elements_via_bridge
+        def lumped():
+            if receipt_root is None or params.get('confirm_idle') is not True:
+                raise ValueError('Owned idle receipt root required for lumped ByRef query')
+            report=read_lumped_elements_via_bridge(app.cst_file,params['lumped_element_names'],
+                expected_project_path=app.cst_file.filename(),receipt_root=receipt_root,confirm_idle=True)
+            result['lumped_bridge']=report
+            return report['elements']
+        result['lumped_elements'] = query('lumped_elements',lumped)
     return result

@@ -23,9 +23,17 @@ def execute(runtime, job):
             validate_options(params)
             if DISCRETE_READ_CAPABILITY not in runtime.state().get('worker_capabilities', []):
                 raise ServiceError('workflow_worker_upgrade_required', 'Discrete-port inspection requires a compatible execution worker')
+        if operation=='inspect' and 'lumped_element_names' in params:
+            from .model_api import POINT_LUMPED_CAPABILITY
+            if POINT_LUMPED_CAPABILITY not in runtime.state().get('worker_capabilities',[]):
+                raise ServiceError('workflow_worker_upgrade_required','Point lumped readback requires a compatible execution worker')
         if operation == 'model_api':
             from .model_api import validate_calls, uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             validate_calls(params['calls'])
+            from .model_api import POINT_LUMPED_CAPABILITY
+            if (any(c['method']=='create_point_lumped_element' for c in params['calls'])
+                    and POINT_LUMPED_CAPABILITY not in runtime.state().get('worker_capabilities',[])):
+                raise ServiceError('workflow_worker_upgrade_required','Point lumped element requires a compatible execution worker')
             from cst_automation.settings_history import CAPABILITY as HISTORY_CAPABILITY, uses_settings_history
             if (uses_settings_history(params['calls'])
                     and HISTORY_CAPABILITY not in runtime.state().get('worker_capabilities', [])):

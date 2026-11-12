@@ -9,6 +9,7 @@ HF_TET_ADAPTATION_CAPABILITY = 'hf-tet-adaptation-controls-v1'
 HF_TET_ORDER_CAPABILITY = 'hf-tet-order-controls-v1'
 HF_TET_CURVATURE_CAPABILITY = 'hf-tet-curvature-order-v1'
 HF_TET_CURVATURE_POLICY_CAPABILITY = 'hf-tet-curvature-policy-v1'
+POINT_LUMPED_CAPABILITY = 'point-lumped-element-v1'
 SETTINGS_ONLY_METHODS = frozenset(('configure_fd_linear_solver', 'configure_fd_frequency',
                                  'configure_fd_parallelization', 'configure_tetrahedral_mesh', 'set_frequency_range'))
 
@@ -88,7 +89,7 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'pick_clear','pick_face','pick_edge','pick_vertex','pick_endpoint',
     'reset_wcs','rotate_wcs','translate_wcs','set_wcs_origin','store_wcs','restore_wcs',
     'create_component','create_material_custom','create_material_tensor','create_material_full_tensor','create_material_gyrotropic',
-    'create_waveguide_port','create_discrete_port','create_discrete_face_port','create_lumped_element','create_probe',
+    'create_waveguide_port','create_discrete_port','create_discrete_face_port','create_lumped_element','create_point_lumped_element','create_probe',
     'set_boundary','configure_fd_frequency','configure_fd_parallelization','configure_tetrahedral_mesh',
     'delete_solid','delete_curve_item','rotation_face','rotate_face','extrude_face','trace_curve',
     'blend_curve','chamfer_curve','trim_curves','boolean_imprint','blend_edge',
@@ -101,7 +102,10 @@ def _preflight_settings(method, bound):
     """Validate focused configuration payloads before earlier batch mutations."""
     values = dict(bound.arguments)
     values.pop('self', None)
-    if method == 'import_step':
+    if method == 'create_point_lumped_element':
+        from cst_solver.simulation.lumped_elements import point_lumped_command
+        point_lumped_command(**values)
+    elif method == 'import_step':
         from pathlib import Path
         path = values['filename']
         if not isinstance(path, str) or not Path(path).is_absolute() or Path(path).suffix.lower() not in ('.step', '.stp') or not Path(path).is_file():

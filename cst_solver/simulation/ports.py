@@ -442,6 +442,12 @@ End With
         self.cst_file.model3d.add_to_history(
             f"Create lumped element: {id_val}", f1)
 
+    def create_point_lumped_element(self, name, *, r, l=0, c=0, p1, p2, folder=''):
+        """Create a named point-defined serial RLC element; no solve is started."""
+        from .lumped_elements import point_lumped_command
+        code=point_lumped_command(name,r=r,l=l,c=c,p1=p1,p2=p2,folder=folder)
+        self.cst_file.model3d.add_to_history('Define point lumped element: '+name,code)
+
     # ================================================================
     # Floquet 端口（用于周期结构/频率选择表面）
     # ================================================================
