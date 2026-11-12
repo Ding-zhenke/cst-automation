@@ -51,6 +51,10 @@ def register_session_tools(root, *, backend='cst', replace=False):
         return tool_payload({'upgrade': manager.begin_failed_static_worker_handoff(
             a['session_id'], a['credential'], **a['review'])})
 
+    def begin_dead_static_worker_recovery(a):
+        return tool_payload({'upgrade': manager.begin_dead_static_worker_recovery(
+            a['session_id'], a['credential'], **a['review'])})
+
     def accept_completed_static_recovery(a):
         return tool_payload({'resolution': manager.accept_completed_static_recovery(
             a['session_id'], a['credential'], **a['review'])})
@@ -90,6 +94,8 @@ def register_session_tools(root, *, backend='cst', replace=False):
          dict(identity, review={'type':'object'}), list(identity)+['review'], accept_completed_static_recovery, False),
         ('begin_cst_failed_static_worker_handoff', 'Freeze an exact failed static preparation for dirty-circuit preserved-DE handoff; retain its original fence.',
          dict(identity, review={'type':'object'}), list(identity)+['review'], begin_failed_static_worker_handoff, False),
+        ('begin_cst_dead_static_worker_recovery', 'Freeze and review a saved failed-static session after its exact worker has exited; preserve its DE and failure fence.',
+         dict(identity, review={'type':'object'}), list(identity)+['review'], begin_dead_static_worker_recovery, False),
         ('review_cst_model3d_archive_postopen', 'Read-only review of exact INFO after native reopen; prepare fresh-handle handoff without reopening again.',
          dict(identity, review={'type': 'object'}), list(identity)+['review'], review_archive_postopen, False),
         ('review_cst_model3d_archive_drift', 'Explicit full-hash preclose Temp drift review; retain deltas and same frozen transaction.',

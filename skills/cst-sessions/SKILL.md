@@ -88,6 +88,11 @@ scene makes the existing authorization insufficient.
   separate exit-risk acceptance; confirm_borrowed_worker must be false. Validate
   an actual owned-worker small-project handoff before the engineering target.
   A creator process exiting with its DE intact alone is not full handoff acceptance.
+  If the exact old worker has already exited after a returned and saved static
+  completion, use `begin_dead_static_worker_recovery` with the exact completion,
+  original failure, reviewed circuit digest and process-tree absence; then use
+  the same finish handoff. It preserves the failure fence and does not reopen or
+  solve. Its native validation is separate and cannot be inferred from offline tests.
   The owning session subsequently reported 0.3.46 owned-worker handoff acceptance
   on both an independent synthetic-data project and its reviewed engineering target:
   original DE, registered tabs, full parameters and current result tree remained.

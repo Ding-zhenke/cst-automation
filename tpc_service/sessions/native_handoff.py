@@ -333,6 +333,96 @@ def begin_failed_static(manager, session_id, credential, *, failed_job_id, proje
         return copy.deepcopy(record)
 
 
+def begin_dead_static_worker_recovery(manager, session_id, credential, *, failed_job_id, completion_job_id,
+        project_id, snapshot_digest, environment_identity, worker_identity, project_digests, review_note,
+        confirm_idle=False, confirm_no_worker_processes=False, require_self_em_exclusion=False,
+        require_guarded_static_run=False):
+    """Freeze a saved static failure after worker death, then review the same DE."""
+    require(confirm_idle is True and confirm_no_worker_processes is True,
+            'Explicit idle and absence of the old worker process tree required')
+    require(isinstance(review_note,str) and 0<len(review_note.strip())<=8192, 'Review note required')
+    require(type(require_self_em_exclusion) is bool and type(require_guarded_static_run) is bool,
+            'Explicit capability choices required')
+    require(isinstance(snapshot_digest,str) and len(snapshot_digest)==64
+            and all(c in '0123456789abcdef' for c in snapshot_digest), 'Reviewed circuit digest required')
+    for value in (failed_job_id,completion_job_id,project_id): identifier(value)
+    require(isinstance(worker_identity,dict) and type(worker_identity.get('pid')) is int
+            and worker_identity['pid']>0 and process_identity(worker_identity['pid']) is None,
+            'Old worker PID must be absent, including PID reuse')
+    folder=manager._folder(session_id)
+    with lock(folder/'handoff.lock'),lock(folder/'launch.lock'),lock(folder/'worker.lock',blocking=False):
+        with lock(manager.root/'registry.lock'),lock(folder/'state.lock'):
+            state=manager._state(folder,credential)
+            existing=state.get('worker_upgrade') or {}
+            if existing:
+                record=check_frozen(folder,state);partial=record.get('static_partial') or {}
+                require(record.get('dead_worker_recovery') is True and record.get('old_worker')==worker_identity
+                        and record.get('environment')==environment_identity and record.get('project_digests')==project_digests
+                        and record.get('review_note')==review_note and partial.get('failed_job_id')==failed_job_id
+                        and partial.get('completion_job_id')==completion_job_id and partial.get('project_id')==project_id
+                        and partial.get('snapshot_digest')==snapshot_digest
+                        and ('static-sp-self-em-exclusion-v1' in record['requested_capabilities'])==require_self_em_exclusion
+                        and ('static-sp-guarded-run-v1' in record['requested_capabilities'])==require_guarded_static_run,
+                        'Existing dead-worker recovery differs')
+                if record['phase']=='stop_requested': return copy.deepcopy(record)
+                require(record['phase']=='reviewing','Recovery is already advancing')
+            else:
+                require(manager.backend==state.get('backend')=='cst' and state.get('status')=='needs_reconcile'
+                        and not state.get('uncertain_jobs') and not state.get('worker_upgrade')
+                        and not state.get('launch_intent')
+                        and not state.get('close_requested') and not JobIndex.load(folder).active_jobs()
+                        and (state.get('runtime_diagnostics') or {}).get('state','clear')=='clear',
+                        'Idle fenced session without uncertain work required')
+                require(state.get('worker')==worker_identity and not alive(worker_identity)
+                        and process_identity(worker_identity['pid']) is None, 'Exact dead worker required')
+                require(state.get('environment')==environment_identity and alive(environment_identity), 'Exact live DE required')
+                original=read(folder/'jobs'/(failed_job_id+'.json')) or {};error=original.get('error') or {}
+                require(original.get('job_id')==failed_job_id and original.get('session_id')==session_id
+                        and original.get('operation')=='prepare_static_sp' and original.get('status')=='failed'
+                        and original.get('finished_at') and original.get('params',{}).get('project_id')==project_id
+                        and error==state.get('last_error') and error.get('code')=='session_static_sp_prepare_failed'
+                        and error.get('details',{}).get('mutation_may_have_occurred') is True
+                        and not (error.get('details',{}).get('session_monitor') or {}).get('failure_latched')
+                        and not (error.get('details',{}).get('session_monitor') or {}).get('first_failure'),
+                        'Exact original returned static failure required')
+                completed=read(folder/'jobs'/(completion_job_id+'.json')) or {};result=completed.get('result') or {}
+                require(completed.get('job_id')==completion_job_id and completed.get('session_id')==session_id
+                        and completed.get('operation')=='complete_failed_static_task' and completed.get('status')=='succeeded'
+                        and completed.get('params',{}).get('project_id')==project_id
+                        and completed.get('params',{}).get('failed_job_id')==failed_job_id
+                        and result.get('original_failed_job_id')==failed_job_id and result.get('saved') is True
+                        and result.get('saved_digest')==project_digests.get(project_id)
+                        and isinstance(result.get('after'),dict) and digest(result['after'])==snapshot_digest,
+                        'Exact returned and saved static completion required')
+                require(project_id in state['projects'] and not state['projects'][project_id].get('tab_closed')
+                        and saved_digests(state)==project_digests, 'Exact saved open projects required')
+                assert_environment_unclaimed(manager.root,session_id,environment_identity)
+                needed=['static-sp-fenced-recovery-v1']
+                if require_self_em_exclusion: needed.append('static-sp-self-em-exclusion-v1')
+                if require_guarded_static_run: needed.append('static-sp-guarded-run-v1')
+                record=dict(mode=MODE,token=uuid4().hex,phase='reviewing',old_worker=worker_identity,
+                    environment=environment_identity,projects_digest=digest(state['projects']),project_digests=project_digests,
+                    file_versions=file_versions(state),review_note=review_note,stop_ack=False,dead_worker_recovery=True,
+                    requested_capabilities=needed,required_capabilities=sorted(needed+[CAPABILITY]),started_at=time.time(),
+                    native_acceptance='pending',return_to_fence=True,worker_ownership='borrowed',
+                    schematic_idle_asserted_by_caller=True,worker_process_tree_absence_asserted_by_caller=True,
+                    static_partial={'failed_job_id':failed_job_id,'completion_job_id':completion_job_id,
+                        'project_id':project_id,'snapshot_digest':snapshot_digest,'failed_job_digest':digest(original),
+                        'saved_disk_only':True})
+                state.update(status='closing',worker_upgrade=record);write(folder/'session.json',state)
+            token=record['token']
+        proof=verify_native(Runtime(folder,'cst'),state)
+        with lock(manager.root/'registry.lock'),lock(folder/'state.lock'):
+            current=manager._state(folder,credential);record=check_frozen(folder,current)
+            require(record['token']==token and record['phase']=='reviewing' and current['worker']==worker_identity
+                    and process_identity(worker_identity['pid']) is None and not alive(worker_identity),
+                    'Dead worker or recovery changed during native review')
+            record.update(phase='stop_requested',pre_exit_native=proof,stop_ack=True,
+                          dead_worker_absence_verified_at=time.time())
+            write(folder/'session.json',current)
+            return copy.deepcopy(record)
+
+
 def finish(manager, session_id, credential):
     folder = manager._folder(session_id)
     # Serialize advances without holding state/registry locks across native getters.

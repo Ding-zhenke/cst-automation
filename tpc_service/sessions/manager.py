@@ -304,6 +304,10 @@ class SessionManager:
         from .native_handoff import begin_failed_static
         return begin_failed_static(self, session_id, credential, **review)
 
+    def begin_dead_static_worker_recovery(self, session_id, credential, **review):
+        from .native_handoff import begin_dead_static_worker_recovery
+        return begin_dead_static_worker_recovery(self, session_id, credential, **review)
+
     def accept_completed_static_recovery(self, session_id, credential, **review):
         from .static_sp_finalize import accept
         return accept(self, session_id, credential, **review)

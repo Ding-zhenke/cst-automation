@@ -26,6 +26,8 @@ def main(argv=None):
     native_handoff.add_argument('--review-file', required=True)
     failed_static_handoff = sub.add_parser('begin-failed-static-worker-handoff')
     failed_static_handoff.add_argument('--review-file', required=True)
+    dead_static_recovery = sub.add_parser('begin-dead-static-worker-recovery')
+    dead_static_recovery.add_argument('--review-file', required=True)
     static_accept = sub.add_parser('accept-completed-static-recovery')
     static_accept.add_argument('--review-file', required=True)
     sub.add_parser('finish-native-worker-handoff')
@@ -89,6 +91,8 @@ def main(argv=None):
                 result = manager.begin_native_worker_handoff(sid, credential, **read(args.review_file))
             elif args.command == 'begin-failed-static-worker-handoff':
                 result = manager.begin_failed_static_worker_handoff(sid, credential, **read(args.review_file))
+            elif args.command == 'begin-dead-static-worker-recovery':
+                result = manager.begin_dead_static_worker_recovery(sid, credential, **read(args.review_file))
             elif args.command == 'accept-completed-static-recovery':
                 result = manager.accept_completed_static_recovery(sid, credential, **read(args.review_file))
             elif args.command == 'finish-native-worker-handoff':

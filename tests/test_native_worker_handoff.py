@@ -85,6 +85,54 @@ def test_failed_static_handoff_preserves_original_fence(handoff, monkeypatch):
     assert h.begin_failed_static(m,sid,cred,**review)['token']==report['token']
 
 
+def test_dead_worker_recovery_freezes_and_reviews_existing_de(handoff,monkeypatch):
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    error={'code':'session_static_sp_prepare_failed','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=error,worker_launch_intent=True);write(f/'session.json',state)
+    write(f/'jobs'/'failed.json',{'job_id':'failed','session_id':sid,'status':'failed','finished_at':1,
+        'operation':'prepare_static_sp','params':{'project_id':'p'},'error':error})
+    snapshot={'blocks':[]};write(f/'jobs'/'complete.json',{'job_id':'complete','session_id':sid,'status':'succeeded',
+        'operation':'complete_failed_static_task','params':{'project_id':'p','failed_job_id':'failed'},
+        'result':{'original_failed_job_id':'failed','saved':True,'saved_digest':args['project_digests']['p'],'after':snapshot}})
+    live.remove(11);monkeypatch.setattr(h,'process_identity',lambda pid:None)
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder:type('Index',(),{'active_jobs':lambda self: []})())
+    proof={'tabs':['original'],'parameters':{'p':{}},'static_partial':{'p':digest(snapshot)}}
+    monkeypatch.setattr(h,'verify_native',lambda runtime,state:observed(runtime,proof))
+    review=dict(failed_job_id='failed',completion_job_id='complete',project_id='p',snapshot_digest=digest(snapshot),
+        environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+        project_digests=args['project_digests'],review_note='Reviewed dead worker and saved circuit',
+        confirm_idle=True,confirm_no_worker_processes=True,require_self_em_exclusion=True,require_guarded_static_run=True)
+    result=h.begin_dead_static_worker_recovery(m,sid,cred,**review)
+    assert result['phase']=='stop_requested' and result['stop_ack'] is True
+    assert result['pre_exit_native']==proof and result['return_to_fence'] is True
+    assert read(f/'session.json')['last_error']==error and read(f/'jobs'/'failed.json')['status']=='failed'
+    from tpc_service.sessions.__main__ import main
+    from cst_mcp import tools
+    from cst_mcp.session_tools import register_session_tools
+    write(f/'review.json',review);write(f/'reference.json',dict(r,root=str(m.root)))
+    assert main(['--root',str(m.root),'--reference',str(f/'reference.json'),
+                 'begin-dead-static-worker-recovery','--review-file',str(f/'review.json')])==0
+    for name in ('TOOL_SPECS','HANDLERS','READ_TOOLS','WRITE_TOOLS'):
+        monkeypatch.setattr(tools,name,getattr(tools,name).copy())
+    register_session_tools(str(m.root),backend='cst')
+    assert tools.dispatch('begin_cst_dead_static_worker_recovery',dict(session_id=sid,credential=cred,review=review))['ok']
+    launched=[];monkeypatch.setattr(m,'_launch',lambda *a,**k:launched.append(k))
+    assert m.finish_native_worker_handoff(sid,cred)['phase']=='starting'
+    assert len(launched)==1 and launched[0]['recover'] is True
+
+
+def test_dead_worker_recovery_rejects_pid_reuse_before_freeze(handoff,monkeypatch):
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    state=read(f/'session.json');state['status']='needs_reconcile';write(f/'session.json',state)
+    monkeypatch.setattr(h,'process_identity',lambda pid:{'pid':pid,'started':999,'image':'other.exe'})
+    with pytest.raises(ServiceError):
+        h.begin_dead_static_worker_recovery(m,sid,cred,failed_job_id='failed',completion_job_id='complete',
+            project_id='p',snapshot_digest='a'*64,environment_identity=args['environment_identity'],
+            worker_identity=args['worker_identity'],project_digests=args['project_digests'],review_note='Review',
+            confirm_idle=True,confirm_no_worker_processes=True)
+    assert read(f/'session.json')['status']=='needs_reconcile'
+
+
 def test_failed_static_handoff_rejects_unrelated_failure(handoff, monkeypatch):
     m,r,f,live,args,h=handoff; sid,cred=r['session_id'],r['credential']
     error={'code':'other','details':{'mutation_may_have_occurred':True}}
