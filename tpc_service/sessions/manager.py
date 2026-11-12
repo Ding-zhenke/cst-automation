@@ -134,6 +134,11 @@ class SessionManager:
                 check_project_intent(state, index.active_jobs(), operation, params)
                 assert_path_unclaimed(self.root, folder, operation, params)
             from .workflow import preflight
+            if operation == 'circuit' and params.get('settings', {}).get('operation') == 'read_sp_impedances':
+                if not state.get('worker') or not alive(state['worker']):
+                    raise ServiceError('session_query_requires_open_project', 'SP query cannot launch a worker or restore a project')
+                if 'sp-impedance-read-v1' not in state.get('worker_capabilities', []):
+                    raise ServiceError('workflow_worker_upgrade_required', 'SP impedance query requires a compatible idle worker')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             if (operation == 'inspect' and 'discrete_port_ids' in params
                     and state.get('worker') and alive(state['worker'])

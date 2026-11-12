@@ -9,7 +9,7 @@ from .native import file_digest
 from .store import alive, read, write, identifier
 
 CAPABILITY = 'parameter-em-hb-v1'
-READ_CIRCUIT = frozenset(('inspect', 'read_results', 'read_run_parameters', 'package', 'stage_postprocessing_template'))
+READ_CIRCUIT = frozenset(('inspect', 'read_results', 'read_run_parameters', 'read_sp_impedances', 'package', 'stage_postprocessing_template'))
 PARAMETER_SWEEPS = frozenset(('configure_sweep', 'configure_discrete_sweep',
     'add_sweep_parameter_arbitrary_points', 'add_parameter_sweep_sequence', 'add_sweep_parameter_samples'))
 

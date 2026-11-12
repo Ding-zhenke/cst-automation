@@ -14,6 +14,9 @@ def execute(runtime, job):
     operation, params = job['operation'], job['params']
     from . import workflow
     try:
+        if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'read_sp_impedances'
+                and 'sp-impedance-read-v1' not in runtime.state().get('worker_capabilities', [])):
+            raise ServiceError('workflow_worker_upgrade_required', 'SP impedance query requires a compatible execution worker')
         if operation == 'inspect' and 'discrete_port_ids' in params:
             from .inspection import validate_options
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
@@ -226,7 +229,7 @@ def _execute_operation(runtime, job):
         record = runtime.save(app, project_id)
         return {'project': record, 'saved': True, 'backend': runtime.backend,
                 'readback_verified': False, 'solver_verified': False}
-    if operation == 'circuit' and params.get('settings', {}).get('operation') == 'read_run_parameters':
+    if operation == 'circuit' and params.get('settings', {}).get('operation') in ('read_run_parameters', 'read_sp_impedances'):
         # A read probe must not trigger Runtime.project/environment recovery,
         # opening a closed tab, attaching, or creating another environment.
         from .store import alive

@@ -118,6 +118,49 @@ def test_session_run_parameter_query_is_bound_and_does_not_save_or_close(tmp_pat
     runtime.check_saved.assert_called_once_with(record)
 
 
+def test_sp_query_reuses_owned_cached_project_without_save(tmp_path, monkeypatch):
+    from cst_solver.circuit import native
+    from tpc_service.sessions.operations import execute
+    from tpc_service.sessions import store
+    runtime, app, record = session(tmp_path)
+    runtime.state()['worker_capabilities'] = ['sp-impedance-read-v1']
+    runtime.backend = 'cst'; runtime.app = app; app.cst_file = object()
+    runtime.handles = {'p': app.cst_file}; runtime.check_saved = Mock(); runtime.project = Mock()
+    monkeypatch.setattr(store, 'alive', lambda identity: True)
+    reader = Mock(return_value={'artifact_path': str(runtime.folder/'receipt.txt'), 'native_bridge_verified': False})
+    monkeypatch.setattr(native, 'read_project_sp_impedances', reader)
+    result = execute(runtime, {'operation': 'circuit', 'params': {'project_id': 'p', 'kind': 'build',
+        'settings': {'operation': 'read_sp_impedances', 'task_name': 'SP', 'ports': ['P1', 'P2'], 'confirm_idle': True}}})
+    assert result['ok'] and not result['saved']
+    assert result['result_summary']['sp_impedances']['native_bridge_verified'] is False
+    runtime.project.assert_not_called(); app.close.assert_not_called()
+    reader.assert_called_once_with(app.cst_file, 'SP', ['P1', 'P2'], expected_project_path=record['path'],
+        receipt_root=runtime.folder/'sp_impedance_queries', confirm_idle=True)
+
+
+def test_sp_query_rejects_missing_worker_capability_before_acquisition(tmp_path):
+    from tpc_service.sessions.operations import execute
+    runtime, app, record = session(tmp_path)
+    runtime.project = Mock()
+    with pytest.raises(ServiceError) as exc:
+        execute(runtime, {'operation': 'circuit', 'params': {'project_id': 'p', 'kind': 'build',
+            'settings': {'operation': 'read_sp_impedances', 'task_name': 'SP', 'ports': ['P1'], 'confirm_idle': True}}})
+    assert exc.value.code == 'workflow_worker_upgrade_required'
+    runtime.project.assert_not_called()
+
+
+def test_sp_query_never_launches_missing_worker(tmp_path, monkeypatch):
+    from tpc_service.sessions import manager as module
+    manager = module.SessionManager(str(tmp_path), backend='fake')
+    ref = manager.ensure('sp-read', 'ensure')
+    monkeypatch.setattr(manager, '_launch', lambda *a: pytest.fail('No worker launch'))
+    with pytest.raises(ServiceError) as exc:
+        manager.submit(ref['session_id'], ref['credential'], 'r', 'circuit',
+            {'project_id': 'p', 'kind': 'build', 'settings': {'operation': 'read_sp_impedances',
+             'task_name': 'SP', 'ports': ['P1'], 'confirm_idle': True}})
+    assert exc.value.code == 'session_query_requires_open_project'
+
+
 def test_parameter_query_requires_idle_assertion_before_opening_project(tmp_path):
     from tpc_service.circuit import register_circuit_handlers
     runtime, app, record = session(tmp_path)

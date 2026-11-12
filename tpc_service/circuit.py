@@ -47,7 +47,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"disable_tasks", "configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "package"},
+    allowed = {"build": {"disable_tasks", "configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "read_sp_impedances", "package"},
                "solve": {"run_task", "run_network_transient"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
     def handle(*, project, params, job, backend):
@@ -75,6 +75,11 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     raise CircuitError('circuit_spec_invalid', 'Owning caller must confirm idle before querying')
                 # Validate the fixed ID and binding before any native opening.
                 prepare_run_parameter_query(path, params.get('result_id'), receipt_root=Path(service.workdir).resolve())
+            if operation == 'read_sp_impedances':
+                if not borrowed_project or set(params) != {'operation', 'task_name', 'ports', 'confirm_idle'} or params.get('confirm_idle') is not True:
+                    raise CircuitError('circuit_spec_invalid', 'Owned project and exact idle review fields required')
+                from cst_automation.sp_impedance_bridge import build_impedance_query
+                build_impedance_query(path, params['task_name'], params['ports'], receipt_root=Path(service.workdir).resolve())
             if operation == 'run_parameter_study':
                 from cst_automation.circuit_studies import normalize_parameter_study
                 try:
@@ -187,6 +192,12 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     receipt_root=contained(service.workdir, 'run_parameter_queries'), confirm_idle=True)
                 return ok_result(saved=False, result_summary={'run_parameters': report, 'solver_verified': False},
                                  artifacts=[artifact(report['artifact_path'], kind='run_parameter_query')])
+            if operation == 'read_sp_impedances':
+                from cst_solver.circuit.native import read_project_sp_impedances
+                report = read_project_sp_impedances(app.cst_file, params['task_name'], params['ports'],
+                    expected_project_path=str(path), receipt_root=contained(service.workdir, 'sp_impedance_queries'), confirm_idle=True)
+                return ok_result(saved=False, result_summary={'sp_impedances': report, 'solver_verified': False},
+                                 artifacts=[artifact(report['artifact_path'], kind='sp_impedance_query')])
             api = app.circuit if operation != 'configure_em_time_settings' else None
             if operation == "inspect":
                 return ok_result(saved=False, result_summary={"circuit_readback": api.inspect(), "solver_verified": False})

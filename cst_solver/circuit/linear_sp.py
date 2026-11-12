@@ -4,6 +4,32 @@ import math
 from .adapter import CircuitError, iterate
 
 
+def inspect_existing_linear_sp(schematic, task_name, ports):
+    """Read supported task getters; no configuration, execution, or connection."""
+    if (not isinstance(task_name, str) or not task_name.strip() or
+            any(c in task_name for c in '\r\n\x00') or not isinstance(ports, list) or
+            not 1 <= len(ports) <= 128 or any(not isinstance(p, str) or not p.strip() or
+            any(c in p for c in '\r\n\x00') for p in ports) or len(set(ports)) != len(ports)):
+        raise ValueError('Explicit task and unique bounded port names required')
+    actual_ports = list(iterate(schematic.ExternalPort, 'StartPortNameIteration', 'GetNextPortName'))
+    if len(set(actual_ports)) != len(actual_ports) or set(actual_ports) != set(ports):
+        raise ValueError('Native external ports differ from requested inventory')
+    task = schematic.SimulationTask
+    task.Reset(); task.Name(task_name)
+    if not task.DoesExist() or str(task.GetTypeForTask(task_name)).casefold() != 's-parameters':
+        raise ValueError('Requested task is not an existing S-parameters task')
+    properties = {key: str(task.GetProperty(key)) for key in
+                  ('maximum frequency range', 'circuit simulator', 'broadband sweep',
+                   'logarithmic sweep', 'fmin', 'fmax')}
+    modes = {name: {'impedance_type': str(task.GetPortImpedanceType(name)),
+                    'source_type': str(task.GetPortSourceType(name))} for name in ports}
+    return {'task_name': task_name, 'properties': properties, 'ports': modes,
+            'frequency_unit': str(task.GetUnit('Frequency')), 'resistance_unit': str(task.GetUnit('Resistance')),
+            'sample_count_readback': 'unsupported', 'port_impedances_readback': 'unsupported',
+            'zero_external_sources_verified': False, 'schematic_identity_verified': False,
+            'native_bridge_verified': False, 'solver_verified': False}
+
+
 def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax,
                              samples, port_impedances):
     if (not isinstance(task_name, str) or not task_name.strip()

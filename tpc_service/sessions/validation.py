@@ -146,6 +146,17 @@ def validate(operation, params):
     if operation == 'circuit':
         require(params.get('kind', 'build') in ('build', 'solve', 'study') and
                 isinstance(params.get('settings'), dict), 'Explicit circuit kind/settings required')
+        if params['settings'].get('operation') == 'read_sp_impedances':
+            settings = params['settings']
+            require(params.get('kind') == 'build' and set(settings) == {'operation', 'task_name', 'ports', 'confirm_idle'}
+                    and settings.get('confirm_idle') is True, 'Explicit owned idle SP query required')
+            name, ports = settings.get('task_name'), settings.get('ports')
+            require(isinstance(name, str) and bool(name.strip()) and len(name) <= 512
+                    and not any(c in name for c in '\r\n\x00'), 'Invalid SP task')
+            require(isinstance(ports, list) and 1 <= len(ports) <= 128
+                    and all(isinstance(p, str) and p.strip() and len(p) <= 512 and
+                            not any(c in p for c in '\r\n\x00') for p in ports)
+                    and len(set(ports)) == len(ports), 'Unique bounded SP ports required')
         from cst_automation.task_disable import is_request, normalize
         if is_request(operation, params):
             require(params.get('kind') == 'build', 'Task disable requires explicit build kind')

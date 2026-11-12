@@ -90,3 +90,23 @@ def test_refuses_to_replace_existing_task():
         configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
                                  fmin=2, fmax=5, samples=4, port_impedances={'P1': 50})
     assert not schematic.SimulationTask.calls
+
+
+def test_inspect_existing_is_read_only_and_does_not_certify_sources():
+    from cst_solver.circuit.linear_sp import inspect_existing_linear_sp
+    schematic = FakeSchematic()
+    configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
+                             fmin=2, fmax=5, samples=4, port_impedances={'P1': 50, 'P2': 75})
+    before = list(schematic.SimulationTask.calls)
+    report = inspect_existing_linear_sp(schematic, 'LinearSP', ['P1', 'P2'])
+    assert schematic.SimulationTask.calls == before
+    assert report['frequency_unit'] == 'GHz' and report['properties']['fmin'] == '2'
+    assert report['port_impedances_readback'] == report['sample_count_readback'] == 'unsupported'
+    assert not report['zero_external_sources_verified'] and not report['solver_verified']
+
+
+@pytest.mark.parametrize('ports', [[], ['P1'], ['P1', 'P1'], [True]])
+def test_inspect_rejects_bad_ports(ports):
+    from cst_solver.circuit.linear_sp import inspect_existing_linear_sp
+    with pytest.raises(ValueError):
+        inspect_existing_linear_sp(FakeSchematic(exists=True), 'LinearSP', ports)

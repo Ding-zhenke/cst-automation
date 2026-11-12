@@ -1,0 +1,48 @@
+---
+name: diode-isolator-design-workflow
+description: Coordinate parameterized diode isolator design through CST EM, native zero-bias circuit S-parameters, ADS HB and evidence-based iteration.
+---
+
+# Diode isolator design workflow
+
+Read this entire file and applicable referenced skills before dependent operations.
+Use the current project configuration and original conversation session; never infer
+device dimensions, model parameters, port mappings or targets from another project.
+
+The sequence is parameters → CST EM → CST Design Studio S-parameters with diodes,
+zero external DC and pump → ADS HB with separately specified bias and pump → joint
+analysis → next candidate. The SP task's measurement excitation remains enabled.
+Do not substitute 3D EM S-parameters, offline linear predictions or a pump-off
+biased result for native zero-bias circuit SP.
+
+For unchanged topology reuse the same CST project, path and window across candidates;
+archive per-candidate inputs, matrices, raw outputs, logs and plots outside the
+project without routinely copying the entire project. Verify actual native history
+association and retention; a positive run ID alone is not persistence evidence.
+
+Use [sessions](../cst-sessions/SKILL.md), [circuit](../cst-circuit/SKILL.md),
+[results](../cst-results/SKILL.md), and [ADS](../keysight-ads-simulation/SKILL.md)
+for their actual stages and existing enforced gates. Bind results to the exact
+geometry, materials, ports, model, source conditions and EM input. A changed ADS
+bias or pump alone does not invalidate matching EM or zero-bias SP. Keep zero-bias
+SP and HB source settings distinct. Never claim a configured task was executed.
+
+The existing exploratory SP setup explicitly rejects unsupported native sample
+count and constant-impedance readback, and does not adapt an existing external-port
+and SP-task topology. Until a supported native route is implemented and verified,
+report the precise missing capability as pending; do not bypass session gates.
+
+For resumption inspect original CST job and session first; unknown or active jobs
+must not be resubmitted. `cst_automation.workflow_resume.missing_cases` is only an
+offline candidate list: verify actual artifact bytes, case identity, solver status
+and validity before reusing or submitting any ADS point. This helper is not a
+runner, state store, qualification gate or evidence of complete numerical results.
+Project adapters may use the separate `cst_automation.design_state.DesignState`
+SQLite journal to reserve requests and retain immutable attempts. Read the
+[integration contract](../../docs/guides/diode_workflow_integration.md); its
+caller assertions do not replace native receipts, archive checks or solver gates.
+
+Report raw complex data, units and input identities separately from numerical
+quality and performance conclusions. Preserve failures and independent mesh,
+residual, sampling, DC-fit and HB-truncation evidence. Bounds on diagnosis and
+resource use come from the project; do not silently relax acceptance thresholds.

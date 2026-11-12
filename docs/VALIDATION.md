@@ -1,5 +1,18 @@
 # 验证记录
 
+## 2026-11-12：设计流程初版及只读 SP 阻抗桥（0.3.70）
+
+- 加入项目自有 SQLite attempt 日志、输入依赖身份和离线缺失工况筛选；调用方声明
+  的 complete 不等于原生求解、归档完整或数值合格，状态不绕过所属会话保护。
+- 新增 workflow skill 和已有 SP 任务低层只读观察；会话 `read_sp_impedances` 在
+  已有缓存工程句柄上运行项目绑定 ByRef 查询并保留原始回执，不启动 worker、
+  打开工程、保存或求解。原生桥接、schematic 身份及独立 idle 验证仍待验收。
+- 全库离线 **2443 passed、2 deselected、9 warnings**（68.26 s），日志
+  `work/pytest-workflow-full.log`；另行补测无 worker 时拒绝启动通过。插件和技能
+  打包检查通过。维护未操作项目 DE、工程或求解器。
+- 本版不提供零偏 SP 创建、源隔离或受保护定向运行的完整路径。所属工程另报其
+  验证副本中尚无 SP task/external ports，且偏置与泵浦源已连接；需另行实现并验收。
+
 ## 2026-11-12：精确 Qt 停止确认公共接口（0.3.69）
 
 - 新增 qt_abort_dialog.inspect/confirm_yes，复用受限 Windows UIA 桥；仅支持已观察的

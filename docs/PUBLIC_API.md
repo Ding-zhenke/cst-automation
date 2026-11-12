@@ -273,6 +273,24 @@ open the SP setup/solve gates. The specific schematic identity is not yet
 verified; same-named tasks in different schematics are not distinguished.
 Numeric strings using a decimal comma are rejected rather than guessed.
 
+The owning session circuit build operation `read_sp_impedances` accepts exactly
+`operation`, `task_name`, `ports`, `confirm_idle`; it requires an already open,
+cached project in the existing live environment. It executes the project-bound
+ByRef query into the session audit directory and parses the token-bound receipt.
+No project save, task update or solve is performed. The caller asserts idle;
+schematic identity, native ABI and actual idle remain unverified. This operation
+requires worker capability `sp-impedance-read-v1`; it does not release SP gates.
+
+`cst_solver.circuit.linear_sp.inspect_existing_linear_sp(schematic, task_name,
+ports)` reads only documented task/port getters from an already owned schematic.
+It requires an exact nonempty unique port list matching native enumeration, an
+existing S-parameters task and returns task properties, units and port source and
+impedance types. Sample count and impedance values remain unsupported; the
+separate offline `sp_impedance_bridge` can build a ByRef VBA query but neither it
+nor this reader certifies the schematic identity, native ABI, source-free operating
+point or a solve. This low-level reader is not registered as a session operation,
+and must not be used to bypass the session's existing guarded submit path.
+
 ## Typed HF tetrahedral order controls
 
 `configure_fd_linear_solver(settings)` additionally accepts `tet_order` as exactly
@@ -1228,6 +1246,33 @@ FakeBackend 的 `solve` 结果保留请求的 `run_id`（默认 0），用于验
 
 
 ## Exact Qt abort confirmation (0.3.69)
+
+`cst_automation.design_state.DesignState(path)` is a project-owned SQLite journal,
+not a CST execution or qualification gate. `register_project(project_id, cst_path,
+topology_digest)` fixes the working path per topology; `begin_attempt(project_id,
+candidate_id, attempt_id, inputs)` stores immutable JSON inputs and stage-specific
+content identities; `reserve(attempt_id, stage, request_id)` atomically reserves a
+single stage without submitting a task; `finish(attempt_id, stage, request_id,
+status, receipt)` records one terminal result. `snapshot(attempt_id)` returns the
+authoritative record. Duplicate matching reservations return the existing state;
+different request IDs cannot replace an active or terminal request. Failed records
+are retained; retry requires a new attempt. This journal cannot establish native
+idle or solver success and never permits a CST/ADS operation by itself.
+
+Inputs must have exactly `geometry`, `em`, `static_sp`, `ads_hb`, `analysis` JSON
+objects. Each stage digest includes its own object and upstream dependencies:
+EM=geometry+em; static SP=EM+static_sp; ADS HB=EM+ads_hb; analysis=all four
+and analysis. Callers must include all relevant model, source, port and file hashes
+in those objects and verify content independently. Archive files are owned and
+written by project adapters; receipts store their identities, not full directories.
+
+`cst_automation.workflow_resume.missing_cases(expected, receipts, basis)` is an
+offline planning helper. Expected case IDs must be unique nonempty strings;
+receipts map case IDs to `{basis, status, artifact_sha256}`. Only `complete`
+receipts with the exact supplied basis and a lowercase SHA256 are candidates for
+reuse; all missing, failed or stale cases are returned. This does not verify file
+bytes, solver completion, authorization, or submit work. The project adapter must
+independently verify artifact content and native execution before reusing results.
 
 `cst_solver.qt_abort_dialog.inspect(pid=..., hwnd=..., expected_creation_time=...)`
 reads one owned window through bounded Windows UIA. `confirm_yes(snapshot,

@@ -208,6 +208,31 @@ def replace_parameter_sweep_sequences(schematic, task_name, sequences):
             'readback_verified': False, 'solver_verified': False}
 
 
+def read_project_sp_impedances(project, task_name, ports, *, expected_project_path, receipt_root, confirm_idle=False):
+    """Execute the documented ByRef query in an already-owned project only."""
+    import json
+    from cst_automation.sp_impedance_bridge import build_impedance_query, parse_impedance_receipt
+    from cst_solver.native import execute_vba
+    expected = Path(expected_project_path)
+    if confirm_idle is not True or not expected.is_absolute() or Path(project.filename()).resolve() != expected.resolve():
+        raise ValueError('Explicit idle and exact owned project required')
+    request = build_impedance_query(expected, task_name, ports, receipt_root=receipt_root)
+    output = Path(request['output_path'])
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        raise ValueError('Refusing existing receipt')
+    manifest = output.with_suffix('.request.json')
+    with manifest.open('x', encoding='utf-8') as stream:
+        json.dump(request, stream, ensure_ascii=False, indent=2)
+    execute_vba(project, request['vba_code'], target='schematic')
+    if Path(project.filename()).resolve() != expected.resolve():
+        raise ValueError('Project identity changed during query')
+    report = parse_impedance_receipt(output.read_bytes(), request=request)
+    report.update(artifact_path=str(output), manifest_path=str(manifest),
+                  idle_asserted_by_caller=True, idle_verified=False)
+    return report
+
+
 def read_project_run_parameters(project, result_id, *, expected_project_path, receipt_root, confirm_idle=False):
     """Query one existing project using VBA ByRef, never a guessed Python ABI.
 
