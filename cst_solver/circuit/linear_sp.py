@@ -48,18 +48,26 @@ def complete_existing_linear_sp_task(schematic, task_name, *, expected, frequenc
         raise ValueError('Reviewed units or simulator differ')
     task = schematic.SimulationTask
     task.Reset(); task.Name(task_name)
-    completed, stage, attempted = [], 'set_maximum_frequency_range', None
+    completed, unchanged, stage, attempted = [], [], 'set_maximum_frequency_range', None
     def write(stage_name, fn, *args):
         nonlocal stage, attempted
         stage = stage_name
         attempted = {'stage': stage_name, 'arguments': list(args)}
         fn(*args)
         completed.append(attempted)
+    def set_false_if_needed(key, stage_name):
+        nonlocal stage, attempted
+        stage, attempted = 'read_' + stage_name, None
+        actual = str(task.GetProperty(key))
+        if actual.casefold() == 'false':
+            unchanged.append({'property': key, 'native_value': actual})
+        else:
+            write(stage_name, task.SetProperty, key, 'False')
     try:
-        write('set_maximum_frequency_range', task.SetProperty, 'maximum frequency range', 'False')
-        write('set_broadband_sweep', task.SetProperty, 'broadband sweep', 'False')
+        set_false_if_needed('maximum frequency range', 'set_maximum_frequency_range')
+        set_false_if_needed('broadband sweep', 'set_broadband_sweep')
         write('set_sweep_data', task.SetSweepData, format(fmin, '.17g'), format(fmax, '.17g'), str(samples))
-        write('set_logarithmic_sweep', task.SetProperty, 'logarithmic sweep', 'False')
+        set_false_if_needed('logarithmic sweep', 'set_logarithmic_sweep')
         for name, value in port_impedances.items():
             write('set_port_impedance:' + name, task.SetConstPortImpedance, name, format(value, '.17g'), '0')
         stage = 'read_task_settings'
@@ -76,8 +84,8 @@ def complete_existing_linear_sp_task(schematic, task_name, *, expected, frequenc
     except Exception as exc:
         raise CircuitError('circuit_build_partial', 'Existing S-parameter task may be partially updated',
                            failure_stage=stage, original_type=type(exc).__name__, original_message=str(exc),
-                           attempted=attempted, completed=completed) from exc
-    return {'before': before, 'after': after, 'completed': completed, 'solver_verified': False}
+                           attempted=attempted, completed=completed, unchanged=unchanged) from exc
+    return {'before': before, 'after': after, 'completed': completed, 'unchanged': unchanged, 'solver_verified': False}
 
 
 def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax,

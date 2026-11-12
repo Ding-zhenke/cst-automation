@@ -304,6 +304,15 @@ Partial task errors retain the exact native call stage and underlying exception.
 caller-reviewed native task snapshot before setting only that task's sweep and impedances. It does not
 create a task, alter nets or save. Its presence alone cannot release a session
 fence or replace a protected recovery and handoff.
+It reads matching boolean settings and records them without rewriting; the sweep
+is still explicitly configured because the native sample-count getter is unavailable.
+
+For a no-new-EM static run, a future guarded run route must verify the actual
+leaf task and its children, the embedded network identity and the task's effective
+3D dependencies before submission. An unconnected self-MWS schematic block alone
+does not prove that task initialization cannot trigger 3D work; if that behavior
+cannot be established, the run must be refused. No existing static run route
+provides this guarantee yet.
 
 `cst_solver.circuit.static_sp.detach_source_endpoint(adapter, net_name, endpoint,
 expected_members)` is an explicitly mutating, low-level transaction primitive for

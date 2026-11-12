@@ -175,8 +175,28 @@ def test_existing_task_failure_records_attempt_and_completed_steps():
             frequency_unit='GHz', fmin=2, fmax=5, samples=4, port_impedances={'P1':50, 'P2':75})
     detail = caught.value.details
     assert detail['attempted'] == {'stage':'set_broadband_sweep', 'arguments':['broadband sweep', 'False']}
-    assert detail['completed'][0]['stage'] == 'set_maximum_frequency_range'
+    assert detail['completed'] == []
+    assert detail['unchanged'] == [{'property': 'maximum frequency range', 'native_value': 'false'}]
     assert detail['original_message'] == 'native setter failed'
+
+
+def test_existing_task_does_not_write_reviewed_matching_properties():
+    from cst_solver.circuit.linear_sp import inspect_existing_linear_sp, complete_existing_linear_sp_task
+    schematic = FakeSchematic()
+    task = schematic.SimulationTask
+    task.Type('S-Parameters'); task.Create(); task.units = {'Frequency':'GHz', 'Resistance':'Ohm'}
+    task.props = {'maximum frequency range':'false', 'circuit simulator':'cst', 'broadband sweep':'true',
+                  'logarithmic sweep':'false', 'fmin':'0', 'fmax':'1000'}
+    expected = inspect_existing_linear_sp(schematic, 'LinearSP', ['P1', 'P2'])
+    original = task.SetProperty
+    def set_property(key, value):
+        if key in ('maximum frequency range', 'logarithmic sweep', 'circuit simulator'):
+            pytest.fail('Matching property should not be rewritten')
+        original(key, value)
+    task.SetProperty = set_property
+    report = complete_existing_linear_sp_task(schematic, 'LinearSP', expected=expected,
+        frequency_unit='GHz', fmin=2, fmax=5, samples=4, port_impedances={'P1':50, 'P2':75})
+    assert {row['property'] for row in report['unchanged']} == {'maximum frequency range', 'logarithmic sweep'}
 
 
 @pytest.mark.parametrize('ports', [[], ['P1'], ['P1', 'P1'], [True]])
