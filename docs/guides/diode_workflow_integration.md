@@ -94,7 +94,8 @@ Each partial/unknown failure is fenced and is never automatically replayed.
 The original dynamic circuit is preserved in the separately archived source,
 not restored in this static-only copy.
 
-Task frequency limits/units and port modes are read back. Sample count and
+Task frequency limits/units and port impedance modes are read back. The source
+type getter is unsupported for the native SP task and is not queried. Sample count and
 constant impedance values remain `unsupported` in this prepare receipt; use the
 owned `read_sp_impedances` bridge for a separate native check. Isolated source
 branches, ByRef array binding, real solver behavior and four-result coverage are

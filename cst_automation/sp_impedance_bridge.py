@@ -45,7 +45,7 @@ def build_impedance_query(project_path, task_name, ports, *, receipt_root):
     for port in ports:
         name = _quote(port)
         lines += [' zr = "": zi = ""', f' .GetConstPortImpedance {name}, zr, zi',
-                  f' Print #handle, "port\t" & HexText({name}) & "\t" & HexText(CStr(.GetPortImpedanceType({name}))) & "\t" & HexText(CStr(.GetPortSourceType({name}))) & "\t" & HexText(zr) & "\t" & HexText(zi)']
+                  f' Print #handle, "port\t" & HexText({name}) & "\t" & HexText(CStr(.GetPortImpedanceType({name}))) & "\t" & HexText("unsupported") & "\t" & HexText(zr) & "\t" & HexText(zi)']
     lines += [f' Print #handle, "END\t{token}"', ' Close #handle', 'End With', 'End Sub']
     return {'request_id': token, 'project_path': str(project), 'project_resources': str(resources),
             'task_name': task_name, 'ports': list(ports), 'output_path': str(output),
@@ -76,7 +76,7 @@ def parse_impedance_receipt(payload, *, request):
         fields = line.split('\t')
         if len(fields) != 6 or fields[0] != 'port': raise ValueError('Invalid port row')
         name, mode, source, real, imag = [unhex(v) for v in fields[1:]]
-        if name not in ports or name in result or mode != 'Constant' or source not in ('None', 'Signal'):
+        if name not in ports or name in result or mode != 'Constant' or source != 'unsupported':
             raise ValueError('Wrong port or inactive constant impedance')
         try: r, i = float(real), float(imag)
         except ValueError as exc: raise ValueError('Numeric impedance required') from exc

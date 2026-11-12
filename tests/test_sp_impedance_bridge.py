@@ -8,6 +8,7 @@ def test_query_is_project_and_task_bound_and_uses_documented_byref(tmp_path):
     q = build_impedance_query(p, 'SP', ['P1'], receipt_root=tmp_path)
     assert 'GetConstPortImpedance' in q['vba_code']
     assert 'GetPortImpedanceType' in q['vba_code']
+    assert 'GetPortSourceType' not in q['vba_code']
     assert q['native_bridge_verified'] is False
 
 
@@ -17,7 +18,7 @@ def test_parser_rejects_stale_or_inactive_impedance(tmp_path):
     lines = ['CST_SP_IMPEDANCE_V1', 'request\t'+q['request_id'],
              'project\t'+encode(q['project_resources']), 'task\t'+encode('SP'),
              'unit\t'+encode('Ohm'), 'count\t1',
-             'port\t'+encode('P1')+'\t'+encode('Constant')+'\t'+encode('None')+'\t'+encode('50')+'\t'+encode('0'),
+             'port\t'+encode('P1')+'\t'+encode('Constant')+'\t'+encode('unsupported')+'\t'+encode('50')+'\t'+encode('0'),
              'END\t'+q['request_id']]
     parsed = parse_impedance_receipt('\n'.join(lines), request=q)
     assert parsed['ports']['P1']['real'] == 50 and parsed['native_bridge_verified'] is False
@@ -46,7 +47,7 @@ def test_owned_byref_execution_parses_bound_receipt_without_saving(tmp_path, mon
         lines = ['CST_SP_IMPEDANCE_V1', 'request\t'+q['request_id'],
                  'project\t'+encode(q['project_resources']), 'task\t'+encode('SP'),
                  'unit\t'+encode('Ohm'), 'count\t1',
-                 'port\t'+encode('P1')+'\t'+encode('Constant')+'\t'+encode('None')+'\t'+encode('75')+'\t'+encode('0'),
+                 'port\t'+encode('P1')+'\t'+encode('Constant')+'\t'+encode('unsupported')+'\t'+encode('75')+'\t'+encode('0'),
                  'END\t'+q['request_id']]
         from pathlib import Path
         Path(q['output_path']).write_text('\n'.join(lines), encoding='ascii')

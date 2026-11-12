@@ -282,7 +282,6 @@ def execute_sp_solve(runtime, job, app):
             or str(task.GetUnit('Frequency')) != setup['task']['frequency_unit']
             or str(task.GetUnit('Resistance')) != 'Ohm'
             or any(str(task.GetPortImpedanceType(name)) != mode['impedance_type']
-                   or str(task.GetPortSourceType(name)) != mode['source_type']
                    for name, mode in setup['task_report']['port_modes'].items())
             or any(str(task.GetProperty(k)) != v for k, v in props.items())):
         raise ServiceError('exploratory_sp_native_mismatch', 'Native SP task differs from setup receipt')

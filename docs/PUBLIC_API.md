@@ -296,6 +296,11 @@ Source, Voltage Signal Source, Current DC Source and Current Signal Source block
 Values and units are returned as native strings; failures are in `unknown` and do
 not establish a zero operating point, source isolation or task-specific behavior.
 
+Native S-parameter task readback on CST 2026 rejects `GetPortSourceType`; static
+SP inspection and the impedance query must not call it. Source type readback is
+reported unsupported and independent source-zero evidence remains mandatory.
+Partial task errors retain the exact native call stage and underlying exception.
+
 `cst_solver.circuit.static_sp.detach_source_endpoint(adapter, net_name, endpoint,
 expected_members)` is an explicitly mutating, low-level transaction primitive for
 one existing voltage/current source block endpoint. It checks source type, all
@@ -317,6 +322,13 @@ The native array binding, isolated source branches, impedance bridge and actual
 solver behavior remain unverified. A protected run/read route is not implemented;
 this operation does not authorize or perform a solve. Actual sampling coverage
 must be checked against resulting complex frequency curves.
+
+`cst_automation.static_sp_results.verify_curves` takes all four independently read complex
+schematic curves from one explicit positive run ID and one matching parameter
+combination. It checks the requested frequency unit, complete evenly spaced
+grid, finite complex values and task-scoped paths; it preserves asymmetric S12
+and S21. This is a data verifier only and cannot establish that a native task ran
+or that the selected historical ID belongs to a new execution.
 
 `cst_solver.circuit.static_sp.replace_probe_with_measurement_port`
 attaches an already created free ExternalPort to an explicitly reviewed net before

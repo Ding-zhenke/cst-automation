@@ -125,6 +125,19 @@ def test_partial_change_is_fenced(tmp_path, monkeypatch):
     assert adapter.select('Block','P').GetProperty('ACAmplitude') == '0'
 
 
+def test_task_failure_preserves_original_native_diagnostics(tmp_path, monkeypatch):
+    from cst_solver.circuit import linear_sp
+    adapter, spec = fixture(tmp_path, monkeypatch)
+    def fail(*args, **kwargs):
+        raise CircuitError('circuit_build_partial', 'task failure',
+                           failure_stage='set_broadband_sweep', original_message='native error')
+    monkeypatch.setattr(linear_sp, 'configure_linear_sp_task', fail)
+    with pytest.raises(CircuitError) as exc:
+        prepare_static_sp(adapter, spec)
+    assert exc.value.details['original_details']['failure_stage'] == 'set_broadband_sweep'
+    assert exc.value.details['original_details']['original_message'] == 'native error'
+
+
 def test_session_preparation_uses_existing_handle_and_saves_once(tmp_path, monkeypatch):
     from unittest.mock import Mock
     from tpc_service.sessions.operations import execute

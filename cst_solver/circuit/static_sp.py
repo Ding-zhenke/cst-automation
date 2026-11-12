@@ -342,4 +342,5 @@ def prepare_static_sp(adapter, spec, *, before_write=None):
         return report
     except Exception as exc:
         raise CircuitError('circuit_build_partial', 'Static SP preparation partially applied',
-                           stage='prepare_static_sp', original_error=str(exc), partial=report) from exc
+                           stage='prepare_static_sp', original_error=str(exc),
+                           original_details=getattr(exc, 'details', {}), partial=report) from exc

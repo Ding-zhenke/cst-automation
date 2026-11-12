@@ -52,7 +52,7 @@ def test_creates_explicit_independent_task_with_requested_sweep_and_ports():
     assert ('impedance', 'P2', '75', '0') in task.calls
     assert report['solver_verified'] is False
     assert report['frequency_unit_readback'] == 'GHz'
-    assert report['port_modes']['P1'] == {'impedance_type': 'Constant', 'source_type': 'None'}
+    assert report['port_modes']['P1'] == {'impedance_type': 'Constant', 'source_type': 'unsupported'}
     assert report['port_impedances_readback'] == 'unsupported'
 
 
@@ -64,6 +64,27 @@ def test_rejects_wrong_native_frequency_unit_after_task_creation():
         configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
                                  fmin=2, fmax=5, samples=4, port_impedances={'P1': 50, 'P2': 50})
     assert caught.value.code == 'circuit_build_partial'
+
+
+def test_partial_task_failure_retains_native_stage_and_error():
+    from cst_solver.circuit.adapter import CircuitError
+    schematic = FakeSchematic()
+    def fail(key, value):
+        if key == 'broadband sweep': raise RuntimeError('native broadband error')
+    schematic.SimulationTask.SetProperty = fail
+    with pytest.raises(CircuitError) as caught:
+        configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
+                                 fmin=2, fmax=5, samples=4, port_impedances={'P1':50,'P2':50})
+    assert caught.value.details['failure_stage'] == 'set_broadband_sweep'
+    assert caught.value.details['original_message'] == 'native broadband error'
+
+
+def test_sp_never_calls_unsupported_port_source_getter():
+    schematic = FakeSchematic()
+    schematic.SimulationTask.GetPortSourceType = lambda port: pytest.fail('not supported for SP')
+    report = configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
+                                      fmin=2, fmax=5, samples=4, port_impedances={'P1':50,'P2':50})
+    assert report['port_modes']['P1']['source_type'] == 'unsupported'
 
 
 def test_rejects_port_whose_native_impedance_type_is_not_constant():
