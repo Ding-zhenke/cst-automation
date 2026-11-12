@@ -136,6 +136,20 @@ def test_failed_static_old_worker_without_preserved_de_capability_is_rejected(ha
     assert read(f/'session.json')['status']=='needs_reconcile'
 
 
+def test_failed_static_handoff_can_require_new_exclusion_capability(handoff,monkeypatch):
+    m,r,f,live,args,h=handoff;sid,cred=r['session_id'],r['credential']
+    error={'code':'session_static_sp_prepare_failed','details':{'mutation_may_have_occurred':True}}
+    state=read(f/'session.json');state.update(status='needs_reconcile',last_error=error);write(f/'session.json',state)
+    write(f/'jobs'/'job-failed.json',{'job_id':'job-failed','session_id':sid,'status':'failed','finished_at':1,
+        'operation':'prepare_static_sp','params':{'project_id':'p'},'error':error})
+    monkeypatch.setattr(h.JobIndex,'load',lambda folder:type('Index',(),{'active_jobs':lambda self: []})())
+    record=h.begin_failed_static(m,sid,cred,failed_job_id='job-failed',project_id='p',snapshot_digest='a'*64,
+        environment_identity=args['environment_identity'],worker_identity=args['worker_identity'],
+        project_digests=args['project_digests'],review_note='Reviewed',confirm_idle=True,
+        confirm_borrowed_worker=True,accept_unverified_native_handoff=True,require_self_em_exclusion=True)
+    assert 'static-sp-self-em-exclusion-v1' in record['required_capabilities']
+
+
 def test_failed_static_cli_and_mcp_use_same_frozen_handoff(handoff,monkeypatch,capsys):
     from tpc_service.sessions.__main__ import main
     from cst_mcp import tools

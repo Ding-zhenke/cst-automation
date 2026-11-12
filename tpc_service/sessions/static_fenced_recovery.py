@@ -10,6 +10,9 @@ CAPABILITY = 'static-sp-fenced-recovery-v1'
 CAPTURE = 'capture_failed_static'
 COMPLETE = 'complete_failed_static_task'
 INSPECT = 'inspect_failed_static_task'
+EXCLUDE = 'exclude_unconnected_self_em'
+EXCLUDE_CAPABILITY = 'static-sp-self-em-exclusion-v1'
+READ_IMPEDANCES = 'read_fenced_static_impedances'
 
 
 def validate(params):
@@ -262,3 +265,229 @@ def inspect_task(runtime,job):
     return {'expected_task':report,'original_failed_job_id':params['failed_job_id'],
             'capture_job_id':params['capture_job_id'],'saved':False,'solver_verified':False,
             'schematic_idle_verified':False}
+
+
+def validate_exclusion(params):
+    if (not isinstance(params,dict) or set(params)!={'project_id','failed_job_id','completion_job_id',
+            'expected_saved_digest','snapshot_digest','block_name','confirm_idle','confirm_static_only_copy'}
+            or params['confirm_idle'] is not True or params['confirm_static_only_copy'] is not True
+            or not isinstance(params['block_name'],str) or not params['block_name'].strip()
+            or len(params['block_name'])>512 or any(c in params['block_name'] for c in '\r\n\x00')):
+        raise ValueError('Exact completed static circuit, block and idle review required')
+    for key in ('project_id','failed_job_id','completion_job_id'): identifier(params[key])
+    for key in ('expected_saved_digest','snapshot_digest'):
+        value=params[key]
+        if not isinstance(value,str) or len(value)!=64 or any(c not in '0123456789abcdef' for c in value):
+            raise ValueError('Explicit lowercase SHA256 required')
+
+
+def exclusion_preflight(folder,state,params,job=None):
+    def require(value,message):
+        if not value: raise ServiceError('session_static_recovery_refused',message)
+    validate_exclusion(params)
+    require(state.get('backend')=='cst' and state.get('status')=='needs_reconcile'
+            and not state.get('worker_upgrade') and not state.get('uncertain_jobs')
+            and not state.get('launch_intent') and not state.get('close_requested'), 'Original failure fence required')
+    require(not any(j['job_id']!=(job or {}).get('job_id') for j in JobIndex.load(folder).active_jobs()),'No other active job allowed')
+    require(state.get('worker') and alive(state['worker']) and EXCLUDE_CAPABILITY in state.get('worker_capabilities',[])
+            and state.get('environment') and alive(state['environment']), 'Compatible existing worker and DE required')
+    original=read(Path(folder)/'jobs'/(params['failed_job_id']+'.json')) or {}
+    completed=read(Path(folder)/'jobs'/(params['completion_job_id']+'.json')) or {}
+    handoff=state.get('last_worker_upgrade') or {};partial=handoff.get('static_partial') or {}
+    result=completed.get('result') or {};error=original.get('error') or {}
+    require(original.get('job_id')==params['failed_job_id'] and original.get('session_id')==state.get('session_id')
+            and original.get('operation')=='prepare_static_sp' and original.get('status')=='failed'
+            and original.get('params',{}).get('project_id')==params['project_id']
+            and error==state.get('last_error') and error.get('code')=='session_static_sp_prepare_failed'
+            and partial.get('failed_job_digest')==digest(original), 'Original failure receipt differs')
+    require(handoff.get('phase')=='complete' and handoff.get('return_to_fence') is True
+            and handoff.get('environment')==state.get('environment') and handoff.get('new_worker')==state.get('worker')
+            and partial.get('failed_job_id')==params['failed_job_id'] and partial.get('project_id')==params['project_id'],
+            'Reviewed handoff differs')
+    require(completed.get('job_id')==params['completion_job_id'] and completed.get('session_id')==state.get('session_id')
+            and completed.get('operation')==COMPLETE and completed.get('status')=='succeeded'
+            and completed.get('params',{}).get('project_id')==params['project_id']
+            and result.get('original_failed_job_id')==params['failed_job_id'] and result.get('saved') is True
+            and result.get('saved_digest')==params['expected_saved_digest'] and isinstance(result.get('after'),dict)
+            and digest(result['after'])==params['snapshot_digest'], 'Matching successful task completion required')
+    project=state.get('projects',{}).get(params['project_id']) or {}
+    require(project.get('saved') is True and not project.get('tab_closed')
+            and project.get('saved_digest')==params['expected_saved_digest'], 'Completed saved identity differs')
+    try: require(file_digest(project['path'])==params['expected_saved_digest'],'Completed file changed')
+    except (OSError,KeyError) as exc: raise ServiceError('session_static_recovery_refused','Completed file unavailable') from exc
+    return completed
+
+
+def _model3d_files(project_path):
+    from .native import file_digest
+    root=Path(project_path).with_suffix('')/'Model'/'3D'
+    if not root.is_dir() or root.is_symlink(): raise ValueError('Native 3D model directory unavailable')
+    entries={}
+    for path in sorted(root.rglob('*')):
+        if path.is_symlink(): raise ValueError('3D model directory contains a symbolic link')
+        if not path.is_file(): continue
+        if len(entries)>=10000: raise ValueError('3D model inventory exceeds limit')
+        before=path.stat();sha=file_digest(path);after=path.stat()
+        if (before.st_size,before.st_mtime_ns)!=(after.st_size,after.st_mtime_ns):
+            raise ValueError('3D model file changed during inventory')
+        entries[path.relative_to(root).as_posix()]=sha
+    if not entries: raise ValueError('Native 3D model inventory is empty')
+    return entries
+
+
+def exclude_self_em(runtime,job):
+    """Remove only a reviewed unconnected self-MWS schematic block on the fenced copy."""
+    import json
+    import os
+    from cst_solver.dialogs import check_dialogs
+    from cst_solver.circuit.adapter import NativeAdapter
+    from cst_solver.circuit.static_sp import remove_unconnected_self_em_block, validate_prepare_spec, _sha
+    from cst_solver.simulation.port_replacement import port_inventory
+    from .inspection import inspect_native
+    params=job['params'];state=runtime.state()
+    completion=exclusion_preflight(runtime.folder,state,params,job=job)
+    original=read(Path(runtime.folder)/'jobs'/(params['failed_job_id']+'.json')) or {}
+    spec=original.get('params',{}).get('spec')
+    try: validate_prepare_spec(spec)
+    except (ValueError,TypeError,KeyError) as exc:
+        raise ServiceError('session_static_recovery_refused','Original task intent invalid') from exc
+    project=state['projects'][params['project_id']]
+    app=getattr(runtime,'app',None);handle=getattr(runtime,'handles',{}).get(params['project_id'])
+    if (runtime.backend!='cst' or app is None or handle is None or not alive(state.get('environment'))
+            or Path(handle.filename()).resolve()!=Path(project['path']).resolve()):
+        raise ServiceError('session_static_recovery_refused','Existing exact project handle required')
+    runtime.check_saved(project);check_dialogs(label=job['job_id'],pid=state['environment']['pid'])
+    if handle.model3d.is_solver_running(timeout=5) is not False:
+        raise ServiceError('session_static_recovery_refused','Native 3D idle not proven')
+    app.cst_file=handle;adapter=NativeAdapter(app)
+    before=adapter.inspect()
+    if digest(before)!=params['snapshot_digest'] or before!=completion['result']['after']:
+        raise ServiceError('session_static_recovery_refused','Completed circuit changed')
+    network=Path(str(adapter.select('Block',spec['network_block']).GetFile())).resolve()
+    root=Path(project['path']).with_suffix('')/'Model'/'DS'/'Block'
+    if not network.is_relative_to(root.resolve()) or _sha(network)!=spec['network_sha256']:
+        raise ServiceError('session_static_recovery_refused','Embedded network identity changed')
+    def scene():
+        native=inspect_native(app,{})
+        if native.get('errors'): raise ValueError('Full native 3D inventory has errors')
+        return {'native':native,'ports':port_inventory(app),'files':_model3d_files(project['path'])}
+    scene_before=scene();deps_before=adapter.dependencies()
+    if deps_before.get('complete') is not True or deps_before.get('unknown'):
+        raise ServiceError('session_static_recovery_refused','Circuit dependency inventory incomplete')
+    audit=Path(runtime.folder)/'static_sp_recovery'/(identifier(job['job_id'])+'.before.json')
+    audit.parent.mkdir(parents=True,exist_ok=True)
+    with audit.open('x',encoding='utf-8') as stream:
+        json.dump({'job_id':job['job_id'],'params':params,'snapshot':before,'scene':scene_before,
+                   'dependencies':deps_before},stream,ensure_ascii=False,indent=2,allow_nan=False)
+        stream.flush();os.fsync(stream.fileno())
+    check_dialogs(label=job['job_id']+'-before-delete',pid=state['environment']['pid'])
+    if (not alive(state['environment']) or handle.model3d.is_solver_running(timeout=5) is not False
+            or file_digest(project['path'])!=params['expected_saved_digest'] or adapter.inspect()!=before or scene()!=scene_before):
+        raise ServiceError('session_static_recovery_refused','Project changed immediately before block removal')
+    try:
+        result=remove_unconnected_self_em_block(adapter,params['block_name'],expected_snapshot_digest=params['snapshot_digest'])
+        if scene()!=scene_before or adapter.dependencies()!=deps_before or _sha(network)!=spec['network_sha256']:
+            raise ValueError('3D inventory or retained dependencies changed after block removal')
+        saved=runtime.save(app,params['project_id'])
+        if (adapter.inspect()!=result['after'] or scene()!=scene_before or _sha(network)!=spec['network_sha256']
+                or file_digest(project['path'])!=saved['saved_digest'] or not alive(state['environment'])):
+            raise ValueError('Saved circuit or 3D inventory changed')
+    except Exception as exc:
+        raise ServiceError('session_static_exclusion_partial',str(exc),mutation_may_have_occurred=True,
+                           original_details=getattr(exc,'details',{}),audit_path=str(audit),
+                           original_failed_job_id=params['failed_job_id']) from exc
+    remaining=[b['name'] for b in result['after']['blocks'] if 'microwave studio' in str(b.get('type','')).casefold()]
+    return {'saved':True,'saved_digest':saved['saved_digest'],'after':result['after'],
+            'original_failed_job_id':params['failed_job_id'],'completion_job_id':params['completion_job_id'],
+            'removed_block':params['block_name'],'network_sha256':spec['network_sha256'],
+            '3d_inventory_unchanged':True,'geometry_verified':False,'remaining_mws_blocks':remaining,
+            'no_em_dependency_verified':False,'solver_verified':False,'before_audit':str(audit)}
+
+
+def validate_impedance_read(params):
+    if (not isinstance(params,dict) or set(params)!={'project_id','failed_job_id','exclude_job_id',
+            'expected_saved_digest','snapshot_digest','confirm_idle'} or params['confirm_idle'] is not True):
+        raise ValueError('Exact excluded circuit, original failure and idle review required')
+    for key in ('project_id','failed_job_id','exclude_job_id'): identifier(params[key])
+    for key in ('expected_saved_digest','snapshot_digest'):
+        value=params[key]
+        if not isinstance(value,str) or len(value)!=64 or any(c not in '0123456789abcdef' for c in value):
+            raise ValueError('Explicit lowercase SHA256 required')
+
+
+def impedance_preflight(folder,state,params,job=None):
+    def require(value,message):
+        if not value: raise ServiceError('session_static_recovery_refused',message)
+    validate_impedance_read(params)
+    require(state.get('backend')=='cst' and state.get('status')=='needs_reconcile'
+            and not state.get('worker_upgrade') and not state.get('uncertain_jobs')
+            and not state.get('launch_intent') and not state.get('close_requested'), 'Original failure fence required')
+    require(not any(j['job_id']!=(job or {}).get('job_id') for j in JobIndex.load(folder).active_jobs()),'No other active job allowed')
+    require(state.get('worker') and alive(state['worker']) and EXCLUDE_CAPABILITY in state.get('worker_capabilities',[])
+            and state.get('environment') and alive(state['environment']), 'Compatible existing worker and DE required')
+    original=read(Path(folder)/'jobs'/(params['failed_job_id']+'.json')) or {}
+    excluded=read(Path(folder)/'jobs'/(params['exclude_job_id']+'.json')) or {}
+    handoff=state.get('last_worker_upgrade') or {};partial=handoff.get('static_partial') or {}
+    result=excluded.get('result') or {};error=original.get('error') or {}
+    require(original.get('job_id')==params['failed_job_id'] and original.get('session_id')==state.get('session_id')
+            and original.get('operation')=='prepare_static_sp' and original.get('status')=='failed'
+            and original.get('params',{}).get('project_id')==params['project_id']
+            and error==state.get('last_error') and error.get('code')=='session_static_sp_prepare_failed'
+            and partial.get('failed_job_digest')==digest(original), 'Original failure receipt differs')
+    require(handoff.get('phase')=='complete' and handoff.get('return_to_fence') is True
+            and handoff.get('environment')==state.get('environment') and handoff.get('new_worker')==state.get('worker')
+            and partial.get('failed_job_id')==params['failed_job_id'] and partial.get('project_id')==params['project_id'],
+            'Reviewed handoff differs')
+    require(excluded.get('job_id')==params['exclude_job_id'] and excluded.get('session_id')==state.get('session_id')
+            and excluded.get('operation')==EXCLUDE and excluded.get('status')=='succeeded'
+            and excluded.get('params',{}).get('project_id')==params['project_id']
+            and result.get('original_failed_job_id')==params['failed_job_id'] and result.get('saved') is True
+            and result.get('saved_digest')==params['expected_saved_digest'] and isinstance(result.get('after'),dict)
+            and digest(result['after'])==params['snapshot_digest'], 'Matching successful exclusion required')
+    project=state.get('projects',{}).get(params['project_id']) or {}
+    require(project.get('saved') is True and not project.get('tab_closed')
+            and project.get('saved_digest')==params['expected_saved_digest'], 'Excluded saved identity differs')
+    try: require(file_digest(project['path'])==params['expected_saved_digest'],'Excluded file changed')
+    except (OSError,KeyError) as exc: raise ServiceError('session_static_recovery_refused','Excluded file unavailable') from exc
+    return {'original':original,'excluded':excluded}
+
+
+def read_impedances(runtime,job):
+    """Read native task impedances on the exact fenced static circuit, without a solve."""
+    import math
+    from cst_solver.dialogs import check_dialogs
+    from cst_solver.circuit.adapter import NativeAdapter
+    from cst_solver.circuit.native import read_project_sp_impedances
+    from cst_solver.circuit.static_sp import validate_prepare_spec
+    params=job['params'];state=runtime.state()
+    evidence=impedance_preflight(runtime.folder,state,params,job=job)
+    spec=evidence['original']['params'].get('spec')
+    try: validate_prepare_spec(spec)
+    except (ValueError,TypeError,KeyError) as exc:
+        raise ServiceError('session_static_recovery_refused','Original task intent invalid') from exc
+    project=state['projects'][params['project_id']];app=getattr(runtime,'app',None)
+    handle=getattr(runtime,'handles',{}).get(params['project_id'])
+    if (runtime.backend!='cst' or app is None or handle is None or not alive(state.get('environment'))
+            or Path(handle.filename()).resolve()!=Path(project['path']).resolve()):
+        raise ServiceError('session_static_recovery_refused','Existing exact project handle required')
+    runtime.check_saved(project);check_dialogs(label=job['job_id'],pid=state['environment']['pid'])
+    if handle.model3d.is_solver_running(timeout=5) is not False:
+        raise ServiceError('session_static_recovery_refused','Native 3D idle not proven')
+    app.cst_file=handle;adapter=NativeAdapter(app);before=adapter.inspect()
+    if digest(before)!=params['snapshot_digest'] or before!=evidence['excluded']['result']['after']:
+        raise ServiceError('session_static_recovery_refused','Excluded circuit changed')
+    task=spec['task']; expected=task['port_impedances']
+    report=read_project_sp_impedances(handle,task['task_name'],list(expected),
+        expected_project_path=project['path'],receipt_root=Path(runtime.folder)/'sp_impedance_queries',confirm_idle=True)
+    actual=report.get('ports',{})
+    matches=(set(actual)==set(expected) and all(
+        actual[n].get('impedance_type')=='Constant' and
+        math.isclose(actual[n].get('real',float('nan')),expected[n],rel_tol=1e-10,abs_tol=0) and
+        math.isclose(actual[n].get('imaginary',float('nan')),0,rel_tol=0,abs_tol=1e-12) for n in expected))
+    if (not matches or adapter.inspect()!=before or file_digest(project['path'])!=params['expected_saved_digest']
+            or not alive(state['environment'])):
+        raise ServiceError('session_static_recovery_refused','Native impedance or circuit identity differs')
+    return {'original_failed_job_id':params['failed_job_id'],'exclude_job_id':params['exclude_job_id'],
+            'snapshot_digest':params['snapshot_digest'],'saved_digest':params['expected_saved_digest'],
+            'task_name':task['task_name'],'impedances':report,'matches_requested':True,
+            'saved':False,'solver_verified':False,'schematic_idle_verified':False}

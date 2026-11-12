@@ -40,6 +40,18 @@ def validate(operation, params):
                 raise ValueError('Inspection requires an empty expected task')
         except (ValueError, TypeError, KeyError) as exc:
             raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'exclude_unconnected_self_em':
+        from .static_fenced_recovery import validate_exclusion
+        try:
+            validate_exclusion(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'read_fenced_static_impedances':
+        from .static_fenced_recovery import validate_impedance_read
+        try:
+            validate_impedance_read(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'prepare_static_sp':
         require(set(params) == {'project_id', 'expected_digest', 'confirm_idle', 'spec'} and params.get('confirm_idle') is True,
                 'Exact saved identity, static specification and idle assertion required')

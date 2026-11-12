@@ -66,6 +66,41 @@ def _nets(obj):
     return result
 
 
+def remove_unconnected_self_em_block(adapter, block_name, *, expected_snapshot_digest):
+    """Remove one reviewed unconnected self-3D schematic block, not its 3D model."""
+    from cst_automation.workflow import digest
+    if (not isinstance(block_name,str) or not block_name.strip() or not isinstance(expected_snapshot_digest,str)
+            or len(expected_snapshot_digest)!=64 or any(c not in '0123456789abcdef' for c in expected_snapshot_digest)):
+        raise ValueError('Explicit block and reviewed circuit digest required')
+    before=adapter.inspect()
+    if (digest(before)!=expected_snapshot_digest or any(u!={'field':'parameter_dimensions','status':'unknown'}
+            for u in before.get('unknown',[]))):
+        raise ValueError('Native circuit differs from review or is incomplete')
+    selected=[b for b in before.get('blocks',[]) if b.get('name')==block_name]
+    if len(selected)!=1 or selected[0].get('type','').casefold()!='cst microwave studio schematic block':
+        raise ValueError('Exact existing self-MWS schematic block required')
+    obj=adapter.select('Block',block_name)
+    if (not obj.DoesExist() or str(obj.GetTypeName()).casefold()!='cst microwave studio schematic block'
+            or Path(str(obj.GetFile())).resolve()!=Path(adapter.app.cst_file.filename()).resolve()):
+        raise ValueError('Native block is not a self project link')
+    nets_before=_nets(adapter.schematic.Net)
+    if any(any(p[0]=='block' and p[1]==block_name for p in members) for members,_ in nets_before.values()):
+        raise ValueError('Self block is connected to a native net')
+    try:
+        obj.Delete()
+        after=adapter.inspect();nets_after=_nets(adapter.schematic.Net)
+        expected_blocks=[b for b in before['blocks'] if b['name']!=block_name]
+        if (after.get('blocks')!=expected_blocks or nets_after!=nets_before
+                or any(after.get(k)!=v for k,v in before.items() if k!='blocks')
+                or adapter.select('Block',block_name).DoesExist()):
+            raise ValueError('Unexpected circuit change after block deletion')
+    except Exception as exc:
+        raise CircuitError('circuit_build_partial','Self block deletion may be partially applied',
+                           block_name=block_name,original_type=type(exc).__name__,original_message=str(exc)) from exc
+    return {'block_name':block_name,'before':before,'after':after,'circuit_readback_verified':True,
+            'geometry_verified':False,'no_em_dependency_verified':False,'solver_verified':False}
+
+
 def detach_source_endpoint(adapter, net_name, endpoint, expected_members):
     """Remove one exact source endpoint, fencing any uncertain mutation."""
     point = _endpoint(endpoint)

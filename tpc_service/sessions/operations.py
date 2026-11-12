@@ -268,6 +268,22 @@ def _execute_operation(runtime, job):
             raise
         except Exception as exc:
             raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'exclude_unconnected_self_em':
+        from .static_fenced_recovery import exclude_self_em
+        try:
+            return exclude_self_em(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'read_fenced_static_impedances':
+        from .static_fenced_recovery import read_impedances
+        try:
+            return read_impedances(runtime, job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
     mark_stage(runtime, 'project.acquire')
     if operation == 'prepare_static_sp':
         from .store import alive

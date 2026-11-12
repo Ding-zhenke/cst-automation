@@ -6,7 +6,8 @@ from cst_solver.circuit.linear_sp import configure_linear_sp_task
 class FakeTask:
     def __init__(self, exists=False):
         self.exists = exists
-        self.props = {}
+        self.props = {'maximum frequency range':'false','circuit simulator':'cst','broadband sweep':'true',
+                      'logarithmic sweep':'false','fmin':'0','fmax':'1000'}
         self.calls = []
 
     def Reset(self): pass
@@ -85,6 +86,26 @@ def test_sp_never_calls_unsupported_port_source_getter():
     report = configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
                                       fmin=2, fmax=5, samples=4, port_impedances={'P1':50,'P2':50})
     assert report['port_modes']['P1']['source_type'] == 'unsupported'
+
+
+def test_new_task_uses_shared_completion_and_skips_matching_properties(monkeypatch):
+    from cst_solver.circuit import linear_sp
+    schematic=FakeSchematic()
+    original_set=schematic.SimulationTask.SetProperty
+    def set_property(key,value):
+        if key in ('circuit simulator','maximum frequency range','logarithmic sweep'):
+            pytest.fail('Matching native setting must not be rewritten')
+        original_set(key,value)
+    schematic.SimulationTask.SetProperty=set_property
+    original_complete=linear_sp.complete_existing_linear_sp_task
+    calls=[]
+    def complete(*args,**kwargs):
+        calls.append(True)
+        return original_complete(*args,**kwargs)
+    monkeypatch.setattr(linear_sp,'complete_existing_linear_sp_task',complete)
+    report=linear_sp.configure_linear_sp_task(schematic,'LinearSP',frequency_unit='GHz',
+                                               fmin=2,fmax=5,samples=4,port_impedances={'P1':50,'P2':50})
+    assert calls==[True] and report['properties_readback']['fmax']=='5'
 
 
 def test_rejects_port_whose_native_impedance_type_is_not_constant():

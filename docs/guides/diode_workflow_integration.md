@@ -72,6 +72,27 @@ save/attach behavior and this complete chain require in-project acceptance; none
 of these operations runs SP or EM. A later run still needs the no-new-EM gate,
 actual impedance evidence and a separate protected run/read implementation.
 
+After successful completion, an owning session with worker capability
+`static-sp-self-em-exclusion-v1` may submit `exclude_unconnected_self_em` using
+exactly `project_id`, `failed_job_id`, `completion_job_id`,
+`expected_saved_digest`, `snapshot_digest` (computed from the completion result's
+complete `after` snapshot), `block_name`, `confirm_idle=true`, and
+`confirm_static_only_copy=true`. If the worker lacks this capability, the owner
+must use another reviewed preserved-DE handoff while retaining the fence; the
+failed-static handoff accepts `require_self_em_exclusion=true` for this purpose.
+The removal compares full available circuit, native 3D solid/parameter and port
+inventories, 3D model file bytes and the retained embedded network. It does not
+claim complete geometric verification or prove actual solver behavior. On failure
+do not replay; retain the partial receipt and re-review the actual scene.
+
+After successful exclusion, submit `read_fenced_static_impedances` with exactly
+`project_id`, `failed_job_id`, `exclude_job_id`, `expected_saved_digest`,
+`snapshot_digest` of the exclusion result's complete `after` snapshot, and
+`confirm_idle=true`. The project-bound ByRef receipt must contain matching native
+constant impedances. Its bridge and schematic identity flags retain their original
+unverified meaning until independent native acceptance. Both operations retain the
+original failure fence and do not solve.
+
 ### Prepare a dedicated static circuit (new, offline-tested only)
 
 Using the existing owned session submission interface, operation

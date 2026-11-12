@@ -300,6 +300,9 @@ Native S-parameter task readback on CST 2026 rejects `GetPortSourceType`; static
 SP inspection and the impedance query must not call it. Source type readback is
 reported unsupported and independent source-zero evidence remains mandatory.
 Partial task errors retain the exact native call stage and underlying exception.
+Initial SP task creation and existing-task completion use the same task-setting
+primitive: matching boolean properties are read rather than written, while the
+requested sweep and constant impedances are explicitly configured.
 `cst_solver.circuit.linear_sp.complete_existing_linear_sp_task` compares a
 caller-reviewed native task snapshot before setting only that task's sweep and impedances. It does not
 create a task, alter nets or save. Its presence alone cannot release a session
@@ -313,6 +316,19 @@ leaf task and its children, the embedded network identity and the task's effecti
 does not prove that task initialization cannot trigger 3D work; if that behavior
 cannot be established, the run must be refused. No existing static run route
 provides this guarantee yet.
+
+`exclude_unconnected_self_em` is a fenced session operation for an explicitly
+reviewed static-only copy after successful task completion. It binds the original
+failure, completed task receipt and exact saved circuit, proves the self-MWS
+block is absent from all net/subnet memberships, and compares other circuit data,
+native 3D parameter/solid and port inventories, 3D model files and embedded
+network hashes. It remains fenced and does not solve. The documented DES
+Block.Delete acts on the selected schematic block; native acceptance of its effect
+on the linked 3D project is still pending. Inventory equality does not certify
+all geometric or physical properties and is not a run authorization.
+`read_fenced_static_impedances` separately reads both numerical impedances on the
+same excluded circuit, and records the original bridge's native-verification
+limitations; it neither saves nor runs a solver.
 
 `SessionManager.begin_failed_static_worker_handoff` (MCP
 `begin_cst_failed_static_worker_handoff`, CLI `begin-failed-static-worker-handoff`)

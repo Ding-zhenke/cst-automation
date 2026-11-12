@@ -154,6 +154,14 @@ def preflight(folder, state, operation, params, *, job=None):
         from .static_fenced_recovery import completion_preflight
         completion_preflight(folder, state, params, job=job)
         return None
+    if operation == 'exclude_unconnected_self_em':
+        from .static_fenced_recovery import exclusion_preflight
+        exclusion_preflight(folder, state, params, job=job)
+        return None
+    if operation == 'read_fenced_static_impedances':
+        from .static_fenced_recovery import impedance_preflight
+        impedance_preflight(folder, state, params, job=job)
+        return None
     if operation == 'accept_saved_baseline':
         from .saved_baseline import preflight as baseline_preflight
         return baseline_preflight(folder, state, params, job)

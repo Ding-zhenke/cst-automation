@@ -115,40 +115,21 @@ def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax
         task.SetLocalUnit('Frequency', frequency_unit)
         stage = 'set_resistance_unit'
         task.SetLocalUnit('Resistance', 'Ohm')
-        stage = 'set_maximum_frequency_range'
-        task.SetProperty('maximum frequency range', 'False')
-        stage = 'set_circuit_simulator'
-        task.SetProperty('circuit simulator', 'cst')
-        stage = 'set_broadband_sweep'
-        task.SetProperty('broadband sweep', 'False')
-        stage = 'set_sweep_data'
-        task.SetSweepData(format(fmin, '.17g'), format(fmax, '.17g'), str(samples))
-        stage = 'set_logarithmic_sweep'
-        task.SetProperty('logarithmic sweep', 'False')
-        for name, impedance in port_impedances.items():
-            stage = 'set_port_impedance:' + name
-            task.SetConstPortImpedance(name, format(impedance, '.17g'), '0')
-        stage = 'read_task_settings'
-        actual_type = str(task.GetTypeForTask(task_name)).casefold()
-        frequency_unit_actual = str(task.GetUnit('Frequency'))
-        resistance_unit_actual = str(task.GetUnit('Resistance'))
-        port_modes = {name: {'impedance_type': str(task.GetPortImpedanceType(name)),
-                             'source_type': 'unsupported'} for name in port_impedances}
-        actual = {key: str(task.GetProperty(key)) for key in ('maximum frequency range', 'circuit simulator',
-                  'broadband sweep', 'logarithmic sweep', 'fmin', 'fmax')}
-        if (actual_type != 's-parameters' or frequency_unit_actual != frequency_unit
-                or resistance_unit_actual != 'Ohm' or actual['circuit simulator'].casefold() != 'cst'
-                or any(row['impedance_type'].casefold() != 'constant' for row in port_modes.values())
-                or any(actual[k].casefold() != 'false' for k in ('maximum frequency range', 'broadband sweep', 'logarithmic sweep'))
-                or not math.isclose(float(actual['fmin']), fmin, rel_tol=1e-10, abs_tol=0)
-                or not math.isclose(float(actual['fmax']), fmax, rel_tol=1e-10, abs_tol=0)):
-            raise ValueError('Native task readback differs')
+        stage = 'read_created_task'
+        expected = inspect_existing_linear_sp(schematic, task_name, list(port_impedances))
+        stage = 'complete_created_task'
+        completion = complete_existing_linear_sp_task(schematic, task_name, expected=expected,
+            frequency_unit=frequency_unit, fmin=fmin, fmax=fmax, samples=samples, port_impedances=port_impedances)
     except Exception as exc:
+        nested = getattr(exc,'details',{})
         raise CircuitError('circuit_build_partial', 'S-parameter task may be partially created', task_name=task_name,
-                           failure_stage=stage, original_type=type(exc).__name__, original_message=str(exc)) from exc
-    return {'task_name': task_name, 'properties_readback': actual, 'frequency_unit_requested': frequency_unit,
+                           failure_stage=nested.get('failure_stage',stage),
+                           original_type=nested.get('original_type',type(exc).__name__),
+                           original_message=nested.get('original_message',str(exc)), original_details=nested) from exc
+    actual=completion['after']
+    return {'task_name': task_name, 'properties_readback': actual['properties'], 'frequency_unit_requested': frequency_unit,
             'resistance_unit_requested': 'Ohm',
-            'frequency_unit_readback': frequency_unit_actual, 'resistance_unit_readback': resistance_unit_actual,
-            'port_modes': port_modes,
+            'frequency_unit_readback': actual['frequency_unit'], 'resistance_unit_readback': actual['resistance_unit'],
+            'port_modes': actual['ports'], 'completion': completion,
             'sample_count_readback': 'unsupported',
             'port_impedances_readback': 'unsupported', 'solver_verified': False}
