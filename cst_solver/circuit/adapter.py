@@ -243,6 +243,11 @@ class NativeAdapter:
                 if actual is not None:
                     props = actual['properties']
                     extra = {k: v for k, v in actual.items() if k != 'properties'}
+            elif base in ('voltage dc source', 'voltage signal source', 'current dc source', 'current signal source'):
+                actual = query(name + '.source_properties', lambda: self.property_readback(name))
+                if actual is not None:
+                    props = actual['properties']
+                    extra = {k: v for k, v in actual.items() if k != 'properties'}
             blocks.append({"name": name, "type": kind, "properties": props, **extra,
                            "pins": query(name + ".pins", lambda: self.pins(name)),
                            "files": query(name + ".files", lambda: block_files(obj, kind))})

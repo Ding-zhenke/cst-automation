@@ -291,6 +291,11 @@ nor this reader certifies the schematic identity, native ABI, source-free operat
 point or a solve. This low-level reader is not registered as a session operation,
 and must not be used to bypass the session's existing guarded submit path.
 
+Circuit `inspect` now attempts complete native property enumeration for Voltage DC
+Source, Voltage Signal Source, Current DC Source and Current Signal Source blocks.
+Values and units are returned as native strings; failures are in `unknown` and do
+not establish a zero operating point, source isolation or task-specific behavior.
+
 ## Typed HF tetrahedral order controls
 
 `configure_fd_linear_solver(settings)` additionally accepts `tet_order` as exactly

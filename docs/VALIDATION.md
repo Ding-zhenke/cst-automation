@@ -1,5 +1,16 @@
 # 验证记录
 
+## 2026-11-12：电路源原生属性读取（0.3.71）
+
+- circuit inspect 对 DC/Signal 电压或电流源使用已有完整属性/单位枚举；读取失败
+  保留 unknown，不将源幅度、端接、零偏或实际任务工作点标记为已验证。worker
+  声明 `circuit-source-property-readback-v1`；已运行 worker 不因磁盘更新而加载。
+- 增加静态端接核查要求：零幅度不消除源内阻，与新 ExternalPort 并联或移除源
+  后悬空均须结合实际连接检查；无自动源隔离、SP 创建或求解接口验收声明。
+- 全库离线 **2447 passed、2 deselected、9 warnings**（61.61 s），日志
+  `work/pytest-source-readback-full.log`；源属性专项 41 项和技能打包检查通过。
+  未连接 CST、打开工程或执行求解，此读取器及工作点仍待所属会话原生验收。
+
 ## 2026-11-12：设计流程初版及只读 SP 阻抗桥（0.3.70）
 
 - 加入项目自有 SQLite attempt 日志、输入依赖身份和离线缺失工况筛选；调用方声明

@@ -148,6 +148,29 @@ def test_inspect_records_model_or_unknown_that_blocks_execution(supported):
         assert any(u['field'] == 'D1.diode_model' for u in actual['unknown'])
 
 
+@pytest.mark.parametrize('kind', ['Voltage DC Source', 'Voltage Signal Source'])
+def test_inspect_source_properties_preserves_raw_expression(kind):
+    block = Block([])
+    block.GetTypeName = lambda: kind
+    native = inspection_adapter(block)
+    native.property_readback = lambda name: {'properties': {'DC': 'bias_parameter'},
+                                             'property_metadata': {'DC': {'unit': 'V', 'type': 'String'}}}
+    result = native.inspect()
+    assert result['blocks'][0]['properties']['DC'] == 'bias_parameter'
+    assert result['blocks'][0]['property_metadata']['DC']['unit'] == 'V'
+    assert result['solver_verified'] is False
+
+
+def test_inspect_source_failure_is_unknown():
+    block = Block([])
+    block.GetTypeName = lambda: 'Voltage DC Source'
+    native = inspection_adapter(block)
+    def fail(name): raise RuntimeError('unavailable')
+    native.property_readback = fail
+    result = native.inspect()
+    assert any(row['field'] == 'D1.source_properties' for row in result['unknown'])
+
+
 @pytest.mark.parametrize('model', ['KNOWN_DIODE', '', None])
 def test_spice_model_identity_is_native_and_missing_identity_blocks_execution(model):
     from cst_solver.circuit.evidence import configuration_complete

@@ -244,6 +244,7 @@ def run(folder):
             from cst_automation.task_disable import CAPABILITY as DISABLE_CAPABILITY
             state['worker_capabilities'].append(DISABLE_CAPABILITY)
             state['worker_capabilities'].append('sp-impedance-read-v1')
+            state['worker_capabilities'].append('circuit-source-property-readback-v1')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             state['worker_capabilities'].append(DISCRETE_READ_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.

@@ -31,6 +31,10 @@ The existing exploratory SP setup explicitly rejects unsupported native sample
 count and constant-impedance readback, and does not adapt an existing external-port
 and SP-task topology. Until a supported native route is implemented and verified,
 report the precise missing capability as pending; do not bypass session gates.
+Inspect each source's actual connection and impedance when adding measurement
+ports. A zero-amplitude source may still load the same net, and a second port
+impedance may create an unintended parallel termination; do not remove sources
+and leave nets floating. See the integration contract for the evidence boundary.
 
 For resumption inspect original CST job and session first; unknown or active jobs
 must not be resubmitted. `cst_automation.workflow_resume.missing_cases` is only an
