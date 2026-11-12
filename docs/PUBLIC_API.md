@@ -296,6 +296,35 @@ Source, Voltage Signal Source, Current DC Source and Current Signal Source block
 Values and units are returned as native strings; failures are in `unknown` and do
 not establish a zero operating point, source isolation or task-specific behavior.
 
+`cst_solver.circuit.static_sp.detach_source_endpoint(adapter, net_name, endpoint,
+expected_members)` is an explicitly mutating, low-level transaction primitive for
+one existing voltage/current source block endpoint. It checks source type, all
+native net and subnet memberships, then calls documented Net.RemoveComponentPorts
+and verifies that no other net or subnet changed. It preserves no automatic rollback;
+any failure after the mutation is a partial build requiring a session fence. It is
+not a session route or a complete static-SP configuration; no caller may use it
+to bypass protected workflow or imply a valid termination. Native array binding is
+not yet verified. A full protected preparation/solve route remains required.
+
+The session operation `prepare_static_sp` binds a saved owned project, complete
+native snapshot digest, embedded network hash, explicitly reviewed port nets,
+control chain and typed task configuration. It checks the supported serial control
+topology and native source resistances, records the snapshot before writing,
+zeros the supported sources and creates the reviewed ports and task. Partial or
+uncertain writes require the owning session's failure fence. See
+`docs/guides/diode_workflow_integration.md` for the exact request and limitations.
+The native array binding, isolated source branches, impedance bridge and actual
+solver behavior remain unverified. A protected run/read route is not implemented;
+this operation does not authorize or perform a solve. Actual sampling coverage
+must be checked against resulting complex frequency curves.
+
+`cst_solver.circuit.static_sp.replace_probe_with_measurement_port`
+attaches an already created free ExternalPort to an explicitly reviewed net before
+removing its Probe endpoint; all other nets and subnets are verified unchanged.
+It is a low-level transaction primitive, not an exposed session operation, and
+does not create ports, isolate/zero every source, validate the resulting load,
+create an SP task or authorize solving. A partial native change is fenced.
+
 ## Typed HF tetrahedral order controls
 
 `configure_fd_linear_solver(settings)` additionally accepts `tet_order` as exactly

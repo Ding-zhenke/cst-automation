@@ -33,7 +33,7 @@ def protected(operation, params):
 
 
 def mutates(operation, params):
-    if operation in ('set_parameters', 'model_api', 'history', 'configure_sweep'):
+    if operation in ('set_parameters', 'model_api', 'history', 'configure_sweep', 'prepare_static_sp'):
         return True
     return operation == 'circuit' and params.get('kind', 'build') == 'build' and params.get('settings', {}).get('operation') not in READ_CIRCUIT
 
@@ -151,6 +151,18 @@ def preflight(folder, state, operation, params, *, job=None):
         return baseline_preflight(folder, state, params, job)
     project = state['projects'].get(params.get('project_id'))
     workflow = project.get('workflow') if project else None
+    if operation == 'prepare_static_sp':
+        from .job_index import JobIndex
+        if (not project or project.get('tab_closed') or state.get('status') != 'ready'
+                or state.get('uncertain_jobs') or state.get('launch_intent')
+                or any(j['job_id'] != (job or {}).get('job_id') for j in JobIndex.load(folder).active_jobs())):
+            reject('static_sp_idle_required', 'Static SP preparation requires an idle owned project')
+        if (not state.get('worker') or not alive(state['worker']) or
+                'static-sp-prepare-v1' not in state.get('worker_capabilities', [])):
+            reject('worker_upgrade_required', 'Static SP preparation needs the compatible existing worker')
+        if (project.get('saved_digest') != params['expected_digest'] or
+                file_digest(project['path']) != params['expected_digest']):
+            reject('project_changed', 'Saved baseline differs')
     standalone_transient = (operation == 'circuit' and params.get('kind') == 'solve'
         and params.get('settings', {}).get('operation') == 'run_network_transient')
     if standalone_transient:
@@ -170,10 +182,10 @@ def preflight(folder, state, operation, params, *, job=None):
     if not workflow:
         if project and marker(project['path']).exists():
             reject('owner_mismatch', 'Protected project has no matching session contract')
-        if protected(operation, params) and not standalone_transient and state['backend'] == 'cst':
+        if protected(operation, params) and not standalone_transient and state['backend'] == 'cst' and operation != 'prepare_static_sp':
             reject('required', 'Bind an engineering specification before parameter/EM/HB execution')
         return None
-    relevant = protected(operation, params) or mutates(operation, params)
+    relevant = protected(operation, params) or mutates(operation, params) or operation == 'prepare_static_sp'
     if not relevant:
         return None
     if read(marker(project['path'])) != {'session_folder': str(Path(folder).resolve()), 'project_id': params['project_id']}:
@@ -285,11 +297,12 @@ def invalidate(runtime, job):
     if not workflow or not (mutates(job['operation'], job['params']) or job['operation'] == 'solve'):
         return
     operation, params = job['operation'], job['params']
-    affects_em = operation != 'circuit' or params.get('settings', {}).get('operation') == 'configure_em_time_settings'
+    affects_em = (operation not in ('circuit', 'prepare_static_sp') or
+                  (operation == 'circuit' and params.get('settings', {}).get('operation') == 'configure_em_time_settings'))
     if operation == 'set_parameters':
         affects_em = any(workflow['spec']['parameters'][n]['affects'] == 'em' for n in params['values'])
         workflow['values'].update(params['values'])
-    if operation == 'circuit' or affects_em:
+    if operation in ('circuit', 'prepare_static_sp') or affects_em:
         workflow['network_update'] = None
         workflow['sp_network'] = None
         workflow['sp_setup'] = None

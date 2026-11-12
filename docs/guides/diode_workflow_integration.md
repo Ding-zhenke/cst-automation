@@ -41,6 +41,67 @@ these operations and should expose missing functionality as pending.
 
 ## Native zero-bias SP gap
 
+### Prepare a dedicated static circuit (new, offline-tested only)
+
+Using the existing owned session submission interface, operation
+`prepare_static_sp` takes the following complete `params` structure:
+
+```json
+{
+  "project_id": "owned-copy",
+  "expected_digest": "<saved-project-sha256>",
+  "confirm_idle": true,
+  "spec": {
+    "snapshot_sha256": "<digest-of-complete-native-circuit-inspect>",
+    "network_block": "embedded-network-name",
+    "network_sha256": "<embedded-touchstone-sha256>",
+    "ports": [
+      {"name":"P1","position":[0,0],"net_name":"left-net",
+       "expected_members":[["Block","embedded-network-name",0],["Probe","left-probe",1]],
+       "probe_endpoint":["Probe","left-probe",1]},
+      {"name":"P2","position":[100,0],"net_name":"right-net",
+       "expected_members":[["Block","embedded-network-name",1],["Probe","right-probe",1]],
+       "probe_endpoint":["Probe","right-probe",1]}
+    ],
+    "task": {"task_name":"StaticSP","frequency_unit":"GHz","fmin":110,"fmax":170,
+             "samples":61,"port_impedances":{"P1":100,"P2":100}},
+    "control": {"network_pin":2,"probe":"control-probe","source":"pump-source",
+                "bias":"bias-source","ground":"ground-block","resistance_ohms":50}
+  }
+}
+```
+
+Names, coordinates, pin indices, frequencies and impedances above are schema
+illustrations only. Populate them from the actual native review, never copy them
+as defaults. The snapshot hash is `cst_automation.workflow.digest(snapshot)` of
+the **complete current** `app.circuit.inspect()` result. The project must be
+saved, idle, already open on its owning worker, with `static-sp-prepare-v1`.
+Existing external ports or same-named task are rejected; this first version is
+for a static-dedicated circuit with two probe-coupled RF sources and a serial
+voltage-signal/voltage-DC/ground control branch. Its three control nets must have
+only their two expected endpoints; resistance is read from native source Ri and
+simple native parameter references in Ohm. Other source classes are rejected.
+
+Before modifying, the worker checks all native blocks, source properties, net
+and subnet membership, exact control path and resistance, saved project and
+embedded payload hashes, and dependency inventory. It stores an exclusive
+`static_sp_prepare/<job_id>.before.json` before any write. Then it zeroes all
+supported DC and signal AC/HB amplitudes, creates two external ports, attaches
+them before disconnecting the RF probes, and creates a new SP task. It checks
+the untouched diode/block data, RF and control networks, source impedances,
+dependency and payload hashes; it saves only after native preparation returns.
+Each partial/unknown failure is fenced and is never automatically replayed.
+The original dynamic circuit is preserved in the separately archived source,
+not restored in this static-only copy.
+
+Task frequency limits/units and port modes are read back. Sample count and
+constant impedance values remain `unsupported` in this prepare receipt; use the
+owned `read_sp_impedances` bridge for a separate native check. Isolated source
+branches, ByRef array binding, real solver behavior and four-result coverage are
+not certified by preparation. This build operation does not run SP or EM; a
+separate protected static run/read path is still being implemented. Until it is
+available, do not bypass the workflow or claim completed SP.
+
 Existing `configure_exploratory_linear_sp` intentionally refuses setup when native
 sample-count and constant-impedance readback are unsupported. Its current path
 also creates new external ports and a new task, so it is not an adapter for the
@@ -93,8 +154,21 @@ correct from amplitude alone. Review the actual topology, net membership, source
 properties and effective termination as a single circuit. Preserve original 3D
 ports, EM payload and diode wiring; an authorized static adaptation is reused on
 subsequent candidates with unchanged circuit topology, not rebuilt every round.
-This requirement is an acceptance contract; no automated topology/termination
-validator or source-isolation transaction is implemented yet.
+The preparation operation above checks only its documented serial topology;
+other topologies and solver behavior still require separate native evidence.
+
+Official CST 2026 `VBA_DES/special_vbacommands/net_object.htm` documents
+`Net.RemoveComponentPorts(componentports, netname)`, `AddComponentPorts`, and
+`AddToSubnet`; these are candidate primitives for deliberate source isolation and
+restoration. Removing a port removes it from its net, and adding a port already
+connected elsewhere moves it from that net. A safe transaction must retain full
+net/subnet membership, remove only reviewed source endpoints, independently read
+all nets after every mutation, explicitly retain the required control termination,
+and fence partial/unknown failures without replay. Restoration is required if the
+same circuit is to be reused dynamically; the documented preparation operation is
+instead limited to a user-authorized static-only copy. Python ByRef array behavior
+and native restoration have not yet been verified. These primitives do not permit
+bypassing the session's protected execution path.
 
 ## Saved copy and history evidence
 

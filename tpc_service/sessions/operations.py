@@ -245,7 +245,19 @@ def _execute_operation(runtime, job):
         app.cst_file = handle
         return circuit(runtime, app, record, params)
     mark_stage(runtime, 'project.acquire')
-    app, record = runtime.project(params['project_id'])
+    if operation == 'prepare_static_sp':
+        from .store import alive
+        state = runtime.state()
+        record = state.get('projects', {}).get(params['project_id'])
+        app = getattr(runtime, 'app', None)
+        handle = getattr(runtime, 'handles', {}).get(params['project_id'])
+        if (runtime.backend != 'cst' or not record or record.get('tab_closed') or app is None or handle is None
+                or not alive(state.get('environment'))):
+            raise ServiceError('session_query_requires_open_project', 'Static preparation requires the already-open owned project')
+        runtime.check_saved(record)
+        app.cst_file = handle
+    else:
+        app, record = runtime.project(params['project_id'])
     contract = record.get('workflow')
     if operation == 'prepare_exploratory_sp_network':
         from .linear_sp import execute_network
@@ -269,6 +281,35 @@ def _execute_operation(runtime, job):
         workflow.live_checks(app, contract, 'em' if operation == 'solve' else 'hb')
     if contract:
         workflow.invalidate(runtime, job)
+    if operation == 'prepare_static_sp':
+        from cst_solver.circuit.static_sp import prepare_static_sp
+        from cst_solver.circuit.adapter import CircuitError
+        try:
+            import json
+            audit = Path(runtime.folder) / 'static_sp_prepare' / (identifier(job['job_id']) + '.before.json')
+            def persist_before(snapshot):
+                audit.parent.mkdir(parents=True, exist_ok=True)
+                with audit.open('x', encoding='utf-8') as stream:
+                    json.dump({'job_id': job['job_id'], 'project_id': params['project_id'],
+                               'expected_digest': params['expected_digest'], 'spec': params['spec'],
+                               'snapshot': snapshot}, stream, ensure_ascii=False, indent=2, allow_nan=False)
+                    stream.flush()
+                    import os
+                    os.fsync(stream.fileno())
+            report = prepare_static_sp(app.circuit.adapter, params['spec'], before_write=persist_before)
+            app.circuit._spec = None
+            saved = runtime.save(app, params['project_id'])
+            if app.circuit.adapter.inspect() != report['after']:
+                raise ValueError('Native circuit changed during save')
+            if file_digest(record['path']) != saved['saved_digest']:
+                raise ValueError('Saved project digest changed')
+            report.update(saved=True, saved_digest=saved['saved_digest'], job_id=job['job_id'], before_audit=str(audit),
+                          execution_returned=True, geometry_verified=False)
+            return report
+        except Exception as exc:
+            raise ServiceError('session_static_sp_prepare_failed', str(exc),
+                               mutation_may_have_occurred=True,
+                               partial=getattr(exc, 'details', {})) from exc
     mark_stage(runtime, 'operation.' + operation)
     if operation == 'reload_project':
         reviewed = runtime.state().get('last_resolution', {})

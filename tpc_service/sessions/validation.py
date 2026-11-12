@@ -26,6 +26,17 @@ def validate(operation, params):
             raise ServiceError('invalid_session_argument', str(exc)) from exc
         return
     identifier(params.get('project_id'))
+    if operation == 'prepare_static_sp':
+        require(set(params) == {'project_id', 'expected_digest', 'confirm_idle', 'spec'} and params.get('confirm_idle') is True,
+                'Exact saved identity, static specification and idle assertion required')
+        digest = params.get('expected_digest')
+        require(isinstance(digest, str) and len(digest) == 64 and all(c in '0123456789abcdef' for c in digest),
+                'Expected saved SHA256 required')
+        from cst_solver.circuit.static_sp import validate_prepare_spec
+        try:
+            validate_prepare_spec(params['spec'])
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation in ('configure_exploratory_linear_sp', 'run_exploratory_linear_sp'):
         from .linear_sp import validate_setup, validate_solve
         try:
