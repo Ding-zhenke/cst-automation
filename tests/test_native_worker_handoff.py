@@ -103,7 +103,8 @@ def test_dead_worker_recovery_freezes_and_reviews_existing_de(handoff,monkeypatc
         project_digests=args['project_digests'],review_note='Reviewed dead worker and saved circuit',
         confirm_idle=True,confirm_no_worker_processes=True,require_self_em_exclusion=True,require_guarded_static_run=True)
     result=h.begin_dead_static_worker_recovery(m,sid,cred,**review)
-    assert result['phase']=='stop_requested' and result['stop_ack'] is True
+    assert result['phase']=='stop_requested' and result['stop_ack'] is False
+    assert result['dead_worker_absence_verified_at'] > 0
     assert result['pre_exit_native']==proof and result['return_to_fence'] is True
     assert read(f/'session.json')['last_error']==error and read(f/'jobs'/'failed.json')['status']=='failed'
     from tpc_service.sessions.__main__ import main

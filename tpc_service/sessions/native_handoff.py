@@ -17,6 +17,13 @@ RELEASE_MAX_AGE = 2.0
 STARTUP_ENV = 'CST_HANDOFF_STARTUP_NONCE'
 
 
+def stop_proven(record):
+    return (record.get('stop_ack') is True or
+            (record.get('dead_worker_recovery') is True and
+             isinstance(record.get('dead_worker_absence_verified_at'),(int,float)) and
+             record['dead_worker_absence_verified_at']>0))
+
+
 def admit_worker(state, nonce):
     """Caller holds worker.lock and state.lock; no SDK calls before admission."""
     record = state.get('worker_upgrade') or {}
@@ -46,7 +53,7 @@ def recover(manager, session_id, credential, *, expected_token, expected_launche
         def check(state):
             record = check_frozen(folder,state)
             require(record['phase'] == 'starting' and record['token'] == expected_token
-                    and record.get('launch_claimed') and record.get('stop_ack'), 'Exact consumed launch required')
+                    and record.get('launch_claimed') and stop_proven(record), 'Exact consumed launch required')
             require(expected_launcher and state.get('worker') == expected_launcher
                     and record.get('launcher',expected_launcher) == expected_launcher,
                     'Exact failed launcher identity required')
@@ -417,7 +424,7 @@ def begin_dead_static_worker_recovery(manager, session_id, credential, *, failed
             require(record['token']==token and record['phase']=='reviewing' and current['worker']==worker_identity
                     and process_identity(worker_identity['pid']) is None and not alive(worker_identity),
                     'Dead worker or recovery changed during native review')
-            record.update(phase='stop_requested',pre_exit_native=proof,stop_ack=True,
+            record.update(phase='stop_requested',pre_exit_native=proof,
                           dead_worker_absence_verified_at=time.time())
             write(folder/'session.json',current)
             return copy.deepcopy(record)
@@ -435,7 +442,7 @@ def finish(manager, session_id, credential):
                 return previous
             record = check_frozen(folder,state)
             phase, token = record['phase'], record['token']
-            if phase == 'stop_requested' and (not record.get('stop_ack') or alive(record['old_worker'])):
+            if phase == 'stop_requested' and (not stop_proven(record) or alive(record['old_worker'])):
                 return copy.deepcopy(record)
             if phase in ('starting','release_requested','release_verified'):
                 worker = state.get('worker')
@@ -481,7 +488,7 @@ def finish(manager, session_id, credential):
                 require(current['worker'] == record['old_worker'] and alive(record['old_worker']), 'Original worker lost during review')
                 record.update(phase='stop_requested',pre_exit_native=proof)
             else:
-                require(record.get('stop_ack') and not alive(record['old_worker']), 'Original worker has not exited')
+                require(stop_proven(record) and not alive(record['old_worker']), 'Original worker has not exited')
                 require(current.get('worker') in (None,record['old_worker']), 'Unexpected replacement worker')
                 record.update(phase='starting',launch_attempted=True,post_exit_native=proof)
                 current.update(worker=None,worker_capabilities=[])
@@ -497,7 +504,7 @@ def prepare_new_worker(runtime):
     try:
         with lock(folder.parent/'registry.lock'), lock(folder/'state.lock'):
             state = read(folder/'session.json');record = check_frozen(folder,state)
-            require(record['phase'] == 'starting' and record.get('stop_ack')
+            require(record['phase'] == 'starting' and stop_proven(record)
                     and not alive(record['old_worker']), 'Invalid native replacement phase')
             token, worker = record['token'], state['worker']
             require(worker == process_identity(os.getpid()) and worker != record['old_worker'],

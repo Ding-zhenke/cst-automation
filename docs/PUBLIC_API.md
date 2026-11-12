@@ -6,6 +6,8 @@
 
 Python：`manager.begin_dead_static_worker_recovery(session_id, credential, **review)`；CLI：`begin-dead-static-worker-recovery --review-file <JSON>`；MCP：`begin_cst_dead_static_worker_recovery`。`review` 包含 `failed_job_id`, `completion_job_id`, `project_id`, `snapshot_digest`（完成回执 `after` 的规范摘要）, `environment_identity`, `worker_identity`, `project_digests`, `review_note`, `confirm_idle=true`, `confirm_no_worker_processes=true`；若后续需要静态排除及保护运行，另传 `require_self_em_exclusion=true`, `require_guarded_static_run=true`。成功返回 `stop_requested` 后由原工程所属会话继续 `finish_native_worker_handoff` 直至 `complete`；保持原失败和 `needs_reconcile`。若原生审阅失败，队列仍冻结，先调查现场，禁止自行修改状态或重放。
 
+0.3.81 将旧 worker 已不存在记录为 `dead_worker_absence_verified_at`，不虚报旧 worker 的主动退出确认；继续沿用相同交接检查。0.3.80 的该新入口不应使用。
+
 ## Fenced 3D archive recovery
 
 `review_model3d_archive_postopen(session_id, credential, *, expected_token,
