@@ -56,7 +56,7 @@ submit 只表示任务已持久接受；以 job 的 succeeded 和 result 判断�
 | create_project | project_id，project_type=MWS 或 DS |
 | import_project | project_id，源 CST 工程的绝对 source_path；只首次复制 |
 | inspect | project_id；未知状态返回持久现场信息，不冒充原生读回 |
-| set_parameters | project_id、values 参数字典；使用 app.update() 参数刷新并读消息，不追加完整 Rebuild |
+| set_parameters | project_id、values 参数字典；使用 app.update() 并读消息。当前 update 调用 SDK full_history_rebuild，后续 solve 不再追加重建；事先保全需要的结果 |
 | history | project_id、稳定 stage_id、name、完整 vba、preview_digest |
 | solve | project_id，可选 note；使用现有 run_checked |
 | circuit | project_id、kind=build/solve/study、settings=原 circuit handler 参数 |
@@ -126,7 +126,7 @@ execution_state=returned_saved、review_required=true，session 维持 ready。
 
 1. 所属会话先暂停提交，等原任务到可审阅的终态。核对无排队、运行和未知写入，确认 CST 空闲且没有需答复的窗口。记录原 worker 与 DE 的 PID、创建身份、已登记工程路径和保存摘要，保留结果归档。旧任务若有围栏，先独立审阅其证据。
 2. 如果原 worker 已退出并释放锁，使用同一个 `.venv`、root 和私有 reference 执行 `resume`；主动升级仅在上述能力和限制内使用协作接口。核对新 worker 身份、原 DE 身份及工程路径一致，然后在所属会话执行已登记目标的只读检查。若 DE 身份、保存摘要或标签不符，停在现场核对阶段。
-3. 记录续跑前目标工程的正 3D Run ID 基线。用两个连续且参数不同的已授权几何工况，分别调用 `set_parameters` 和 `solve`，保存后读回。核对新任务的 `worker_runtime` 指纹和几何回执 `rebuild_mode="parametric"`。每组同时记录原生完成日志、保存摘要及实际参数。
+3. 记录续跑前目标工程的正 3D Run ID 基线。用两个连续且参数不同的已授权几何工况，分别调用 `set_parameters` 和 `solve`，保存后读回。核对新任务的 `worker_runtime` 指纹和几何回执 `rebuild_mode="parametric"`；此标记仅表明封装器选择 update 路径，当前 SDK 调用仍是 full_history_rebuild，不证明轻量更新。每组同时记录原生完成日志、保存摘要及实际参数。
 4. 第二组保存后，从同一工程的全部所需 3D S 参数叶枚举共同正 ID，逐 ID 核对实际存储参数、复数曲线和频轴。两组须可同时读回，只有 `[0, 1]` 或两个日志均写 Run ID 1 时，仍未证明不同几何的历史保留。Run 0 和最大编号不能代替参数匹配。在另一个获准的空闲点保存关闭重开，重复读回以验证重开持久化。
 
 ## 明确关闭

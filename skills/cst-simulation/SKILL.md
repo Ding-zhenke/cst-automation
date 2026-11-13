@@ -77,8 +77,10 @@ For parameter studies, prefer a suitable CST native sweep as described in
 [cst-parameter-study](../cst-parameter-study/SKILL.md); configure once instead
 of issuing per-point writes and solves. For specifically justified sequential
 changes of existing geometry parameters, use session `set_parameters`
-followed by session `solve`: the former invokes the SDK `app.update()` path and
-the latter calls `run_checked` without an additional full `Rebuild`. This is not
+followed by session `solve`: the former invokes `app.update()`, which currently
+calls SDK `model3d.full_history_rebuild()`; `rebuild_mode="parametric"` does
+not mean a lightweight refresh. The latter calls `run_checked` without an
+additional rebuild. Archive required results before updating. This is not
 a configured native Parameter Sweep. Preserve complex per-case exports and verify
 native IDs and parameter combinations after save/reopen; update success alone
 does not guarantee all history survives. Full topology rebuild may delete results.
