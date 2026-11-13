@@ -170,3 +170,13 @@ def test_position_tool_queues_write(circuit_tools):
     assert out['ok'] and 'set_circuit_position' in tools.WRITE_TOOLS
     job=service.get(out['job']['job_id'])
     assert job['kind']=='build' and job['params']['operation']=='set_position'
+
+
+def test_task_execution_tool_queues_write(circuit_tools):
+    service=runtime.get_service(); service.autostart=False
+    path=circuit_tools/'p.cst'; path.write_text('fixture')
+    out=tools.dispatch('configure_circuit_task_execution', {'project_path':str(path),'task_name':'SS',
+        'expected_type':'Transient','parallelization':'Maximum','result_options':{'TD Voltages':'On (Parametric)'}})
+    assert out['ok'] and 'configure_circuit_task_execution' in tools.WRITE_TOOLS
+    job=service.get(out['job']['job_id'])
+    assert job['kind']=='build' and job['params']['operation']=='configure_task_execution'

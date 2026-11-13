@@ -1940,3 +1940,19 @@ the same operation and save the project; managed session fences still apply.
 
 Owned sessions require an already running worker advertising
 `circuit-position-v1`; an older worker is rejected without replacement.
+
+### Existing circuit task parallelization and result options
+
+`app.circuit.configure_task_execution(task_name, expected_type, *, parallelization=None,
+result_options=None)` changes only explicitly supplied settings on an existing
+circuit simulation task of the expected native type. Parallelization accepts
+`Maximum`, `None` (string), or a positive integer. Result option names and values
+are case-sensitive native strings supplied by the caller from the actual task;
+no enum defaults are guessed. Before and after getters are retained. A failed
+write or readback may leave partial settings. This call does not save, validate,
+run, or bypass any owning-session fence. Readback is not solver evidence.
+
+Service `circuit/build/configure_task_execution` and MCP
+`configure_circuit_task_execution` queue and save the configuration. Owning
+sessions require an already running worker advertising `circuit-task-execution-v1`;
+older workers are rejected without replacement.

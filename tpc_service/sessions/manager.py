@@ -144,6 +144,9 @@ class SessionManager:
             if operation == 'circuit' and params.get('settings', {}).get('operation') == 'set_position':
                 if not state.get('worker') or not alive(state['worker']) or 'circuit-position-v1' not in state.get('worker_capabilities', []):
                     raise ServiceError('workflow_worker_upgrade_required', 'Position update requires a compatible owning worker')
+            if operation == 'circuit' and params.get('settings', {}).get('operation') == 'configure_task_execution':
+                if not state.get('worker') or not alive(state['worker']) or 'circuit-task-execution-v1' not in state.get('worker_capabilities', []):
+                    raise ServiceError('workflow_worker_upgrade_required', 'Task execution settings require a compatible owning worker')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             if operation == 'inspect' and params.get('native_solver_status'):
                 from cst_solver.solver_status import CAPABILITY as STATUS_CAPABILITY

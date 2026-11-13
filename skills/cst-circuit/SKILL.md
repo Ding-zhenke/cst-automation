@@ -30,6 +30,9 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 移动已有原理图 Block 或 ExternalPort 使用 `app.circuit.set_position`；
 所属会话需 `circuit-position-v1`，返回的原生坐标可能经网格吸附，须与请求分开记录。
 MOR 拟合按公共协议显式选用极点参数；读回设置不等于拟合数值验收。
+已有 Transient 或 Spectral Lines 任务的并行度和结果选项使用
+`app.circuit.configure_task_execution`，明确提供当前任务支持的值；不写死并行数。
+所属会话要求 `circuit-task-execution-v1`，设置读回不等于求解或实际线程数。
 
 先读 [使用指南](../../docs/guides/circuit_cosimulation.md)。开发接口时再读 [公共协议](../../docs/PUBLIC_API.md)；确认实机能力时读 [验证记录](../../docs/VALIDATION.md)，不要从接口存在推断验收通过。
 

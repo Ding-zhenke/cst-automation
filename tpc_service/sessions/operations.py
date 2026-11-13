@@ -20,6 +20,9 @@ def execute(runtime, job):
         if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'set_position'
                 and 'circuit-position-v1' not in runtime.state().get('worker_capabilities', [])):
             raise ServiceError('workflow_worker_upgrade_required', 'Position update requires a compatible execution worker')
+        if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'configure_task_execution'
+                and 'circuit-task-execution-v1' not in runtime.state().get('worker_capabilities', [])):
+            raise ServiceError('workflow_worker_upgrade_required', 'Task execution settings require a compatible execution worker')
         if operation == 'inspect' and 'discrete_port_ids' in params:
             from .inspection import validate_options
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY

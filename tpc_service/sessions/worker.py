@@ -280,6 +280,7 @@ def run(folder):
             from cst_automation.task_disable import CAPABILITY as DISABLE_CAPABILITY
             state['worker_capabilities'].append(DISABLE_CAPABILITY)
             state['worker_capabilities'].append('circuit-position-v1')
+            state['worker_capabilities'].append('circuit-task-execution-v1')
             state['worker_capabilities'].append('sp-impedance-read-v1')
             state['worker_capabilities'].append('circuit-source-property-readback-v1')
             state['worker_capabilities'].append('static-sp-prepare-v1')

@@ -117,6 +117,13 @@ class CircuitAPI:
             self._spec = None  # No verified cache remains after any attempted mutation.
         return {"block_name": block_name, "readback": result, "invalidated": "all_dependent_circuit_tasks", "resolved_si": data["resolved_si"]}
 
+    def configure_task_execution(self, task_name, expected_type, *, parallelization=None, result_options=None):
+        """Configure explicit existing task options; caller owns session and saving."""
+        from .task_execution import configure_task_execution
+        self._spec = None
+        return configure_task_execution(self.adapter.schematic, task_name, expected_type,
+                                        parallelization=parallelization, result_options=result_options)
+
     def configure_transient_task(self, task_name, settings, *, create=False):
         from cst_automation.circuit_tasks import transient_settings
         data = transient_settings(settings)  # Invalid data must not load/access the SDK.

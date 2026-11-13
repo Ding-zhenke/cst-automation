@@ -218,3 +218,34 @@ def test_old_worker_position_is_rejected_before_access():
     with pytest.raises(ServiceError) as caught:
         execute(runtime, {'operation':'circuit','params':{'settings':{'operation':'set_position'}}})
     assert caught.value.code == 'workflow_worker_upgrade_required'
+
+
+def test_task_execution_owned_session_routes_to_borrowed_app(tmp_path):
+    runtime, app, record = session(tmp_path)
+    app.circuit.configure_task_execution = Mock(return_value={'after':{'parallelization':'Maximum'}})
+    app.save = Mock()
+    result = circuit(runtime, app, record, {'project_id':'p', 'kind':'build',
+        'settings':{'operation':'configure_task_execution','task_name':'SS','expected_type':'Transient',
+                    'parallelization':'Maximum'}})
+    assert result['ok']
+    app.circuit.configure_task_execution.assert_called_once_with('SS','Transient',parallelization='Maximum',result_options=None)
+    app.save.assert_called_once()
+    app.close.assert_not_called()
+
+def test_old_worker_task_execution_is_rejected_before_access():
+    from tpc_service.sessions.operations import execute
+    runtime=SimpleNamespace(state=lambda: {'worker_capabilities': []})
+    with pytest.raises(ServiceError) as caught:
+        execute(runtime, {'operation':'circuit','params':{'settings':{'operation':'configure_task_execution'}}})
+    assert caught.value.code == 'workflow_worker_upgrade_required'
+
+def test_task_execution_submit_rejects_missing_worker(tmp_path, monkeypatch):
+    from tpc_service.sessions import manager as module
+    manager=module.SessionManager(str(tmp_path),backend='fake')
+    ref=manager.ensure('task-settings','ensure')
+    monkeypatch.setattr(manager,'_launch',lambda *a: pytest.fail('Unexpected worker launch'))
+    with pytest.raises(ServiceError) as caught:
+        manager.submit(ref['session_id'],ref['credential'],'r','circuit',
+            {'project_id':'p','kind':'build','settings':{'operation':'configure_task_execution',
+             'task_name':'SS','expected_type':'Transient','parallelization':'Maximum'}})
+    assert caught.value.code == 'workflow_worker_upgrade_required'
