@@ -40,6 +40,24 @@ For each run retain:
 
 Generate netlists to named files and use a distinct output directory for every attempt. This makes stale datasets and changed inputs visible.
 
+## Windows non-ASCII N-port path and masked logs
+
+In one ADS EDA Toolbox 1.2.4 run on this workstation, an S10P `File` using a
+non-ASCII absolute path failed netlist expansion with `bad conversion`. A
+separate run with the same hashed network, an ASCII basename and the source
+directory supplied as `CircuitSimulator` `rel_data_dir` succeeded. This is a
+scoped observed remedy, not a claim that every non-ASCII path fails. Resolve
+the basename through the explicit directory and verify the network hash before
+running; do not silently substitute a different file.
+
+On that failed run, toolbox log decoding with the local GBK codec raised
+`UnicodeDecodeError` and hid the simulator's original failure. Preserve the raw
+simulator log bytes and return code, then decode diagnostically with explicit
+UTF-8 and a loss-tolerant fallback. Show the actual log error as well as any
+wrapper exception. An empty log and `0xE06D7363` under a restricted execution
+context do not identify an ADS, license, machine or circuit fault; preserve
+the attempt and follow this workstation's outside-sandbox execution rule.
+
 ## SystemVue `vtb.defs` warning
 
 A message such as an inability to include or locate SystemVue `vtb.defs` is not automatically a license failure. Classify it as an optional library-definition warning only when all of the following are true:

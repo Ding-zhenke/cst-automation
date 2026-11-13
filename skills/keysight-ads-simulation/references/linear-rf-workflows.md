@@ -18,6 +18,13 @@ For explicit `release`, add the user's band edges, state matrix, bias and corner
 
 S-parameters are dimensionless complex ratios. Convert magnitude to decibels with `20*log10(abs(S[i,j]))`; do not use a voltage-to-power or `10*log10` conversion for an S-parameter. Preserve port numbering, `PortZ`/reference impedance, frequency, state, and other independent axes with every extracted row.
 
+For nonlinear devices, ADS SP first establishes a DC operating point and then
+linearizes around it. If the actual operating-point output was not requested or
+exported, report its value as unavailable; zero external DC/pump does not supply
+a numeric diode operating point. A pumped finite-power HB carrier ratio is a
+different observable. Use an explicit detailed operating-point run only when it
+is needed and authorized, retaining its own inputs and results.
+
 ## Amplifier
 
 ### Default flow
