@@ -41,6 +41,94 @@ these operations and should expose missing functionality as pending.
 
 ## Native zero-bias SP gap
 
+### Current ordinary-candidate path and minimum gap (2026-11-13)
+
+The requested loop is **same-candidate CST EM → native zero-bias, pump-off
+diode SP → ADS pumped bidirectional HB → isolation/insertion-loss analysis →
+next candidate**. The user permits a targeted GUI review where the SDK lacks
+a reliable getter; a GUI observation must be retained as such, not converted
+into a claimed native getter. Measurement excitation stays enabled; the control
+termination remains 50 Ω, and only the actual two main-line ports are measured.
+CST HB is not authorized by this workflow.
+
+**Published inputs and operations.** Use the protected session's `solve` for
+EM, after the engineering contract and current parameter checks pass.
+`circuit/build/inspect` can inspect the native schematic, source properties,
+ports, nets and tasks; `circuit/build/configure` uses the existing circuit schema
+to build supported topology and `configure_nonlinear_model` configures supported
+diode models. The existing project-bound `circuit/build/read_sp_impedances`
+uses `sp-impedance-read-v1` and takes `task_name`, the actual port-name list and
+`confirm_idle=true`; it is not an SP solve. These operations do not by themselves
+certify the current EM source, zero-bias diode circuit, sample count or SP result.
+The `CircuitResult` Python API reads actual schematic tree paths and explicit run
+IDs; archive all four complex curves, units, parameters and source identity.
+
+`prepare_static_sp` is published with `static-sp-prepare-v1`, but is limited to
+the documented **embedded Touchstone static-copy topology**, creates new RF
+external ports and a task, and is not a general preparation adapter for the
+same-project native host block. Do not substitute a self-host deletion: the old
+project demonstrated that its automatic host block could not be deleted.
+`configure_exploratory_linear_sp` and `run_exploratory_linear_sp` are published,
+but their normal gate requires a successful current embedded-network/setup
+receipt and supported native sample-count and impedance readbacks; the present
+sample-count getter is unsupported. They are not an already accepted native-host
+candidate loop. On a bound project, generic `circuit/solve/run_task` is routed
+through the bound HB contract, so it is not an authorized escape route for SP.
+
+`run_fenced_static_sp` and `read_fenced_static_sp` are published, tested for a
+specific returned **failed preparation** and fence, and require that failed
+job plus capture/completion/exclusion and impedance evidence. They are not the
+normal successful-EM candidate route. Their shared results logic checks four
+task-scoped complex curves and the actual frequency grid after a run, but their
+pure-network gate and unchanged 3D inventory requirements do not establish the
+behavior of the active native-host circuit.
+
+**Worker and unpublished work.** The engineering session's 2026-11-13 saved
+state advertised `static-sp-prepare-v1`, `static-sp-fenced-recovery-v1`,
+`static-sp-self-em-exclusion-v1`, `static-sp-guarded-run-v1`,
+`static-sp-ready-v1`, `native-static-sp-v1`, and `sp-impedance-read-v1`.
+Those are the worker's advertised strings, not proof that a specific method is
+registered, loaded or natively accepted. The published `f10bf00` does not
+register `review_native_static_sp`, `run_native_static_sp` or
+`read_native_static_sp`; similarly named host review/run/read code in a separate
+maintenance workspace is **uncommitted and unreleased**. Its tests are offline,
+and it assumes an already configured host circuit and SP task; it is not a
+complete preparation or an accepted candidate loop. Do not submit it to the
+live worker on the strength of an advertised capability string.
+
+The remaining necessary connection is a narrowly scoped **owned native-host SP
+preparation/review/run/read path** that preserves the existing EM host and diode
+connections; checks same-candidate EM generation, complete current connections,
+zero external DC and pump, actual source/50 Ω termination, exactly the intended
+measurement ports and their impedances; runs only the reviewed SP leaf; then
+archives the actual frequency grid and four complex curves with task and run
+identity. Reusing the existing configuration, impedance bridge and guarded
+run/archive logic is appropriate, but a code splice alone is insufficient:
+the existing setup assumes a different topology, native sample-count readback
+is unavailable, and the uncommitted host route has not established complete
+preparation, source-termination semantics, safe same-project execution, or
+native result association. Its intended sample count must be linked to a
+reviewable actual GUI/task-setting observation and the resulting full grid
+checked after execution; never claim an SDK sample-count getter.
+
+The original session job's `started_at` and `finished_at` provide an attributable
+worker-operation wall duration, including its checks and archival, rather than a
+pure CST solver time. Obtain solver-only timing from that run's native log when
+available and label each duration. Until an ordinary host operation is published,
+loaded in a compatible safely handed-off worker and accepted in the actual
+project, native zero-bias SP and its time are **not computed**. A window showing
+idle is useful visual evidence but does not itself authorize a worker handoff or
+certify whole-engine idle. Do not replace the active worker for optional status
+getters, alter its queue, or attach a second process.
+
+Minimal continuation: (1) the owning session completes and qualifies the
+authorized EM; (2) it reviews the real native host, diode wiring, source/load
+termination, SP task and actual sampling through available native/GUI evidence;
+(3) the missing normal host interface is completed and safely loaded only when
+the owning session can accept the required handoff; (4) one leaf SP run is
+archived and checked, followed by ADS HB and the requested performance analysis.
+No new simulation is authorized by this documentation.
+
 ### Recover a returned partial static preparation (offline-tested only)
 
 The owning session reviews the original failed `prepare_static_sp` receipt,
