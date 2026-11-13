@@ -96,6 +96,17 @@ and it assumes an already configured host circuit and SP task; it is not a
 complete preparation or an accepted candidate loop. Do not submit it to the
 live worker on the strength of an advertised capability string.
 
+For maintenance comparison only, that uncommitted prototype's review input is
+`project_id`, `em_job_id`, `expected_saved_digest`, `snapshot_digest`,
+`confirm_idle=true`, and `spec` containing `host_block`, `host_pins`,
+`expected_nets`, and `task={task_name, frequency_unit, fmin, fmax, samples,
+port_impedances}`. Its proposed run input adds a successful `review_job_id`,
+the same saved digest and `confirm_run=true`; its proposed read input uses
+`run_job_id`, the post-run saved digest and an explicit positive `positive_run_id`.
+These describe unfinished source, not currently published operations. The
+prototype still requires a separately prepared task and review of sample-count
+evidence; its live integration, execution and result identity are not accepted.
+
 The remaining necessary connection is a narrowly scoped **owned native-host SP
 preparation/review/run/read path** that preserves the existing EM host and diode
 connections; checks same-candidate EM generation, complete current connections,
