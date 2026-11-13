@@ -33,7 +33,7 @@ def protected(operation, params):
 
 
 def mutates(operation, params):
-    if operation in ('set_parameters', 'model_api', 'history', 'configure_sweep', 'prepare_static_sp'):
+    if operation in ('set_parameters', 'model_api', 'history', 'configure_sweep', 'prepare_static_sp', 'prepare_native_static_sp'):
         return True
     return operation == 'circuit' and params.get('kind', 'build') == 'build' and params.get('settings', {}).get('operation') not in READ_CIRCUIT
 
@@ -161,6 +161,18 @@ def preflight(folder, state, operation, params, *, job=None):
     if operation == 'exclude_unconnected_self_em':
         from .static_fenced_recovery import exclusion_preflight
         exclusion_preflight(folder, state, params, job=job)
+        return None
+    if operation in ('prepare_native_static_sp','review_native_static_sp'):
+        from .native_static_run import preflight as native_static_preflight
+        native_static_preflight(folder,state,params,job=job,require_sample=operation=='review_native_static_sp')
+        return None
+    if operation == 'run_native_static_sp':
+        from .native_static_run import run_preflight
+        run_preflight(folder,state,params,job=job)
+        return None
+    if operation == 'read_native_static_sp':
+        from .native_static_run import read_preflight
+        read_preflight(folder,state,params,job=job)
         return None
     if operation == 'read_fenced_static_impedances':
         from .static_fenced_recovery import impedance_preflight
@@ -325,12 +337,12 @@ def invalidate(runtime, job):
     if not workflow or not (mutates(job['operation'], job['params']) or job['operation'] == 'solve'):
         return
     operation, params = job['operation'], job['params']
-    affects_em = (operation not in ('circuit', 'prepare_static_sp') or
+    affects_em = (operation not in ('circuit', 'prepare_static_sp', 'prepare_native_static_sp') or
                   (operation == 'circuit' and params.get('settings', {}).get('operation') == 'configure_em_time_settings'))
     if operation == 'set_parameters':
         affects_em = any(workflow['spec']['parameters'][n]['affects'] == 'em' for n in params['values'])
         workflow['values'].update(params['values'])
-    if operation in ('circuit', 'prepare_static_sp') or affects_em:
+    if operation in ('circuit', 'prepare_static_sp', 'prepare_native_static_sp') or affects_em:
         workflow['network_update'] = None
         workflow['sp_network'] = None
         workflow['sp_setup'] = None

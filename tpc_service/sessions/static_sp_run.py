@@ -11,6 +11,22 @@ OPERATION='run_fenced_static_sp'
 READ_OPERATION='read_fenced_static_sp'
 
 
+def verified_impedance_artifact(folder,project_path,task_name,report):
+    from cst_automation.sp_impedance_bridge import parse_impedance_receipt
+    root=(Path(folder)/'sp_impedance_queries').resolve()
+    artifact=Path(report['artifact_path']).resolve();manifest=Path(report['manifest_path']).resolve()
+    if not (artifact.is_relative_to(root) and manifest.is_relative_to(root) and artifact.is_file() and manifest.is_file()):
+        raise ValueError('Bound native impedance receipts required')
+    request=json.loads(manifest.read_text(encoding='utf-8'))
+    if (Path(request['output_path']).resolve()!=artifact or Path(request['project_path']).resolve()!=Path(project_path).resolve()
+            or request['task_name']!=task_name):
+        raise ValueError('Native impedance request identity differs')
+    parsed=parse_impedance_receipt(artifact.read_bytes(),request=request)
+    if parsed['ports']!=report.get('ports'):
+        raise ValueError('Native impedance receipt changed')
+    return parsed
+
+
 def validate(params):
     keys={'project_id','failed_job_id','exclude_job_id','impedance_job_id','expected_saved_digest',
           'snapshot_digest','confirm_idle','confirm_run'}
@@ -25,7 +41,6 @@ def validate(params):
 
 
 def preflight(folder,state,params,job=None):
-    from cst_automation.sp_impedance_bridge import parse_impedance_receipt
     from cst_solver.circuit.links import dependency_manifest
     from cst_solver.circuit.static_sp_gate import validate_static_network
     def require(value,message):
@@ -52,15 +67,7 @@ def preflight(folder,state,params,job=None):
             and result.get('saved_digest')==params['expected_saved_digest'] and result.get('snapshot_digest')==params['snapshot_digest'],
             'Matching successful native impedance observation required')
     try:
-        root=(Path(folder)/'sp_impedance_queries').resolve();artifact=Path(report['artifact_path']).resolve()
-        manifest=Path(report['manifest_path']).resolve()
-        require(artifact.is_relative_to(root) and manifest.is_relative_to(root) and artifact.is_file() and manifest.is_file(),
-                'Bound native impedance receipts required')
-        request=json.loads(manifest.read_text(encoding='utf-8'))
-        require(Path(request['output_path']).resolve()==artifact and Path(request['project_path']).resolve()==Path(state['projects'][params['project_id']]['path']).resolve()
-                and request['task_name']==name, 'Native impedance request identity differs')
-        parsed=parse_impedance_receipt(artifact.read_bytes(),request=request)
-        require(parsed['ports']==report.get('ports'), 'Native impedance receipt changed')
+        parsed=verified_impedance_artifact(folder,state['projects'][params['project_id']]['path'],name,report)
         snapshot=excluded['result']['after'];project=state['projects'][params['project_id']]['path']
         dependencies=dependency_manifest(project,snapshot)
         gate=validate_static_network(snapshot,spec,task_readback,dependencies,parsed,project_path=project,task_enabled=True)
@@ -187,13 +194,32 @@ def execute(runtime,job):
             or adapter.inspect()!=snapshot or file_digest(project['path'])!=params['expected_saved_digest']
             or _model3d_files(project['path'])!=scene_files):
         raise ServiceError('session_static_run_refused','Project changed immediately before task update')
+    return run_and_archive(runtime=runtime,job=job,project=project,spec=spec,snapshot=snapshot,
+        output=output,audit=audit,adapter=adapter,scene_files=scene_files,before_log=before_log,log=log,
+        require_no_3d=True,context={'original_failed_job_id':params['failed_job_id'],
+        'exclude_job_id':params['exclude_job_id'],'impedance_job_id':params['impedance_job_id']})
+
+
+def run_and_archive(*, runtime, job, project, spec, snapshot, output, audit, adapter, scene_files, before_log, log, require_no_3d, context):
+    """Run and archive one checked static SP task; caller owns the live gate."""
+    import json
+    import os
+    import time
+    from cst_solver.circuit.adapter import NativeAdapter
+    from cst_solver.circuit.results import CircuitResult
+    from cst_automation.static_sp_results import verify_curves
+    from .operations import circuit
+    from .static_fenced_recovery import _model3d_files
+    params=job['params'];app=runtime.app;task=spec['task'];name=task['task_name']
     api=app.circuit;api._adapter=NativeAdapter(app);api._spec=None
     request={'project_id':params['project_id'],'kind':'solve','settings':{
         'operation':'run_task','task_name':name,'mode':'network','reuse':'never',
         'expected_results':[],'result_selectors':['11','12','21','22']}}
     outcome=None
+    started=time.monotonic()
     try:
         outcome=circuit(runtime,app,project,request)
+        operation_seconds=time.monotonic()-started
         receipt=(outcome.get('result_summary') or {}).get('circuit_outcome') or {}
         if (receipt.get('status')!='succeeded' or receipt.get('execution_returned') is not True
                 or receipt.get('submitted') is not True or receipt.get('update_call_state')!='returned'
@@ -208,10 +234,10 @@ def execute(runtime,job):
             raise ValueError('Four unique native task-scoped result paths not proven')
         current_state=runtime.state();saved=current_state['projects'][params['project_id']]['saved_digest']
         if (receipt.get('saved_digest')!=saved or file_digest(project['path'])!=saved
-                or adapter.inspect()!=snapshot or _model3d_files(project['path'])!=scene_files):
+                or adapter.inspect()!=snapshot or (require_no_3d and _model3d_files(project['path'])!=scene_files)):
             raise ValueError('Saved circuit or 3D model inventory changed during task')
         after_log=file_digest(log) if log.is_file() else None
-        if before_log!=after_log:
+        if require_no_3d and before_log!=after_log:
             raise ValueError('3D solver log changed during static task')
         reader=CircuitResult(project['path'])
         curves={key:reader.read_curve(path,run_id=0) for key,path in paths.items()}
@@ -243,11 +269,11 @@ def execute(runtime,job):
             verify_curves(positive[rid],task_name=name,run_id=rid,project_path=project['path'],parameters=params0,
                 frequency_unit=task['frequency_unit'],fmin=task['fmin'],fmax=task['fmax'],samples=task['samples'])
             positive_path=output/'positive-curves.json';dump_curves(positive_path,positive[rid])
-        return {'saved':True,'saved_digest':saved,'original_failed_job_id':params['failed_job_id'],
-                'exclude_job_id':params['exclude_job_id'],'impedance_job_id':params['impedance_job_id'],
+        return {'saved':True,'saved_digest':saved,**context,
                 'task_name':name,'run_token':receipt.get('run_token'),'circuit_outcome':receipt,'resolved_result_paths':paths,
-                'structural_no_em_dependency_verified':True,'3d_files_unchanged':True,'3d_log_unchanged':True,
-                'native_no_em_execution_verified':False,'network_sha256':spec['network_sha256'],
+                'structural_no_em_dependency_verified':require_no_3d,
+                '3d_files_unchanged':_model3d_files(project['path'])==scene_files,'3d_log_unchanged':before_log==after_log,
+                'native_no_em_execution_verified':False,'network_sha256':spec.get('network_sha256'),
                 'actual_grid_verified':True,'validation':validation,'current_curves_path':str(raw),
                 'current_curves_sha256':file_digest(raw),'matching_positive_run_ids':candidates,
                 'positive_search_truncated':len(common or ())>64,
@@ -255,10 +281,12 @@ def execute(runtime,job):
                 'positive_curves_sha256':file_digest(positive_path) if positive_path else None,
                 'positive_run_id':candidates[0] if len(candidates)==1 else None,
                 'positive_fresh_attribution_verified':False,'solver_verified':True,
+                'operation_wall_seconds':operation_seconds,'solver_only_time_verified':False,
                 'formal_hb_gate_satisfied':False,'source_qualification':'not_assessed','before_audit':str(audit)}
     except Exception as exc:
         raise ServiceError('session_static_run_unverified',str(exc),run_may_have_started=True,
                            original_type=type(exc).__name__,original_details=getattr(exc,'details',{}),
+                           operation_wall_seconds=time.monotonic()-started,
                            before_audit=str(audit),run_directory=str(output),
                            circuit_result=outcome) from exc
 
@@ -289,12 +317,25 @@ def read_positive(runtime,job):
     app.cst_file=handle;adapter=NativeAdapter(app)
     if adapter.inspect()!=expected:
         raise ServiceError('session_static_read_refused','Native circuit changed after run')
+    return read_archived_positive(runtime=runtime,job=job,project=project,expected=expected,task=task,
+        name=name,paths=paths,raw=evidence['raw'],adapter=adapter,positive_run_id=params['positive_run_id'],
+        context={'original_failed_job_id':params['failed_job_id'],'run_job_id':params['run_job_id']})
+
+
+def read_archived_positive(*, runtime, job, project, expected, task, name, paths, raw, adapter, positive_run_id, context):
+    """Compare an explicit positive native result with this run's archived curves."""
+    import json
+    import os
+    from cst_solver.circuit.results import CircuitResult
+    from cst_automation.static_sp_results import verify_curves
+    from .store import alive
+    params=job['params'];state=runtime.state();evidence={'raw':raw}
     archived=json.loads(evidence['raw'].read_text(encoding='utf-8'))
     if not isinstance(archived,dict) or set(archived)!={'11','12','21','22'}:
         raise ServiceError('session_static_read_refused','Current-run archive incomplete')
     reader=CircuitResult(project['path'])
     current={key:reader.read_curve(path,run_id=0) for key,path in paths.items()}
-    positive={key:reader.read_curve(path,run_id=params['positive_run_id']) for key,path in paths.items()}
+    positive={key:reader.read_curve(path,run_id=positive_run_id) for key,path in paths.items()}
     for key,curve in current.items():
         stored=archived[key]
         if (stored.get('sample_digest')!=curve['sample_digest'] or stored.get('parameters')!=curve['parameters']
@@ -306,7 +347,7 @@ def read_positive(runtime,job):
         if (selected['sample_digest']!=curve['sample_digest'] or selected['parameters']!=curve['parameters']
                 or selected['x_unit']!=curve['x_unit'] or selected['y_unit']!=curve['y_unit']):
             raise ServiceError('session_static_read_refused','Positive ID does not match recorded current curves')
-    validation=verify_curves(positive,task_name=name,run_id=params['positive_run_id'],project_path=project['path'],
+    validation=verify_curves(positive,task_name=name,run_id=positive_run_id,project_path=project['path'],
         parameters=current['11']['parameters'],frequency_unit=task['frequency_unit'],fmin=task['fmin'],
         fmax=task['fmax'],samples=task['samples'])
     if (adapter.inspect()!=expected or file_digest(project['path'])!=params['expected_saved_digest']
@@ -319,8 +360,8 @@ def read_positive(runtime,job):
         data[key]['y']=[[v.real,v.imag] for v in curve['y']]
     with output.open('x',encoding='utf-8') as stream:
         json.dump(data,stream,ensure_ascii=False,indent=2,allow_nan=False);stream.flush();os.fsync(stream.fileno())
-    return {'original_failed_job_id':params['failed_job_id'],'run_job_id':params['run_job_id'],
-            'saved_digest':params['expected_saved_digest'],'positive_run_id':params['positive_run_id'],
+    return {**context,
+            'saved_digest':params['expected_saved_digest'],'positive_run_id':positive_run_id,
             'task_name':name,'positive_curves_path':str(output),'positive_curves_sha256':file_digest(output),
             'validation':validation,'current_content_matches_positive':True,
             'positive_fresh_attribution_verified':False,'saved':False,'solver_verified':False}

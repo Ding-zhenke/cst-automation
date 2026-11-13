@@ -16,7 +16,7 @@ from .static_sp_run import OPERATION as STATIC_RUN, READ_OPERATION as STATIC_REA
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
 OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
-                        'set_parameters', 'initialize_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network', 'prepare_exploratory_sp_network', 'configure_exploratory_linear_sp', 'run_exploratory_linear_sp', 'prepare_static_sp', 'accept_saved_baseline', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ))
+                        'set_parameters', 'initialize_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network', 'prepare_exploratory_sp_network', 'configure_exploratory_linear_sp', 'run_exploratory_linear_sp', 'prepare_static_sp', 'prepare_native_static_sp', 'review_native_static_sp', 'run_native_static_sp', 'read_native_static_sp', 'accept_saved_baseline', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ))
 FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ))
 UPGRADE_CAPABILITY = 'cooperative-worker-upgrade-v1'
 
@@ -223,7 +223,7 @@ class SessionManager:
                 if state['status'] != 'needs_reconcile':
                     state['status'] = 'closing'
             write(folder / 'session.json', state)
-        if operation not in ('accept_saved_baseline', 'initialize_parameters', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ) and not (operation == 'inspect' and params.get('native_solver_status')):
+        if operation not in ('accept_saved_baseline', 'initialize_parameters', 'prepare_native_static_sp', 'review_native_static_sp', 'run_native_static_sp', 'read_native_static_sp', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ) and not (operation == 'inspect' and params.get('native_solver_status')):
             self._launch(folder)
         return self.job(session_id, credential, job['job_id'])
 

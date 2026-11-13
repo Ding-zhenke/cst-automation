@@ -41,6 +41,80 @@ these operations and should expose missing functionality as pending.
 
 ## Native zero-bias SP gap
 
+### Native-host v2 operations (offline validation; native acceptance pending)
+
+The following four operations supersede the earlier unpublished-host note below.
+Use `submit_cst_session_operation` / `SessionManager.submit` on the same owned
+saved project and an idle worker advertising `native-static-sp-v2` and
+`static-sp-guarded-run-v1`. They never launch or upgrade a worker. Existing
+`native-static-sp-v1` does not imply v2 support.
+
+Prepare the actual host, diode blocks, control network, exactly two connected
+measurement external ports first. The target SP task may be absent or an existing S-parameter **leaf**. Reuse
+`circuit/build/configure`, `configure_nonlinear_model`, and the existing native
+task/port setup where supported. If these exact objects are missing and cannot
+be created by the current session interface, the engineering owner may use the
+authorized GUI to create/connect those objects; do not remove the automatic host, change diode wiring, or launch it.
+Inspect the complete circuit, actual host pins, units and task after setup.
+
+The GUI-observed sample table for this one linear SP task is a UTF-8 JSON file
+with exactly `source`=`gui_observation`, `task_name`, `frequency_unit`, `fmin`,
+`fmax`, integer `samples`, timezone-bearing ISO `observed_at`, and `review_note`.
+It is a human observation, not an SDK getter; the session reads it by absolute
+path and SHA-256 and refuses stale or mismatched values. Retain the original
+visual evidence separately. The final run validates every actual frequency point
+and all four curves; no empty-row termination or assumed coverage is used.
+
+`prepare_native_static_sp` takes exactly `project_id`, `em_job_id`,
+`expected_saved_digest`, `snapshot_digest`, `confirm_idle=true`,
+`spec`:
+
+```json
+{"host_block":"actual-host", "host_pins":[{"pin_name":"...","port_index":0}],
+ "expected_nets":[{"name":"actual-net","subnets":[[["Block","actual-host",0],["ExternalPort","P1",0]]]}],
+ "diode_blocks":["actual-diode"],
+ "control":{"network_pin":2,"probe":"actual-probe","source":"actual-signal-source",
+            "bias":"actual-dc-source","ground":"actual-ground","resistance_ohms":50},
+ "task":{"task_name":"actual-SP","frequency_unit":"GHz","fmin":1,"fmax":2,
+         "samples":3,"port_impedances":{"P1":100,"P2":100}}}
+```
+
+This is a schema illustration, **not** a complete circuit or default values:
+copy the entire actual `host_pins` and `expected_nets` from native inspection;
+all real diode names, task, units, frequency range and port impedances come from
+the reviewed project. The supported control chain is host pin → probe → voltage
+signal source Ri=50 Ω → voltage DC source Ri=0 Ω → ground, with no unreviewed
+parallel branch at the first three links. Other control topologies are refused.
+The two connected measurement ports must already exist; a missing or existing SP leaf is created or updated through the existing Python task API. Missing topology is a specific setup gap,
+not a reason to delete a host or issue a solver command. Preparation validates the
+current EM/evidence and reviewed topology, records an exclusive before-audit,
+zeros supported independent DC and AC/HB source amplitudes, configures and enables
+the selected SP leaf, then reads numerical impedances, rechecks untouched topology
+and saves. A partial write fences
+the session. It does not configure new ports or start a solver. After preparation,
+review the actual task sampling in the GUI and create the observation artifact;
+GUI evidence is not native sample readback.
+
+`review_native_static_sp` uses the same fields plus `sample_observation={path,sha256}`
+and the preparation result's new `saved_digest` and `snapshot_digest`; it is read-only and creates a fresh
+impedance receipt. `run_native_static_sp` accepts only `project_id`,
+`review_job_id`, `expected_saved_digest`, `confirm_idle=true`, `confirm_run=true`.
+It revalidates review, project, EM generation, source, task, impedance and GUI
+observation, then executes one selected SP leaf and archives S11/S12/S21/S22.
+`read_native_static_sp` accepts `project_id`, `run_job_id`, the post-run
+`expected_saved_digest`, explicit positive `positive_run_id`, and
+`confirm_idle=true`; it compares the positive-ID data with the archived current
+curves. If no unique positive ID exists, retain the archived current curves and
+inspect actual IDs; do not rerun to create an ID. `operation_wall_seconds` includes
+the service operation and is not solver-only timing. `em_reuse_verified` and
+`diode_model_verified` stay false until independent actual-project evidence.
+
+These operations are offline tested, not native acceptance: user authorization,
+complete EM evidence, compatible worker, actual idle/GUI review and safety of
+any preserved-DE handoff remain required. Do not hot-replace a running worker
+or claim the old project's v1 capability implements v2. CST HB remains outside
+this path; ADS is responsible for pumped HB.
+
 ### Current ordinary-candidate path and minimum gap (2026-11-13)
 
 The requested loop is **same-candidate CST EM → native zero-bias, pump-off
@@ -107,7 +181,7 @@ These describe unfinished source, not currently published operations. The
 prototype still requires a separately prepared task and review of sample-count
 evidence; its live integration, execution and result identity are not accepted.
 
-The remaining necessary connection is a narrowly scoped **owned native-host SP
+The following was the prior gap before the v2 offline implementation: an **owned native-host SP
 preparation/review/run/read path** that preserves the existing EM host and diode
 connections; checks same-candidate EM generation, complete current connections,
 zero external DC and pump, actual source/50 Ω termination, exactly the intended
@@ -125,9 +199,8 @@ checked after execution; never claim an SDK sample-count getter.
 The original session job's `started_at` and `finished_at` provide an attributable
 worker-operation wall duration, including its checks and archival, rather than a
 pure CST solver time. Obtain solver-only timing from that run's native log when
-available and label each duration. Until an ordinary host operation is published,
-loaded in a compatible safely handed-off worker and accepted in the actual
-project, native zero-bias SP and its time are **not computed**. A window showing
+available and label each duration. Until the v2 host operation is loaded in a compatible safely handed-off worker
+and accepted in the actual project, native zero-bias SP and its time are **not computed**. A window showing
 idle is useful visual evidence but does not itself authorize a worker handoff or
 certify whole-engine idle. Do not replace the active worker for optional status
 getters, alter its queue, or attach a second process.

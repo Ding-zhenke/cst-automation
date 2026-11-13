@@ -175,6 +175,21 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
             and not monitor_failure):
         evidence.update(decision=prior, reason='initial_parameters_refused_before_mutation')
         return
+    if job.get('operation') == 'review_native_static_sp' and not monitor_failure:
+        evidence.update(decision=prior, reason='read_only_static_review_preserved_state')
+        return
+    if (job.get('operation') == 'prepare_native_static_sp' and error.get('code') == 'session_native_static_refused'
+            and not monitor_failure):
+        evidence.update(decision=prior, reason='native_static_prepare_refused_before_write')
+        return
+    if (job.get('operation') == 'run_native_static_sp' and error.get('code') == 'session_native_static_refused'
+            and not monitor_failure):
+        evidence.update(decision=prior, reason='native_static_run_refused_before_update')
+        return
+    if (job.get('operation') == 'read_native_static_sp' and error.get('code') == 'session_native_static_read_refused'
+            and not monitor_failure):
+        evidence.update(decision=prior, reason='native_static_read_refused_without_mutation')
+        return
     if (job.get('operation') == 'run_fenced_static_sp'
             and error.get('code') in ('session_static_recovery_refused','session_static_run_refused') and not monitor_failure):
         state['last_static_run_error'] = error
@@ -271,6 +286,7 @@ def run(folder):
             state['worker_capabilities'].append('point-lumped-element-v1')
             state['worker_capabilities'].append('initial-parameters-v1')
             state['worker_capabilities'].append('native-solver-status-v1')
+            state['worker_capabilities'].append('native-static-sp-v2')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             state['worker_capabilities'].append(DISCRETE_READ_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.

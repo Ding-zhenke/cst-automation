@@ -52,6 +52,30 @@ def validate(operation, params):
             validate_exclusion(params)
         except (ValueError, TypeError, KeyError) as exc:
             raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'prepare_native_static_sp':
+        from .native_static_run import validate_prepare
+        try:
+            validate_prepare(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'review_native_static_sp':
+        from .native_static_run import validate as validate_native_static
+        try:
+            validate_native_static(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'run_native_static_sp':
+        from .native_static_run import validate_run
+        try:
+            validate_run(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
+    if operation == 'read_native_static_sp':
+        from .native_static_run import validate_read
+        try:
+            validate_read(params)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ServiceError('invalid_session_argument', str(exc)) from exc
     if operation == 'read_fenced_static_impedances':
         from .static_fenced_recovery import validate_impedance_read
         try:

@@ -1,5 +1,9 @@
 # cst-automation 与领域包的公共接口
 
+## 同工程宿主零偏静态 SP 会话操作
+
+`prepare_native_static_sp`、`review_native_static_sp`、`run_native_static_sp`、`read_native_static_sp` 使用已经保存且空闲的所属工程及 `native-static-sp-v2` worker，不启动 worker、不删除宿主块。准备与审阅请求包含 `project_id/em_job_id/expected_saved_digest/snapshot_digest/spec/confirm_idle`；审阅额外要求 `sample_observation`；spec 显式提供 host_block、host_pins、完整 expected_nets、control、diode_blocks 和 task。已连接的两测量端口是前提；准备使用现有 Python 任务函数创建或更新并启用一个 SP 叶任务，同时将支持的独立外加 DC 与 AC/HB 源幅值置零，逐项核对控制支路 50 Ω、端口阻抗和原生拓扑后保存。GUI 样本数观察为带 SHA256 的独立 JSON，不冒充原生 getter。运行须引用成功审阅、相同保存摘要与 EM 世代，执行单一 SP 叶；读取须引用成功运行和实际正 Run ID，比较四条复数曲线和完整实际频率轴。项目身份、源连接、控制负载、输入摘要不匹配时拒绝；部分写入或运行不确定保留围栏。只经离线测试，宿主 EM 复用、二极管模型身份、原生求解及结果归属仍需实际工程验收；不授权 CST HB。具体输入与能力见 `docs/guides/diode_workflow_integration.md`。
+
 ## 所属工程的原生求解状态只读
 
 `inspect` 可选 `native_solver_status=true`，必须同时提供 `native_readback=true`、`read_only_review=true`、`confirm_idle=true` 与已保存工程的 `expected_digest`。此模式只借用 worker 已持有的精确工程句柄，不启动 worker、不 attach、不读取或更改几何、不保存、不求解。逐项查询官方 Python SDK 的 `get_active_solver_name`、`is_solver_running` 和 `get_solver_run_info`，保留字段来源、工程身份、时间、原始值和状态；空值、异常或不匹配类型不伪装为成功。`get_active_solver_name` 只代表求解器名称，不证明 Direct。运行信息可能属于当前或上次计算；`is_solver_running=false` 不认证整个 DS/后处理或工程空闲。需实际 worker 广告 `native-solver-status-v1`，离线测试不证明真实 SDK 可用。活动网格类型及 Direct、残差、各实体局部网格、自适应、完整采样表当前不由此接口声称读回。

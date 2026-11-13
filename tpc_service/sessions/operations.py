@@ -296,6 +296,40 @@ def _execute_operation(runtime, job):
             raise
         except Exception as exc:
             raise ServiceError('session_static_recovery_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'prepare_native_static_sp':
+        from .native_static_run import prepare
+        try:
+            return prepare(runtime,job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_native_static_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'review_native_static_sp':
+        from .native_static_run import review
+        try:
+            return review(runtime,job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_native_static_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'run_native_static_sp':
+        from .native_static_run import execute as run_native_static
+        try:
+            return run_native_static(runtime,job)
+        except ServiceError:
+            raise
+        except Exception as exc:
+            raise ServiceError('session_native_static_refused',str(exc),original_type=type(exc).__name__) from exc
+    if operation == 'read_native_static_sp':
+        from .native_static_run import read_positive as read_native_static
+        try:
+            return read_native_static(runtime,job)
+        except ServiceError as exc:
+            if exc.code == 'session_static_read_refused':
+                raise ServiceError('session_native_static_read_refused',str(exc),original_details=exc.details) from exc
+            raise
+        except Exception as exc:
+            raise ServiceError('session_native_static_read_refused',str(exc),original_type=type(exc).__name__) from exc
     if operation == 'read_fenced_static_impedances':
         from .static_fenced_recovery import read_impedances
         try:

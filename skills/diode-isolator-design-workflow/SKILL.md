@@ -40,8 +40,12 @@ the project-bound native bridge, checks the actual result frequency axis after
 the task, and can retain the reviewed existing topology. Its guarded run and read
 interfaces are implemented and offline tested; actual native execution, sample
 coverage and result identity must be established by that project's receipts.
-The ordinary successful-preparation and later candidate-reuse route remains pending;
-do not substitute the failure-recovery route or claim it is a complete loop.
+The separate normal native-host v2 prepare/review/run/read route is offline tested;
+it requires a compatible idle owned worker, actual preconfigured measurement ports
+and reviewed topology, a verified 50 Ω control chain, GUI sample
+observation and current EM evidence. Read the integration contract for exact
+inputs and limitations. Native project acceptance and candidate reuse remain
+pending; do not substitute the failure-recovery route or claim a completed loop.
 Inspect each source's actual connection and impedance when adding measurement
 ports. A zero-amplitude source may still load the same net, and a second port
 impedance may create an unintended parallel termination; do not remove sources
