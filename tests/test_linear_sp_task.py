@@ -9,6 +9,7 @@ class FakeTask:
         self.props = {'maximum frequency range':'false','circuit simulator':'cst','broadband sweep':'true',
                       'logarithmic sweep':'false','fmin':'0','fmax':'1000'}
         self.calls = []
+        self.units = {'Resistance': 'Ohm'}
 
     def Reset(self): pass
     def Name(self, value): self.name = value
@@ -40,6 +41,33 @@ class FakeSchematic:
 class FakePorts:
     def StartPortNameIteration(self): self.names = iter(['P1', 'P2'])
     def GetNextPortName(self): return next(self.names, '')
+
+
+def test_sp_task_inherits_resistance_unit_without_unsupported_local_setter():
+    schematic = FakeSchematic()
+    task = schematic.SimulationTask
+    task.units = {'Resistance': 'Ohm'}
+    original = task.SetLocalUnit
+    def local_unit(dimension, unit):
+        if dimension == 'Resistance':
+            raise RuntimeError('Local unit is not available for the selected simulation task')
+        original(dimension, unit)
+    task.SetLocalUnit = local_unit
+    report = configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
+                                      fmin=2, fmax=5, samples=4,
+                                      port_impedances={'P1':50, 'P2':50})
+    assert report['resistance_unit_readback'] == 'Ohm'
+
+
+def test_sp_inherited_non_ohm_unit_stops_before_setting_impedances():
+    from cst_solver.circuit.adapter import CircuitError
+    schematic = FakeSchematic()
+    schematic.SimulationTask.units = {'Resistance': 'kOhm'}
+    with pytest.raises(CircuitError):
+        configure_linear_sp_task(schematic, 'LinearSP', frequency_unit='GHz',
+                                 fmin=2, fmax=5, samples=4,
+                                 port_impedances={'P1':50, 'P2':50})
+    assert not schematic.SimulationTask.calls
 
 
 def test_creates_explicit_independent_task_with_requested_sweep_and_ports():

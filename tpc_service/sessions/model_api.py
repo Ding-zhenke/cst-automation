@@ -78,7 +78,7 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'configure_sweep','configure_discrete_sweep','add_sweep_parameter_arbitrary_points',
     'change_material','boundary','set_background',
     'create_waveguide_port_free','configure_fem_solver','set_frequency_range','configure_fd_linear_solver','replace_port_with_waveguide',
-    'create_field_monitor','add_parameter_sweep_sequence','add_sweep_parameter_samples',
+    'create_field_monitor','delete_field_monitor','add_parameter_sweep_sequence','add_sweep_parameter_samples',
     'set_wcs_basis','activate_global_wcs',
     'triangle','create_triangular_prism','hexagon','create_hexagonal_prism','create_wire',
     'create_polygon','arc','create_arc','ellipse','create_ellipse','create_circle',
@@ -154,7 +154,7 @@ def _preflight_settings(method, bound):
     elif method == 'add_parameter_sweep_sequence':
         from cst_solver.simulation.sweep import validate_sequence_name
         validate_sequence_name(values['sequence_name'])
-    elif method in ('delete_solid', 'delete_curve_item'):
+    elif method in ('delete_solid', 'delete_curve_item', 'delete_field_monitor'):
         from cst_solver.modeling.booleans import _local_name
         for value in values.values():
             _local_name(value)

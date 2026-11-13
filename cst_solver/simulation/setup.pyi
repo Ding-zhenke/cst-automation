@@ -22,6 +22,7 @@ class SolverMixin:
 # 监视器 (MonitorMixin)
 # ============================================================
 class MonitorMixin:
+    def delete_field_monitor(self, name: str) -> None: ...
     @property
     def cst_file(self): ...
     @property

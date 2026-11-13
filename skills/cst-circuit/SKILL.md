@@ -44,6 +44,16 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 ## 选择入口
 
+配置 CST 2026 原生 S-Parameters 任务时使用
+`cst_solver.circuit.linear_sp.configure_linear_sp_task`。该任务的频率可设本地单位，
+但 `SetLocalUnit("Resistance", "Ohm")` 在 CST 2026 的实际 SP 任务中被拒绝；
+接口读取继承的
+`GetUnit("Resistance")`，当前只接受实际读回为 Ohm 再写端口阻抗。
+若创建后部分失败，先检查实际任务和归属、空闲状态与错误阶段，不重复创建；
+受保护 `prepare_static_sp` 失败先按[专用恢复流程](../../docs/guides/diode_workflow_integration.md#recover-a-returned-partial-static-preparation-offline-tested-only)
+处理；所属会话或持有围栏的调用方可用 `inspect_existing_linear_sp` 和
+`complete_existing_linear_sp_task` 审阅并补完已有任务。
+
 用户要求保留定义/结果但禁用已有 CST HB 父/子任务时，使用所属会话
 `circuit/build/disable_tasks`，按[禁用任务指南](../../docs/guides/disable_native_tasks.md)
 提供完整任务名、预期类型、原生启用状态及当前空闲审阅。只配置保存，不 Update，

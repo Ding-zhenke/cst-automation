@@ -113,8 +113,6 @@ def configure_linear_sp_task(schematic, task_name, *, frequency_unit, fmin, fmax
         task.Type('S-Parameters'); task.Name(task_name); task.Create()
         stage = 'set_frequency_unit'
         task.SetLocalUnit('Frequency', frequency_unit)
-        stage = 'set_resistance_unit'
-        task.SetLocalUnit('Resistance', 'Ohm')
         stage = 'read_created_task'
         expected = inspect_existing_linear_sp(schematic, task_name, list(port_impedances))
         stage = 'complete_created_task'

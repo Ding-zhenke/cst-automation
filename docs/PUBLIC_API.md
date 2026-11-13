@@ -1898,3 +1898,16 @@ Do not upgrade an active worker to obtain this capability; the owner controls an
 separately authorized, idle-only handoff.
 
 `setup.create_point_lumped_element(name, *, r, l=0, c=0, p1, p2, folder='')` 创建原生 `LumpedElement` 串联 RLC 点元件，端点使用显式坐标和 `SetP1/SetP2(False, ...)`；它不同于现有 `LumpedFaceElement` 接口。只生成受校验的建模命令，不求解。`read_lumped_elements` 接受完整原生 ByRef 元组；`read_lumped_elements_via_bridge` 在精确工程与空闲审阅下执行内部固定 ByRef 查询并校验一次性回执，不猜测。会话通过 `model_api` 与 `inspect(read_only_review=true, lumped_element_names=[...])` 暴露；桥接和真实工程读回尚待实测，`native_bridge_verified=False`。
+# Named field monitor deletion
+
+`setup.delete_field_monitor(name)` submits the recorded CST
+`Monitor.Delete` command for exactly one named monitor. The session
+`model_api` route validates the name before any calls in the batch.
+It is a model-history change: session rebuild may invalidate existing results;
+preserve needed results first. This submits a command and does not itself prove
+that the monitor is absent after rebuild. It does not start a solver.
+
+Linear SP task creation sets the frequency local unit and reads the effective
+resistance unit from the task; it does not call SetLocalUnit for Resistance,
+which CST 2026 rejects for this task type. Explicit Ohm readback is required
+before impedances expressed in ohms are written.

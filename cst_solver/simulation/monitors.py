@@ -13,6 +13,13 @@ class MonitorMixin:
 
     # ---- 场/远场监视器 ----
 
+    def delete_field_monitor(self, name):
+        """Submit deletion of one explicitly named monitor."""
+        from cst_solver.modeling.booleans import _local_name
+        name = _local_name(name)
+        self.cst_file.model3d.add_to_history(
+            'Delete field monitor: ' + name, f'Monitor.Delete "{name}"')
+
     _FIELD_CONFIG = {
         'E':       {'type': 'Efield',   'name_fmt': 'e-field (f={})'},
         'H':       {'type': 'Hfield',   'name_fmt': 'h-field (f={})'},
