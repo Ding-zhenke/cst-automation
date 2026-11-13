@@ -548,7 +548,14 @@ def _execute_operation(runtime, job):
         else:
             validation = (app.validate_model(rebuild_mode='parametric')
                           if operation == 'set_parameters' else app.validate_model())
-        if validation.get('status') != 'success' or not validation.get('rebuild_ok'):
+        # CST can return the same informational solver messages on every read.
+        # They do not indicate a failed parameter refresh or block a native EM
+        # sweep. Keep warnings/errors/unknown messages and a failed Rebuild as
+        # blockers, but do not turn an INFO-only queue into a failed job.
+        summary = validation.get('message_summary') or {}
+        blocking_messages = any(summary.get(level, 0)
+                                for level in ('warning', 'error', 'unknown'))
+        if blocking_messages or not validation.get('rebuild_ok'):
             if validation.get('rebuild_performed') is True and validation.get('rebuild_returned') is not True:
                 raise ServiceError('session_geometry_unverified', 'Rebuild did not return normally; inspect before saving',
                                    validation=validation, project_id=params['project_id'],

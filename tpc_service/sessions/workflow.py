@@ -241,8 +241,8 @@ def preflight(folder, state, operation, params, *, job=None):
             reject('project_changed', 'Project changed outside its owning session')
     except OSError as exc:
         reject('project_changed', str(exc))
-    if operation in ('history', 'configure_sweep') or (operation == 'circuit' and params.get('kind') == 'study'):
-        reject('route_unsupported', 'Raw history and unmanaged studies cannot bypass the guarded chain')
+    if operation == 'history' or (operation == 'circuit' and params.get('kind') == 'study'):
+        reject('route_unsupported', 'Raw history and unmanaged circuit studies cannot bypass the guarded chain')
     if operation == 'model_api':
         if any(call['method'] in PARAMETER_SWEEPS for call in params['calls']):
             reject('route_unsupported', 'Native geometry sweep requires a guarded per-case implementation')

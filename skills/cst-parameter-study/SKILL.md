@@ -24,6 +24,15 @@ updates and solves for every point, which add communication and write latency.
 Check the actual project, native task type, parameter binding and result storage
 first; configuration alone does not prove a sweep was executed or preserved.
 
+For an EM parameter sweep whose deliverable is one Touchstone file per point,
+configure and run the native sweep in the owning session, then call
+`Result.export_touchstone_sweep()` on the saved project. The exporter reads the
+native positive Run IDs and their parameter combinations and writes one full
+matrix `.sNp` plus manifest entry per point. Do not replace this short EM→SNP
+path with the parameter→EM→HB evidence workflow. INFO-only CST message queues do
+not block a parameter refresh or sweep configuration when Rebuild returned;
+WARNING, ERROR, unknown messages and a failed Rebuild remain blockers.
+
 Choose the appropriate mechanism:
 
 - Native EM sweep configuration: `setup.configure_sweep` or session operation
@@ -31,7 +40,7 @@ Choose the appropriate mechanism:
 - Serial EM points in one existing project only when native sweep cannot meet a
   specific requirement (such as dependent per-point decisions, unsupported task
   behavior or explicitly requested per-point control): session `set_parameters` refreshes
-  with `app.update()` and checks messages; session `solve` then runs without a
+  with `app.update()` and checks blocking messages; session `solve` then runs without a
   second full rebuild. This is distinct from configuring a native sweep. A live
   case retained two parameter states and all four S leaves using this SDK update
   path; saving/reopening and general retention are not yet certified.

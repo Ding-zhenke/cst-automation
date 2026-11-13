@@ -69,9 +69,9 @@ EM 参数、几何及 EM 配置变动在写入前清除旧 EM 放行证据。重
 旧证据，即使新求解失败也不能沿用上一轮。仅 HB 参数变化保留匹配 EM，但强制
 重新核对 HB 设置。失败写入仍按原会话规则保留不确定性，不自动回滚或重试。
 
-绑定后的 raw history、非托管 study 和 EM 原生扫参配置拒绝执行；用已有受控逐点
-链，或先实现适合该扫描的逐工况证据适配。禁止删除规格、侧车文件或改用旧服务
-入口绕过。旧临时 EM/电路服务在构造 CST app 前拒绝已标记工程。
+绑定后的 raw history 和非托管 Design Studio study 仍拒绝执行。CST 原生 EM 参数扫描可通过会话 `configure_sweep` 配置并运行；它保留每个原生 Run ID 与参数组合，可在求解完成后直接用 `Result.export_touchstone_sweep()` 导出逐点 SNP。纯 EM→SNP 的任务不需要逐点 `set_parameters`/`solve` 链或 HB 数值证据。参数刷新/扫描配置后的验证若仅有 CST INFO 消息且 Rebuild 正常返回，不把旧消息队列判为失败；WARNING、ERROR、未知消息和 Rebuild 失败仍按原回执处理。
+
+原生 EM 扫描的 Touchstone 导出只读取已保存结果，不配置或启动求解。导出记录 Run ID、实际参数组合、完整 S 矩阵、频率轴和文件摘要；它不认证网格收敛或物理质量。不要为该离线导出增加 HB 报告、工作流数值门槛或重复的求解前后审阅步骤。旧临时 EM/电路服务在构造 CST app 前拒绝已标记工程。
 
 未绑定的原生会话提交参数修改、EM 或电路求解也会拒绝。插件更新不会热更新
 正在运行的 worker。旧 worker 缺少 `parameter-em-hb-v1` 能力时，新受保护请求
