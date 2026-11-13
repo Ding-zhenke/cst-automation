@@ -775,6 +775,16 @@ any existing block-prefix files are refused rather than overwritten. Filenames/e
 from the target CST version's export convention. The receipt hashes nonempty exports;
 it does not certify the numerical fit, DC value or ABCD representation.
 
+Optional sparse pole settings `manual_pole_choice` (boolean), `initial_poles`,
+`maximum_poles`, and `pole_increment` (nonnegative strict integers) preserve omitted
+native values. Initial/increment require explicit `manual_pole_choice=true` in the
+same request; zero asks CST to estimate that value automatically. `maximum_poles=0`
+also requests automatic estimation. When both initial and maximum are positive,
+initial must not exceed maximum. The pole getters and setters are resolved only for
+provided fields before any mutation, then each supplied value is read back. Existing
+requests do not acquire new getter requirements. A partial failure may leave settings
+changed; neither readback nor extraction proves fit accuracy or effective pole count.
+
 `update_hb_network` takes project_id/em_job_id/fit_job_id/block_name/expected_type,
 expected_ports/expected_file_sha256/path/sha256/reference_ohm/fmax_hz/max_fit_error.
 The source and target ordered port names must match exactly; permutations are rejected.
@@ -1911,3 +1921,22 @@ Linear SP task creation sets the frequency local unit and reads the effective
 resistance unit from the task; it does not call SetLocalUnit for Resistance,
 which CST 2026 rejects for this task type. Explicit Ohm readback is required
 before impedances expressed in ohms are written.
+### Focused port identity edits
+
+`setup.delete_port(id_val, *, expected_type)` and `setup.rename_port(id_val, new_id, *, expected_type)` operate on one existing 3D port. IDs are positive integers; the target must match the expected native type, and renaming requires an unused destination. Each operation inventories before and after, submits one history entry, and fails with a receipt if the inventory differs. Identity readback does not verify port geometry, network connections, impedance or solver results. In session `model_api`, only one such operation is allowed per batch; the worker repeats identity verification after rebuild. These are offline-tested and based on recorded native commands, not new native acceptance.
+
+### Existing schematic object position
+
+`app.circuit.set_position(kind, name, position)` changes one existing `Block` or
+`ExternalPort`; position is two finite numeric coordinates strictly between 0
+and 100000. It checks existence, reads native position before and after, and
+returns requested and actual coordinates separately because CST can snap to grid.
+It does not save, solve, create objects or certify engineering acceptance. A
+failed write/readback may leave a partial change. The caller owns session fences,
+idle review, saving, and any required visual review.
+
+The service `circuit/build/set_position` and MCP `set_circuit_position` expose
+the same operation and save the project; managed session fences still apply.
+
+Owned sessions require an already running worker advertising
+`circuit-position-v1`; an older worker is rejected without replacement.

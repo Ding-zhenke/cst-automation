@@ -198,6 +198,14 @@ class PortMixin:
         """
         self.add_port(id_val, orientation, shield, **kwargs)
 
+    def delete_port(self, id_val, *, expected_type):
+        from .port_replacement import edit_port_identity
+        return edit_port_identity(self, id_val, expected_type=expected_type)
+
+    def rename_port(self, id_val, new_id, *, expected_type):
+        from .port_replacement import edit_port_identity
+        return edit_port_identity(self, id_val, new_id=new_id, expected_type=expected_type)
+
     def replace_port_with_waveguide(self, id_val, settings, *, expected_type, preserve_ports):
         """Exact-ID topology replacement with native identity checks; never solves."""
         from .port_replacement import replace_port_with_waveguide

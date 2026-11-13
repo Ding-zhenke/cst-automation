@@ -261,6 +261,8 @@ def run(folder):
             from .linear_sp import NETWORK_CAPABILITY as EXPLORATORY_SP_NETWORK_CAPABILITY, SP_CAPABILITY
             from .model_api import HF_TET_ORDER_CAPABILITY
             state['worker_capabilities'] = [EXPLORATORY_CAPABILITY, BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
+            from .model_api import PORT_IDENTITY_CAPABILITY
+            state['worker_capabilities'].append(PORT_IDENTITY_CAPABILITY)
             state['worker_capabilities'].append(HANDOFF_CAPABILITY)
             state['worker_capabilities'].append(EXPLORATORY_SP_NETWORK_CAPABILITY)
             state['worker_capabilities'].append(SP_CAPABILITY)
@@ -277,6 +279,7 @@ def run(folder):
             state['worker_capabilities'].append(FACE_CAPABILITY)
             from cst_automation.task_disable import CAPABILITY as DISABLE_CAPABILITY
             state['worker_capabilities'].append(DISABLE_CAPABILITY)
+            state['worker_capabilities'].append('circuit-position-v1')
             state['worker_capabilities'].append('sp-impedance-read-v1')
             state['worker_capabilities'].append('circuit-source-property-readback-v1')
             state['worker_capabilities'].append('static-sp-prepare-v1')

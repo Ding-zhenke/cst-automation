@@ -200,3 +200,21 @@ def test_query_does_not_restore_open_or_connect_a_missing_cached_project(tmp_pat
         execute(runtime, {'operation': 'circuit', 'params': {'project_id': 'p', 'kind': 'build',
             'settings': {'operation': 'read_run_parameters', 'result_id': 'Schematic:RunID:3', 'confirm_idle': True}}})
     runtime.project.assert_not_called()
+
+def test_position_owned_session_routes_to_borrowed_app(tmp_path):
+    runtime, app, record = session(tmp_path)
+    app.circuit.set_position = Mock(return_value={'readback':[51000,52000]})
+    app.save = Mock()
+    result = circuit(runtime, app, record, {'project_id':'p', 'kind':'build',
+        'settings':{'operation':'set_position','kind':'Block','name':'D1','position':[51000,52000]}})
+    assert result['ok']
+    app.circuit.set_position.assert_called_once_with('Block','D1',[51000,52000])
+    app.save.assert_called_once()
+    app.close.assert_not_called()
+
+def test_old_worker_position_is_rejected_before_access():
+    from tpc_service.sessions.operations import execute
+    runtime=SimpleNamespace(state=lambda: {'worker_capabilities': []})
+    with pytest.raises(ServiceError) as caught:
+        execute(runtime, {'operation':'circuit','params':{'settings':{'operation':'set_position'}}})
+    assert caught.value.code == 'workflow_worker_upgrade_required'

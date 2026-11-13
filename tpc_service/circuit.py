@@ -47,7 +47,7 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             from cst_solver import setup
             return setup(path)
 
-    allowed = {"build": {"disable_tasks", "configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "read_sp_impedances", "package"},
+    allowed = {"build": {"set_position", "disable_tasks", "configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "read_sp_impedances", "package"},
                "solve": {"run_task", "run_network_transient"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
     def handle(*, project, params, job, backend):
@@ -115,6 +115,14 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                         if isinstance(signal, dict) and signal.get('type') == 'import' and isinstance(signal.get('file'), str):
                             signal['file'] = str(contained(service.workdir, signal['file']))
                 task_port_settings(configuration_ports)
+            if operation == 'set_position':
+                import math
+                kind, name, position = params.get('kind'), params.get('name'), params.get('position')
+                if (kind not in ('Block', 'ExternalPort') or not isinstance(name, str) or not name.strip()
+                        or any(c in name for c in '\r\n\x00') or not isinstance(position, (list, tuple))
+                        or len(position) != 2 or any(type(v) not in (int, float) or not math.isfinite(v)
+                        or not 0 < v < 100000 for v in position)):
+                    raise CircuitError('circuit_spec_invalid', 'Existing object and two bounded coordinates required')
             if operation == 'configure_nonlinear_model':
                 from cst_automation.circuit_configuration import configuration_name, require
                 from cst_automation.circuit_models import nonlinear_model_settings
@@ -215,9 +223,11 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     expected_registration_sha256=params.get('expected_registration_sha256'))
                 return ok_result(saved=report['saved'], result_summary=report,
                     artifacts=[artifact(str(path), kind='project'), artifact(report['audit_path'], kind='registration_audit')])
-            if operation in ("disable_tasks", "configure", 'configure_transient_task', 'configure_steady_state_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
+            if operation in ("set_position", "disable_tasks", "configure", 'configure_transient_task', 'configure_steady_state_task', 'configure_em_time_settings', 'configure_task_ports', 'configure_nonlinear_model'):
                 try:
-                    if operation == 'disable_tasks':
+                    if operation == 'set_position':
+                        report = api.set_position(params['kind'], params['name'], params['position'])
+                    elif operation == 'disable_tasks':
                         report = api.disable_tasks(params['tasks'], confirm_idle=params['confirm_idle'], review_note=params['review_note'])
                     elif operation == 'configure_em_time_settings':
                         from cst_solver.simulation.em_time import EMTimeConfigurationError

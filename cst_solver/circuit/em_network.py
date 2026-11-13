@@ -13,6 +13,12 @@ MOR = {
     'natural_impedances': ('SetUseNaturalImpedances','GetUseNaturalImpedances'),
     'reference_ohm': ('SetMOR_RenormalizationImpedance','GetMOR_RenormalizationImpedance'),
 }
+POLES = {
+    'manual_pole_choice': ('SetMOR_ManualPoleChoice', 'GetMOR_ManualPoleChoice'),
+    'initial_poles': ('SetMOR_InitialPoles', 'GetMOR_InitialPoles'),
+    'maximum_poles': ('SetMOR_MaximumPoles', 'GetMOR_MaximumPoles'),
+    'pole_increment': ('SetMOR_PoleIncrement', 'GetMOR_PoleIncrement'),
+}
 
 
 def digest(path):
@@ -51,11 +57,16 @@ def fit(app, p, project_path):
         raise ValueError('Existing block exports must be archived before fitting')
     if block.CanUseMOR() is not True: raise ValueError('Block does not support MOR')
     # Resolve every getter/setter before the first setting mutation.
-    old = {key:getattr(block,getter)() for key,(_,getter) in MOR.items()}
-    setters = {key:getattr(block,setter) for key,(setter,_) in MOR.items()}
+    selected = dict(MOR)
+    selected.update((key, pair) for key, pair in POLES.items() if key in p['settings'])
+    old = {key:getattr(block,getter)() for key,(_,getter) in selected.items()}
+    setters = {key:getattr(block,setter) for key,(setter,_) in selected.items()}
     extract = block.ExtractStateSpaceModel
-    for key,value in p['settings'].items(): setters[key](value if type(value) is bool else str(value))
-    actual = {key:getattr(block,getter)() for key,(_,getter) in MOR.items()}
+    # Native manual mode must be chosen before initial count or increment.
+    for key in selected:
+        value = p['settings'][key]
+        setters[key](value if type(value) is bool else str(value))
+    actual = {key:getattr(block,getter)() for key,(_,getter) in selected.items()}
     for key,value in p['settings'].items():
         got=actual[key]
         if type(value) is bool:

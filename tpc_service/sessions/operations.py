@@ -17,6 +17,9 @@ def execute(runtime, job):
         if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'read_sp_impedances'
                 and 'sp-impedance-read-v1' not in runtime.state().get('worker_capabilities', [])):
             raise ServiceError('workflow_worker_upgrade_required', 'SP impedance query requires a compatible execution worker')
+        if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'set_position'
+                and 'circuit-position-v1' not in runtime.state().get('worker_capabilities', [])):
+            raise ServiceError('workflow_worker_upgrade_required', 'Position update requires a compatible execution worker')
         if operation == 'inspect' and 'discrete_port_ids' in params:
             from .inspection import validate_options
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
@@ -34,6 +37,10 @@ def execute(runtime, job):
         if operation == 'model_api':
             from .model_api import validate_calls, uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             validate_calls(params['calls'])
+            from .model_api import PORT_IDENTITY_CAPABILITY
+            if (any(c['method'] in ('delete_port', 'rename_port') for c in params['calls'])
+                    and PORT_IDENTITY_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Port identity edit requires a compatible worker')
             from .model_api import POINT_LUMPED_CAPABILITY
             if (any(c['method']=='create_point_lumped_element' for c in params['calls'])
                     and POINT_LUMPED_CAPABILITY not in runtime.state().get('worker_capabilities',[])):

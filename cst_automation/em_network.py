@@ -40,8 +40,19 @@ def validate(operation, p):
         if p['expected_type'].lower() not in ('cstmws', 'cst microwave studio'):
             raise ValueError('Only the intrinsic same-project EM block is supported')
         s = p['settings']
-        if not isinstance(s, dict) or set(s) != {'fmax','accuracy_abs','enhance_dc','passivate','method','error_norm','natural_impedances','reference_ohm'}:
+        required = {'fmax','accuracy_abs','enhance_dc','passivate','method','error_norm','natural_impedances','reference_ohm'}
+        optional = {'manual_pole_choice','initial_poles','maximum_poles','pole_increment'}
+        if not isinstance(s, dict) or not required <= set(s) or set(s) - required - optional:
             raise ValueError('Explicit MOR settings required')
+        if 'manual_pole_choice' in s and type(s['manual_pole_choice']) is not bool:
+            raise ValueError('Manual pole choice must be boolean')
+        for key in ('initial_poles', 'maximum_poles', 'pole_increment'):
+            if key in s and (type(s[key]) is not int or s[key] < 0):
+                raise ValueError('Pole values must be nonnegative integers')
+        if ({'initial_poles', 'pole_increment'} & set(s)) and s.get('manual_pole_choice') is not True:
+            raise ValueError('Initial poles and increment require manual pole choice')
+        if s.get('initial_poles', 0) and s.get('maximum_poles', 0) and s['initial_poles'] > s['maximum_poles']:
+            raise ValueError('Initial poles cannot exceed maximum poles')
         for key in ('fmax','accuracy_abs','reference_ohm'): finite(s[key], positive=True)
         if s['accuracy_abs'] >= 1: raise ValueError('MOR accuracy must be below 1')
         for key in ('enhance_dc','passivate','natural_impedances'):

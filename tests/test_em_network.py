@@ -8,7 +8,7 @@ import pytest
 from test_workflow_enforcement import setup, prepare_em_evidence, submit, runtime_for, hb, native_app
 from tpc_service.sessions.store import read,write
 from tpc_service.errors import ServiceError
-from cst_solver.circuit.em_network import MOR, digest
+from cst_solver.circuit.em_network import MOR, POLES, digest
 
 
 def fit_params(project, em='em'):
@@ -52,6 +52,40 @@ def app_for(block):
     app=native_app()
     app.circuit.adapter.select=lambda *a:block
     return app
+
+
+def test_optional_manual_poles_are_set_and_read_back(tmp_path):
+    from cst_solver.circuit.em_network import fit
+    p = fit_params(tmp_path/'model.cst')
+    p['settings'].update(manual_pole_choice=True, initial_poles=400,
+                         maximum_poles=400, pole_increment=20)
+    b = Block(p)
+    for key, (setter, getter) in POLES.items():
+        setattr(b, getter, lambda key=key: b.values[key])
+        setattr(b, setter, lambda value, key=key: b.set_value(key, value))
+    result = fit(app_for(b), p, tmp_path/'model.cst')
+    assert b.writes[-4:] == list(POLES)
+    assert result['settings_readback']['initial_poles'] == '400'
+    assert result['numerical_fit_verified'] is False
+
+
+@pytest.mark.parametrize('settings', [
+    {'initial_poles': 2}, {'manual_pole_choice': False, 'pole_increment': 2},
+    {'manual_pole_choice': True, 'initial_poles': True}, {'maximum_poles': -1},
+    {'manual_pole_choice': True, 'initial_poles': 3, 'maximum_poles': 2},
+])
+def test_invalid_poles_rejected_before_native_access(tmp_path, settings):
+    from cst_automation.em_network import validate
+    p = fit_params(tmp_path/'model.cst'); p['settings'].update(settings)
+    with pytest.raises(ValueError): validate('fit_em_network', p)
+
+
+def test_optional_poles_missing_getter_rejected_before_writes(tmp_path):
+    from cst_solver.circuit.em_network import fit
+    p = fit_params(tmp_path/'model.cst'); p['settings']['maximum_poles'] = 0
+    b = Block(p)
+    with pytest.raises(AttributeError): fit(app_for(b), p, tmp_path/'model.cst')
+    assert not b.writes and b.extracts == 0
 
 
 @pytest.mark.parametrize('change', [dict(expected_type='Touchstone file'),dict(expected_ports=['1','1']),

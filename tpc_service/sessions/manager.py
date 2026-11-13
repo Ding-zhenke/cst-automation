@@ -141,6 +141,9 @@ class SessionManager:
                     raise ServiceError('session_query_requires_open_project', 'SP query cannot launch a worker or restore a project')
                 if 'sp-impedance-read-v1' not in state.get('worker_capabilities', []):
                     raise ServiceError('workflow_worker_upgrade_required', 'SP impedance query requires a compatible idle worker')
+            if operation == 'circuit' and params.get('settings', {}).get('operation') == 'set_position':
+                if not state.get('worker') or not alive(state['worker']) or 'circuit-position-v1' not in state.get('worker_capabilities', []):
+                    raise ServiceError('workflow_worker_upgrade_required', 'Position update requires a compatible owning worker')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             if operation == 'inspect' and params.get('native_solver_status'):
                 from cst_solver.solver_status import CAPABILITY as STATUS_CAPABILITY
@@ -153,6 +156,11 @@ class SessionManager:
                 raise ServiceError('workflow_worker_upgrade_required', 'Discrete-port inspection requires a compatible idle worker')
             from .model_api import settings_only, settings_capability
             from .model_api import POINT_LUMPED_CAPABILITY
+            from .model_api import PORT_IDENTITY_CAPABILITY
+            if (operation == 'model_api' and any(c['method'] in ('delete_port', 'rename_port') for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and PORT_IDENTITY_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Port identity edit requires a compatible worker')
             if (operation=='model_api' and any(c['method']=='create_point_lumped_element' for c in params['calls'])
                     and state.get('worker') and alive(state['worker'])
                     and POINT_LUMPED_CAPABILITY not in state.get('worker_capabilities',[])):

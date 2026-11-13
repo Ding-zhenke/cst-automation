@@ -27,6 +27,10 @@ description: Use when developing or using CST Design Studio circuit schematics, 
 
 使用本仓库的 `app.circuit` 与 `CircuitResult`，区分原理图配置、网络协同计算和瞬态场路联合。仅在三维模型中放置集总元件的任务使用 `cst-modeling` / `cst-simulation`。
 
+移动已有原理图 Block 或 ExternalPort 使用 `app.circuit.set_position`；
+所属会话需 `circuit-position-v1`，返回的原生坐标可能经网格吸附，须与请求分开记录。
+MOR 拟合按公共协议显式选用极点参数；读回设置不等于拟合数值验收。
+
 先读 [使用指南](../../docs/guides/circuit_cosimulation.md)。开发接口时再读 [公共协议](../../docs/PUBLIC_API.md)；确认实机能力时读 [验证记录](../../docs/VALIDATION.md)，不要从接口存在推断验收通过。
 
 ## 当前工作重点

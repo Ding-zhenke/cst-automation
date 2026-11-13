@@ -79,6 +79,30 @@ class CircuitAPI:
         return {"applied": True, "spec_digest": spec_digest(data), "readback": after,
                 "readback_verified": False, "solver_verified": False, "evidence": "configuration_readback_not_live_acceptance"}
 
+    def set_position(self, kind, name, position):
+        """Move one existing schematic object; return native grid-snapped position."""
+        import math
+        if (kind not in ('Block', 'ExternalPort') or not isinstance(name, str)
+                or not name.strip() or any(c in name for c in "\r\n\x00")
+                or not isinstance(position, (list, tuple)) or len(position) != 2
+                or any(type(v) not in (int, float) or not math.isfinite(v)
+                       or not 0 < v < 100000 for v in position)):
+            raise CircuitError('circuit_spec_invalid', 'Existing object and two bounded coordinates required')
+        obj = self.adapter.select(kind, name)
+        if not obj.DoesExist():
+            raise CircuitError('circuit_topology_invalid', 'Schematic object does not exist', kind=kind, name=name)
+        before = [obj.GetPositionX(), obj.GetPositionY()]
+        self._spec = None
+        try:
+            obj.Position(*(str(v) for v in position))
+            after = [obj.GetPositionX(), obj.GetPositionY()]
+        except Exception as exc:
+            raise CircuitError('circuit_build_partial', 'Position write or readback failed',
+                               stage='set_position', kind=kind, name=name,
+                               requested=list(position), before=before) from exc
+        return {'kind': kind, 'name': name, 'requested': list(position), 'before': before,
+                'readback': after, 'native_position_readback': True, 'solver_verified': False}
+
     def set_properties(self, block_name, properties, *, units):
         block = next((b for b in self.inspect()["blocks"] if b["name"] == block_name), None)
         if block is None:

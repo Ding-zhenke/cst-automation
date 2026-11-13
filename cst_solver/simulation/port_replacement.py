@@ -79,7 +79,7 @@ def replace_port_with_waveguide(app, id_val, settings, *, expected_type, preserv
 
 
 def verify_after_rebuild(app, receipts):
-    replacements = [r for r in receipts if r['method'] == 'replace_port_with_waveguide']
+    replacements = [r for r in receipts if r['method'] in ('replace_port_with_waveguide', 'delete_port', 'rename_port')]
     if not replacements:
         return
     report = {'stage':'post_rebuild_readback', 'mutation_attempted':True,
@@ -91,5 +91,47 @@ def verify_after_rebuild(app, receipts):
             raise ValueError('Port identity changed during rebuild')
         for item in replacements:
             item['receipt']['post_rebuild_identity_verified'] = True
+    except Exception as exc:
+        raise PortReplacementError(str(exc), report) from exc
+
+
+def validate_identity_edit(id_val, *, expected_type, new_id=None):
+    port_id(id_val)
+    if expected_type not in ('Discrete', 'Waveguide'):
+        raise ValueError('Expected port type must be Discrete or Waveguide')
+    if new_id is not None:
+        port_id(new_id)
+        if new_id == id_val:
+            raise ValueError('Destination must differ from source')
+
+
+def edit_port_identity(app, id_val, *, expected_type, new_id=None):
+    validate_identity_edit(id_val, expected_type=expected_type, new_id=new_id)
+    report = {'stage': 'preflight_readback', 'mutation_attempted': False,
+              'identity_readback_verified': False}
+    try:
+        before = report['before'] = port_inventory(app)
+        source = str(id_val)
+        if before.get(source, {}).get('type') != expected_type:
+            raise ValueError('Target port missing or different type')
+        if new_id is not None and str(new_id) in before:
+            raise ValueError('Destination port already exists')
+        expected = {key: dict(value) for key, value in before.items()}
+        removed = expected.pop(source)
+        if new_id is not None:
+            expected[str(new_id)] = removed
+        command = f'Port.Delete {id_val}' if new_id is None else f'Port.Rename {id_val}, {new_id}'
+        report['stage'] = 'history'
+        report['mutation_attempted'] = True
+        facade = getattr(app, '_circuit_facade', None)
+        if facade is not None:
+            facade._spec = None
+        app.cst_file.model3d.add_to_history('Edit port identity', command)
+        report['stage'] = 'post_readback'
+        report['after'] = port_inventory(app)
+        if report['after'] != expected:
+            raise ValueError('Native inventory differs after port edit')
+        report.update(identity_readback_verified=True, stage='returned')
+        return report
     except Exception as exc:
         raise PortReplacementError(str(exc), report) from exc

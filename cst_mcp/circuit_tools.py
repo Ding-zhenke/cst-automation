@@ -49,6 +49,10 @@ def register_circuit_tools(*, replace=False, compose_handlers=False):
     definitions = [
         ("preview_circuit", "Validate circuit data and write offline preview inside workdir.", {"spec": {"type": "object"}, "destination": {"type": "string"}}, ["spec"], False, preview),
         ("inspect_circuit", "Queue read-only schematic inspection.", common, [], True, lambda a: queued("inspect", "build", a)),
+        ('set_circuit_position', 'Move an existing schematic block or external port and save; returns native coordinates.',
+         dict(common, kind={'type':'string','enum':['Block','ExternalPort']}, name={'type':'string'},
+              position={'type':'array','minItems':2,'maxItems':2,'items':{'type':'number','exclusiveMinimum':0,'exclusiveMaximum':100000}}),
+         ['kind','name','position'], False, lambda a: queued('set_position','build',a)),
         ("configure_circuit", "Queue schematic configuration and save.", dict(common, spec={"type": "object"}), ["spec"], False, lambda a: queued("configure", "build", a)),
         ('configure_circuit_transient_task', 'Queue unit-explicit transient settings and save without solving.',
          dict(common, task_name={'type':'string'}, settings={'type':'object'}, create={'type':'boolean'}),

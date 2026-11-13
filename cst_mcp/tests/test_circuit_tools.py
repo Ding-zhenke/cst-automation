@@ -162,3 +162,11 @@ def test_parameter_study_tool_queues_through_same_worker(circuit_tools):
     queued=service.get(out['job']['job_id'])
     assert queued['kind']=='study' and queued['params']['operation']=='run_parameter_study'
     assert 'run_circuit_parameter_study' in tools.WRITE_TOOLS
+
+def test_position_tool_queues_write(circuit_tools):
+    service=runtime.get_service(); service.autostart=False
+    path=circuit_tools/'p.cst'; path.write_text('fixture')
+    out=tools.dispatch('set_circuit_position', {'project_path':str(path),'kind':'Block','name':'D1','position':[51000,52000]})
+    assert out['ok'] and 'set_circuit_position' in tools.WRITE_TOOLS
+    job=service.get(out['job']['job_id'])
+    assert job['kind']=='build' and job['params']['operation']=='set_position'

@@ -9,6 +9,7 @@ HF_TET_ADAPTATION_CAPABILITY = 'hf-tet-adaptation-controls-v1'
 HF_TET_ORDER_CAPABILITY = 'hf-tet-order-controls-v1'
 HF_TET_CURVATURE_CAPABILITY = 'hf-tet-curvature-order-v1'
 HF_TET_CURVATURE_POLICY_CAPABILITY = 'hf-tet-curvature-policy-v1'
+PORT_IDENTITY_CAPABILITY = 'port-identity-edit-v1'
 POINT_LUMPED_CAPABILITY = 'point-lumped-element-v1'
 SETTINGS_ONLY_METHODS = frozenset(('configure_fd_linear_solver', 'configure_fd_frequency',
                                  'configure_fd_parallelization', 'configure_tetrahedral_mesh', 'set_frequency_range'))
@@ -77,7 +78,7 @@ METHODS = frozenset(('set_units','new_component','new_curve','square','polyline'
     'create_brick','cylinder','create_cylinder','create_sphere','create_cone','create_torus',
     'configure_sweep','configure_discrete_sweep','add_sweep_parameter_arbitrary_points',
     'change_material','boundary','set_background',
-    'create_waveguide_port_free','configure_fem_solver','set_frequency_range','configure_fd_linear_solver','replace_port_with_waveguide',
+    'delete_port','rename_port','create_waveguide_port_free','configure_fem_solver','set_frequency_range','configure_fd_linear_solver','replace_port_with_waveguide',
     'create_field_monitor','delete_field_monitor','add_parameter_sweep_sequence','add_sweep_parameter_samples',
     'set_wcs_basis','activate_global_wcs',
     'triangle','create_triangular_prism','hexagon','create_hexagonal_prism','create_wire',
@@ -124,6 +125,9 @@ def _preflight_settings(method, bound):
         values['invert_direction'] = _resolve_legacy_invert_direction(
             values['invert_direction'], dict(values.pop('legacy_kwargs')), method)
         face_port_code(**values)
+    elif method in ('delete_port', 'rename_port'):
+        from cst_solver.simulation.port_replacement import validate_identity_edit
+        validate_identity_edit(**values)
     elif method == 'replace_port_with_waveguide':
         from cst_automation.port_replacement import normalize
         normalize(**values)
@@ -164,6 +168,8 @@ def validate_calls(calls):
     if not isinstance(calls,list) or not 1 <= len(calls) <= 5000:
         raise ServiceError('invalid_session_argument','Bounded modeling calls required')
     replacements = []
+    if any(c.get('method') in ('delete_port', 'rename_port') for c in calls if isinstance(c, dict)) and len(calls) != 1:
+        raise ServiceError('invalid_session_argument', 'Port identity edit must be a single-call batch')
     for call in calls:
         if (not isinstance(call,dict) or call.get('method') not in METHODS
                 or not isinstance(call.get('args',[]),list)
@@ -209,7 +215,7 @@ def dispatch(app,calls):
         except PortReplacementError as exc:
             raise ServiceError('session_port_replacement_failed', str(exc), call_index=index,
                                receipt=exc.receipt, earlier_receipts=receipts) from exc
-        if call['method'] in ('replace_port_with_waveguide', 'configure_fd_linear_solver', 'configure_fd_frequency', 'configure_fd_parallelization', 'configure_tetrahedral_mesh'):
+        if call['method'] in ('delete_port', 'rename_port', 'replace_port_with_waveguide', 'configure_fd_linear_solver', 'configure_fd_frequency', 'configure_fd_parallelization', 'configure_tetrahedral_mesh'):
             receipts.append({'call_index': index, 'method': call['method'], 'receipt': result})
     return {'python_api_calls':len(calls),'methods':sorted({c['method'] for c in calls}),
             'configuration_receipts': receipts}
