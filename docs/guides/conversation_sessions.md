@@ -174,6 +174,11 @@ worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为�
 
 `model_api` 操作把审核过的 `calls=[{method,args,kwargs}, ...]` 直接分发给持久会话拥有的 `cst_solver.setup`。静态白名单禁止任意代码、动态导入、求解和关闭工程。每阶段携带 stage_id 和规范JSON calls的SHA256 preview_digest；先检查全部方法签名，再按序调用，完成后原生重建、保存及写检查点。底层API内部生成VBA是库实现细节，不再由调用方拼接整个模型的VBA。该路由的离线fake只记录调用，不伪装实机执行。
 
+初始建模可在同一批 `calls` 中先通过 `setup.para(name, value,
+log_flag=0, expression='')` 创建参数，再用参数表达式创建实体。参数调用必须使用
+`log_flag=0`；会话在整批结束时统一重建和保存。后续参数改值使用独立的
+`set_parameters` 阶段，遵守已绑定的工作流范围。
+
 参数使用 `set_parameters` 的 values 与 expressions；说明优先中文，公式保留原值。旧历史若写死说明，会在重建时覆盖前置说明，所以会话在重建成功后通过现有描述接口恢复本次说明再保存。新工程应从参数API开始，不在历史中写死另一份参数说明。
 
 ## 已关闭 working 过程副本退休

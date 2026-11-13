@@ -60,6 +60,29 @@ def test_geometry_families_are_explicitly_routed_without_sdk():
     assert all(callable(getattr(CstSetup, name, None)) for name in METHODS)
 
 
+def test_parameter_creation_is_reviewable_and_preflighted_before_geometry():
+    from tpc_service.sessions.model_api import dispatch
+    calls = []
+    app = SimpleNamespace(para=lambda *args, **kwargs: calls.append(('para', args, kwargs)),
+                          new_component=lambda name: calls.append(('component', name)))
+    dispatch(app, [
+        {'method': 'para', 'args': ['trace_w', 1.9],
+         'kwargs': {'expression': 'Trace width in mm'}},
+        {'method': 'new_component', 'args': ['Microstrip']},
+    ])
+    assert calls == [
+        ('para', ('trace_w', 1.9), {'expression': 'Trace width in mm'}),
+        ('component', 'Microstrip'),
+    ]
+    calls.clear()
+    with pytest.raises(Exception):
+        dispatch(app, [
+            {'method': 'new_component', 'args': ['must-not-run']},
+            {'method': 'para', 'args': ['bad name', float('nan')]},
+        ])
+    assert calls == []
+
+
 def test_invalid_sweep_payload_is_rejected_before_earlier_geometry():
     from tpc_service.sessions.model_api import dispatch
     seen = []

@@ -8,13 +8,42 @@ CST 仿真结果读取类
 """
 
 import csv
+import hashlib
+import json
+import math
+import os
 import re
+import shutil
+import tempfile
+from pathlib import Path
 import numpy as np
 from cst_solver.environment import _load_cst_module
 from cst_solver.adaptive_results import AdaptiveResultsMixin
 
 #: CST 的 S 参数命名（``S1,1``；允许空格）
 _S_PARAMETER_NAME_RE = re.compile(r'^S\s*\d+\s*,\s*\d+$')
+_RESULT_FREQUENCY_UNIT_RE = re.compile(r'\b(Hz|kHz|MHz|GHz|THz)\b', re.IGNORECASE)
+
+
+def _json_value(value):
+    """Convert native parameter scalar values to stable JSON values."""
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, np.ndarray):
+        return [_json_value(item) for item in value.tolist()]
+    if isinstance(value, (list, tuple)):
+        return [_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_value(item) for key, item in value.items()}
+    if isinstance(value, complex):
+        if not math.isfinite(value.real) or not math.isfinite(value.imag):
+            raise ValueError('Native parameter values must be finite')
+        return {'real': value.real, 'imag': value.imag}
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError('Native parameter values must be finite')
+        return value
+    raise ValueError(f'Unsupported native parameter value type: {type(value).__name__}')
 
 
 # ============================================================
@@ -484,6 +513,177 @@ class Result(AdaptiveResultsMixin):
 
         self.last_errors = skipped
         return save_path
+
+    def export_touchstone_sweep(self, output_dir, *, port_count,
+                                reference_ohm, frequency_unit,
+                                parameter_names=None):
+        """Export every saved positive parameter Run ID as a full-matrix SNP.
+
+        This is an offline post-processing operation. It neither starts nor
+        configures a sweep. The supplied reference impedance must match the
+        native S-wave reference; values are not renormalized.
+        """
+        from cst_automation.touchstone import FREQUENCY_UNITS, write_touchstone
+
+        if type(port_count) is not int or not 1 <= port_count <= 128:
+            raise ValueError('port_count must be an integer in [1, 128]')
+        if type(reference_ohm) not in (int, float) or not math.isfinite(reference_ohm) or reference_ohm <= 0:
+            raise ValueError('reference_ohm must be finite and positive')
+        if frequency_unit not in FREQUENCY_UNITS:
+            raise ValueError('frequency_unit must be Hz, kHz, MHz, GHz or THz')
+        if parameter_names is not None and (
+                not isinstance(parameter_names, (list, tuple)) or not parameter_names
+                or any(not isinstance(name, str) or not name.strip() for name in parameter_names)
+                or len(set(parameter_names)) != len(parameter_names)):
+            raise ValueError('parameter_names must be a nonempty list of unique names')
+
+        destination = Path(output_dir).resolve()
+        if destination.exists():
+            raise FileExistsError(f'Output directory already exists: {destination}')
+        first_tree = 'S-Parameters\\S1,1'
+        run_ids = self.get_run_ids(first_tree, skip_nonparametric=True)
+        if not isinstance(run_ids, (list, tuple)):
+            raise ValueError('CST did not return a run ID list')
+        run_ids = list(run_ids)
+        if (not run_ids or any(type(run_id) is not int or run_id <= 0 for run_id in run_ids)
+                or len(set(run_ids)) != len(run_ids)):
+            raise ValueError('Positive unique parameter-study Run IDs are required')
+        parameter_reader = getattr(self.result_module, 'get_parameter_combination', None)
+        if not callable(parameter_reader):
+            raise RuntimeError('Current CST result interface lacks get_parameter_combination(run_id)')
+
+        cases = []
+        for run_id in sorted(run_ids):
+            native_parameters = parameter_reader(run_id)
+            if not isinstance(native_parameters, dict) or not native_parameters:
+                raise ValueError(f'Native parameter combination is missing for Run ID {run_id}')
+            if parameter_names is None:
+                parameters = {str(name): _json_value(value)
+                              for name, value in native_parameters.items()}
+            else:
+                missing = [name for name in parameter_names if name not in native_parameters]
+                if missing:
+                    raise ValueError(f'Native parameter combination for Run ID {run_id} is missing {missing}')
+                parameters = {name: _json_value(native_parameters[name])
+                              for name in parameter_names}
+
+            frequencies = None
+            matrix = None
+            unit_sources = set()
+            normalization = None
+            for row in range(1, port_count + 1):
+                for column in range(1, port_count + 1):
+                    name = f'S{row},{column}'
+                    tree_path = f'S-Parameters\\{name}'
+                    try:
+                        item = self.get_result_item(tree_path, run_id=run_id,
+                                                    load_impedances=True)
+                    except Exception as exc:
+                        raise ValueError(
+                            f'{name} is missing or unreadable for Run ID {run_id}: {exc}') from exc
+                    native_run_id = getattr(item, 'run_id', None)
+                    if native_run_id is not None and native_run_id != run_id:
+                        raise ValueError(
+                            f'{name} returned native Run ID {native_run_id!r}, requested {run_id}')
+                    x = np.asarray(item.get_xdata(), dtype=complex)
+                    y = np.asarray(item.get_ydata(), dtype=complex)
+                    if (x.ndim != 1 or y.ndim != 1 or not x.size or len(x) != len(y)
+                            or not np.isfinite(x).all() or not np.isfinite(y).all()
+                            or np.any(x.imag != 0)):
+                        raise ValueError(f'{name} has invalid frequency or complex S data for Run ID {run_id}')
+                    axis = x.real.astype(float, copy=False)
+                    if np.any(axis < 0) or not np.all(np.diff(axis) > 0):
+                        raise ValueError(f'{name} frequency axis is not strictly increasing for Run ID {run_id}')
+                    xlabel = getattr(item, 'xlabel', None)
+                    match = _RESULT_FREQUENCY_UNIT_RE.search(xlabel) if isinstance(xlabel, str) else None
+                    if match:
+                        canonical = {unit.casefold(): unit for unit in FREQUENCY_UNITS}[match.group(1).casefold()]
+                        if canonical != frequency_unit:
+                            raise ValueError(
+                                f'{name} axis unit {canonical} conflicts with frequency_unit={frequency_unit}')
+                        unit_sources.add('result_axis_label')
+                    else:
+                        unit_sources.add('caller')
+                    if frequencies is None:
+                        frequencies = axis.copy()
+                        matrix = np.empty((len(axis), port_count, port_count), dtype=complex)
+                    elif not np.array_equal(axis, frequencies):
+                        raise ValueError(f'{name} frequency axis differs for Run ID {run_id}')
+                    matrix[:, row - 1, column - 1] = y
+                    if row == 1 and column == 1:
+                        try:
+                            native_reference = item.get_ref_imp_data()
+                            if native_reference is not None and np.size(native_reference):
+                                normalization = {
+                                    'status': 'available',
+                                    'source': 'ResultItem.get_ref_imp_data',
+                                    'native_reference_impedance': _json_value(native_reference),
+                                    'wave_definition': 'unknown',
+                                    'renormalized': False,
+                                }
+                            else:
+                                normalization = {'status': 'unknown',
+                                                 'source': 'ResultItem.get_ref_imp_data',
+                                                 'native_reference_impedance': None,
+                                                 'wave_definition': 'unknown',
+                                                 'renormalized': False}
+                        except Exception as exc:
+                            normalization = {'status': 'unavailable',
+                                             'source': 'ResultItem.get_ref_imp_data',
+                                             'native_reference_impedance': None,
+                                             'error': f'{type(exc).__name__}: {exc}',
+                                             'wave_definition': 'unknown',
+                                             'renormalized': False}
+            if not np.isfinite(matrix).all():
+                raise ValueError(f'Incomplete S matrix for Run ID {run_id}')
+            cases.append({'run_id': run_id, 'parameters': parameters,
+                          'frequency': frequencies, 's_matrix': matrix,
+                          'normalization': normalization or {'status': 'unknown',
+                              'source': 'ResultItem.get_ref_imp_data',
+                              'native_reference_impedance': None,
+                              'wave_definition': 'unknown', 'renormalized': False},
+                          'frequency_unit_source': ('result_axis_label'
+                              if unit_sources == {'result_axis_label'} else
+                              'caller' if unit_sources == {'caller'} else 'mixed')})
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        stage = Path(tempfile.mkdtemp(prefix=f'.{destination.name}.', dir=str(destination.parent)))
+        try:
+            manifest_cases = []
+            for case in cases:
+                filename = f"run_{case['run_id']}.s{port_count}p"
+                output_path = stage / filename
+                write_touchstone(
+                    output_path, case['frequency'], case['s_matrix'], reference_ohm,
+                    frequency_unit=frequency_unit,
+                    comments=(f"CST Run ID: {case['run_id']}",
+                              'Parameters: ' + json.dumps(case['parameters'], ensure_ascii=False,
+                                                            sort_keys=True, allow_nan=False)))
+                digest = hashlib.sha256(output_path.read_bytes()).hexdigest()
+                manifest_cases.append({
+                    'run_id': case['run_id'], 'parameters': case['parameters'],
+                    'file': filename, 'sha256': digest,
+                    'samples': int(len(case['frequency'])),
+                    'fmin': float(case['frequency'][0]),
+                    'fmax': float(case['frequency'][-1]),
+                    'normalization': case['normalization'],
+                    'frequency_unit_source': case['frequency_unit_source'],
+                })
+            manifest = {
+                'schema_version': 1, 'status': 'complete',
+                'source_tree_path': '1D Results\\S-Parameters\\S1,1',
+                'port_count': port_count, 'reference_ohm': float(reference_ohm),
+                'renormalized': False, 'frequency_unit': frequency_unit,
+                'case_count': len(manifest_cases), 'cases': manifest_cases,
+            }
+            (stage / 'manifest.json').write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2, allow_nan=False) + '\n',
+                encoding='utf-8')
+            os.replace(stage, destination)
+        except Exception:
+            shutil.rmtree(stage, ignore_errors=True)
+            raise
+        return {**manifest, 'output_dir': str(destination)}
 
     def export_farfield_csv(self, save_path, tree_path='Farfields',
                             run_id: int = 0, delimiter=',',

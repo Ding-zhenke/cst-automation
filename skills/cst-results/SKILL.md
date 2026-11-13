@@ -38,6 +38,24 @@ The shared `cst_automation.curves` module defines the only contiguous-band and s
 
 See [result APIs](../../docs/packages/cst_solver.md) and [Python examples](../../docs/guides/python-usage.md).
 
+## Exporting EM sweep points as Touchstone files
+
+For an already saved parameter sweep, use
+`Result(project_path).export_touchstone_sweep(output_dir, *, port_count,
+reference_ohm, frequency_unit, parameter_names=None)`. It enumerates positive Run IDs
+from the main `S1,1` result, reads every `Sij` complex curve for each ID, and reads the
+native stored parameter combination. It writes one `run_<id>.sNp` per point plus a
+manifest with parameters, axes, normalization metadata and SHA-256 values.
+
+Before calling, confirm the port count/order, frequency-axis unit and the exact real
+reference impedance used by the native S data. The writer does not renormalize. It
+rejects missing matrix elements, mismatched axes or Run IDs, missing requested parameters,
+unit-label conflicts and incomplete native parameter identity. It never falls back to
+Run 0, and it refuses an existing output directory so an earlier export cannot be replaced.
+The operation only reads saved results; it does not configure or start an EM sweep, connect
+to CST Design Environment, or prove solver completion, convergence, passivity or save/reopen
+persistence. Keep these claims separate from successful file generation.
+
 ## Parameter-study history
 
 For sequential EM points, `set_parameters` → `app.update()` (session-owned) →

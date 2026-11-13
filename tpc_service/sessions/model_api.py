@@ -73,7 +73,7 @@ def settings_capability(calls):
     return (MESH_SETTINGS_CAPABILITY if any(call.get('method') == 'configure_tetrahedral_mesh'
             for call in calls) else SETTINGS_ONLY_CAPABILITY)
 
-METHODS = frozenset(('set_units','new_component','new_curve','square','polyline',
+METHODS = frozenset(('set_units','para','new_component','new_curve','square','polyline',
     'extrude','add','subtract','create_elliptical_cylinder',
     'create_brick','cylinder','create_cylinder','create_sphere','create_cone','create_torus',
     'configure_sweep','configure_discrete_sweep','add_sweep_parameter_arbitrary_points',
@@ -106,6 +106,25 @@ def _preflight_settings(method, bound):
     if method == 'create_point_lumped_element':
         from cst_solver.simulation.lumped_elements import point_lumped_command
         point_lumped_command(**values)
+    elif method == 'para':
+        import math
+        from cst_solver.expressions import validate_name, validate_parameter_name, validate_expression
+        validate_parameter_name(values['name'])
+        value = values['value']
+        if type(value) in (int, float):
+            if not math.isfinite(value):
+                raise ValueError('Parameter value must be finite')
+        elif isinstance(value, str):
+            validate_expression(value)
+        else:
+            raise ValueError('Parameter value must be a finite number or CST expression')
+        description = values['expression']
+        if not isinstance(description, str):
+            raise ValueError('Parameter description must be a string')
+        if description:
+            validate_name(description, kind='parameter description')
+        if type(values['log_flag']) is not int or values['log_flag'] != 0:
+            raise ValueError('Initial model_api para calls must use log_flag=0; the stage rebuild is managed by the session')
     elif method == 'import_step':
         from pathlib import Path
         path = values['filename']
@@ -182,7 +201,10 @@ def validate_calls(calls):
             bound.apply_defaults()
             if 'log_flag' in bound.arguments:
                 flag = bound.arguments['log_flag']
-                if type(flag) is not int or flag != 1:
+                if call['method'] == 'para':
+                    if type(flag) is not int or flag != 0:
+                        raise ValueError('Initial model_api para calls require log_flag=0')
+                elif type(flag) is not int or flag != 1:
                     raise ValueError('Executing model_api calls require log_flag=1')
             _preflight_settings(call['method'], bound)
             if call['method'] == 'replace_port_with_waveguide':

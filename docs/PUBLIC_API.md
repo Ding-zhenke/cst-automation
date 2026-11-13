@@ -1231,6 +1231,27 @@ ok/complete 不证明端口、频率或矩阵齐全。归一化元数据缺失�
 不能把 Adaptive Meshing 的 Pass 曲线名称混入普通频率曲线发现、批量读取或导出。
 原有通用 `read_1D` 仍按原始轴返回数据；它不将 Pass 曲线认证为频率曲线。
 
+### `Result.export_touchstone_sweep`
+
+```python
+Result(project_path).export_touchstone_sweep(
+    output_dir, *, port_count, reference_ohm, frequency_unit,
+    parameter_names=None,
+)
+```
+
+对已保存 EM 参数结果离线批量导出。通过 `S1,1` 结果项枚举正 Run ID，逐点读取
+所有 `Sij` 复数曲线及 `get_parameter_combination(run_id)`，生成
+`run_<id>.sNp`、`manifest.json` 和逐文件 SHA-256。`parameter_names` 可列出
+必需参数轴；轴、Run ID、矩阵项、频率单位或参数读回不完整时整批拒绝。导出目录
+必须尚不存在，且所有输出在完整预检后一次发布。
+
+调用方必须明确声明 `port_count`、`frequency_unit`（`Hz/kHz/MHz/GHz/THz`）和
+`reference_ohm`。导出保留原始复数 S 值，不做重归一化；参考阻抗必须与原生 S
+结果的实际归一化相同。此接口读取已有结果，不配置/启动 EM 扫参、不求解、不连接
+DE、不替代工作流门禁；Run ID 和参数组合属于原生结果身份，manifest 不证明求解
+成功、收敛、物理质量或保存/重开持久性。
+
 ### `cst_automation.curves`
 
 ```python
@@ -1531,6 +1552,12 @@ started. The operation is explicitly registered in the MCP operation enum.
 ## 2026-10-28: Typed session modeling API
 
 `model_api` takes explicit project_id, stage_id, calls (method/args/kwargs) and a SHA256 preview_digest of canonical JSON calls (sort_keys=True, ensure_ascii=False). Only the static whitelist in sessions/model_api.py is callable; all signatures are bound before the first mutation. No scripts, eval, dynamic imports, solver run, file open/close or arbitrary attributes. Methods execute on the original session-owned app. Native stages rebuild and save through the usual checkpoint. Fake stages only record calls. This routing does not itself certify geometry or results.
+
+`model_api` also accepts the existing `setup.para(name, value, log_flag=0, expression='')`
+method for reviewed initial parameter creation in a modeling stage. It requires
+`log_flag=0`; the session performs the stage rebuild after the complete call batch.
+The name, finite numeric/CST-expression value and optional description are preflighted
+before any batch call. This does not add an execution route for a native EM parameter sweep.
 
 Added setup.new_curve(name), set_wcs_basis(origin, normal, u_vector), activate_global_wcs(), configure_fem_solver(accuracy='1e-6', mesh_adaption=True). They submit focused history through the owning API; no solve. ExtrudeCurve now preserves the exact requested name; parameter sweep helpers omit unsupported Reset.
 
