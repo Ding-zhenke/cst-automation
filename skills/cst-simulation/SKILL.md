@@ -7,6 +7,14 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 
 # CST simulation
 
+当用户明确要求本轮优先推进并豁免指定的非关键设置读回时，将这些字段及
+下发记录列为 `warning / 未独立读回`，继续已授权的 EM，不为补 getter、截图
+或重启 worker 延迟本轮。当前七管任务的明确豁免包括 Direct 选择、残差精度、
+局部网格、自适应和完整频率表的启动前原生读回；它们不因此成为已验证设置。
+该豁免仅适用于用户指定的本轮和字段，不永久取消其他约束，也不证明收敛或
+频率覆盖。仍核对工程身份、参数、保存状态、用户授权和未知任务/写入状态；
+提交后按实际日志、结果和可用证据报告，缺项保留未验证。
+
 原生会话的参数修改和 EM 求解必须先绑定[工程规格](../../docs/guides/workflow_enforcement.md)。
 参数更新正常成功后提交 EM；若原更新因监测或几何验证而失败，先按下列
 “已审阅保存基线”规则核对，再决定是否继续，不重复写入同一参数；完成 EM 后提交关联本次回执和原始文件的数值报告，
@@ -55,11 +63,12 @@ For Design Studio schematics, EM links, or field-circuit tasks, use [cst-circuit
 
 Before HB consumes new or changed EM data, apply the [HB coverage and stop gates](../cst-circuit/references/hb-and-postprocessing.md#hb-运行前的放行门槛). Read each actual passive block/file's valid data interval, including 0 Hz and the highest retained mixing frequency from actual tones/orders; a global frequency setting or a reference NPORT on another topology is insufficient. After topology/EM changes, pass bounded representative forward/reverse cases (DC operating point, actual RF incidence/matching and spectra) before the full parent sweep. The first initialization/numerical failure stops later groups and dependent templates without valid current-run inputs. These are caller orchestration requirements, not capabilities implied by the EM solver or HB configuration wrappers.
 
-Confirm the target project, solver type, frequency range, ports, boundaries, mesh, and requested outputs before starting a costly solve. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.
+Confirm the target project, requested configuration, ports, boundaries and outputs before starting a costly solve. Record separately which settings were actually read back; when the user explicitly waives named noncritical readbacks for this run, proceed with the documented warning instead of imposing another check. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.
 
 For multi-stage work, reload the [workflow checkpoint](../cst-sessions/references/workflow-checkpoint.md)
-and check the requested stage before submission. Compare actual settings to the
-latest requirements, not merely to the script's defaults. A representative-point
+and check the requested stage before submission. Compare available evidence to the
+latest requirements, not merely to the script's defaults; record explicitly waived
+unavailable readbacks rather than silently inventing or blocking on them. A representative-point
 check is an intermediate gate: retain the authorized full sweep and its expected
 case set as a pending deliverable. Native warning review and numerical acceptance
 remain separate from checklist consistency.

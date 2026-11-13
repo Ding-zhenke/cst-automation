@@ -10,8 +10,15 @@ description: Use when choosing or changing CST electromagnetic mesh density, loc
 Use [cst-sessions](../cst-sessions/SKILL.md) for actual project operations and
 [cst-simulation](../cst-simulation/SKILL.md) for solving. For server preparation,
 configure without local solving. Read actual geometry, units, materials, band, solver and
-existing frequency-table rows before choosing settings; inherited automatic
+available frequency-table rows before choosing settings; inherited automatic
 settings alone are not a mesh plan.
+
+If the user explicitly waives a named noncritical settings readback for the current
+authorized EM run, record the submitted settings and mark the missing native
+observation `warning / unverified`; do not hold that run for a getter, screenshot
+or worker upgrade. This does not verify the settings, the eventual frequency
+coverage, or mesh convergence, and does not waive project identity, unresolved
+mutations or any other explicitly required check.
 
 ## Estimate electrical size before enabling adaptation
 
@@ -176,7 +183,9 @@ Intervals append by default. To replace inherited user-defined rows, explicitly
 use `replace_intervals=True` and provide the complete intended interval/point
 set. This resets sample intervals only; it is not a full solver reset, nor proof
 that monitor-derived rows are removed. Inspect the resulting native frequency
-table, especially Adapt. flags. A zero band boundary does not prove a DC sample.
+table, especially Adapt. flags, when available and not explicitly waived for the
+current run; otherwise record the missing readback as unverified. A zero band
+boundary does not prove a DC sample.
 
 Two diagnostic solve frequencies do not imply `output_samples=2`: CST requires
 at least three display/evaluation samples. Keep the two Single intervals and
