@@ -5,6 +5,14 @@ description: Use when working with Keysight PathWave ADS RF circuits or physical
 
 # Keysight ADS Simulation
 
+On this user's Windows workstation, execute ADS native work outside the desktop
+sandbox: official Python imports, version/license probes, workspace operations,
+simulation, and official `.ds` reads all require that execution context. Follow
+the platform's approval mechanism; do not retry ADS in the restricted context.
+An initialization exception there (including `0xE06D7363` with an empty log or
+missing dataset) does not establish a circuit, model, licensing, or machine fault.
+Pure source and existing JSON/text inspection can remain in the restricted context.
+
 For repeated CST-to-ADS work, reuse the [common operation map](../../docs/guides/reusable_operations.md)
 and the official interfaces below. Opening/building/binding a supported design,
 running its netlist and reading datasets do not require screenshots or GUI clicks.

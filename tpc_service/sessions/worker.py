@@ -286,7 +286,7 @@ def run(folder):
             state['worker_capabilities'].append('point-lumped-element-v1')
             state['worker_capabilities'].append('initial-parameters-v1')
             state['worker_capabilities'].append('native-solver-status-v1')
-            state['worker_capabilities'].append('native-static-sp-v2')
+            state['worker_capabilities'].append('native-static-sp-v3')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             state['worker_capabilities'].append(DISCRETE_READ_CAPABILITY)
             # A running journal means an uncertain SDK side effect. Never requeue it.

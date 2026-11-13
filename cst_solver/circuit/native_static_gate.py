@@ -6,6 +6,21 @@ from pathlib import Path
 from .static_sp import _endpoint,_scalar,_sha
 
 
+def validate_control_spec(control):
+    if not isinstance(control,dict): raise ValueError('Explicit control termination required')
+    direct=control.get('kind')=='resistor_to_ground'
+    keys=({'kind','network_pin','resistor','resistor_pin','ground','ground_pin','resistance_ohms'} if direct
+          else {'network_pin','probe','source','bias','ground','resistance_ohms'})
+    names=('resistor','ground') if direct else ('probe','source','bias','ground')
+    if (set(control)!=keys or type(control['network_pin']) is not int or control['network_pin']<0
+            or any(not isinstance(control[k],str) or not control[k].strip() for k in names)
+            or type(control['resistance_ohms']) not in (int,float) or control['resistance_ohms']!=50
+            or (direct and (type(control['resistor_pin']) is not int or control['resistor_pin'] not in (0,1)
+                            or type(control['ground_pin']) is not int or control['ground_pin']<0))):
+        raise ValueError('Explicit 50 ohm control termination required')
+    return direct
+
+
 def validate_native_static(snapshot,spec,task_readback,dependencies,impedance,*,project_path,task_enabled):
     if not isinstance(snapshot,dict) or any(v!={'field':'parameter_dimensions','status':'unknown'}
             for v in snapshot.get('unknown',[])):
@@ -49,28 +64,36 @@ def validate_native_static(snapshot,spec,task_readback,dependencies,impedance,*,
         connected=[row for row in nets if any(_endpoint(v)[:2]==('block',diode) for part in row['subnets'] for v in part)]
         if len(connected)<2:
             raise ValueError('Each reviewed diode requires at least two connected nets')
-    control=spec['control'];keys={'network_pin','probe','source','bias','ground','resistance_ohms'}
-    if (not isinstance(control,dict) or set(control)!=keys or type(control['network_pin']) is not int
-            or control['network_pin']<0 or any(not isinstance(control[k],str) or not control[k] for k in ('probe','source','bias','ground'))
-            or type(control['resistance_ohms']) not in (int,float) or control['resistance_ohms']!=50):
-        raise ValueError('Explicit 50 ohm control termination required')
-    source=names.get(control['source'],{});bias=names.get(control['bias'],{});ground=names.get(control['ground'],{})
-    if (str(source.get('type','')).casefold()!='voltage signal source'
-            or str(bias.get('type','')).casefold()!='voltage dc source'
-            or str(ground.get('type','')).casefold()!='ground'):
-        raise ValueError('Control termination block types differ')
-    for block,want in ((source,50),(bias,0)):
-        if (block.get('property_metadata',{}).get('Ri',{}).get('unit')!='Ohm'
-                or not math.isclose(_scalar(block.get('properties',{}).get('Ri'),snapshot.get('parameters',{})),want,rel_tol=1e-12,abs_tol=0)):
-            raise ValueError('Control resistance differs')
+    control=spec['control'];direct=validate_control_spec(control)
     net_members=[frozenset(_endpoint(v) for part in row['subnets'] for v in part) for row in nets]
-    chain=[(('block',spec['host_block'],control['network_pin']),('probe',control['probe'],1)),
-           (('probe',control['probe'],0),('block',control['source'],0)),
-           (('block',control['source'],1),('block',control['bias'],0)),
-           (('block',control['bias'],1),('block',control['ground'],0))]
+    if direct:
+        resistor=names.get(control['resistor'],{});ground=names.get(control['ground'],{})
+        pins=resistor.get('pins')
+        unit=resistor.get('property_metadata',{}).get('Resistance',{}).get('unit') or snapshot.get('units',{}).get('Resistance')
+        if (str(resistor.get('type','')).casefold()!='resistor' or str(ground.get('type','')).casefold()!='ground'
+                or not isinstance(pins,list) or len(pins)!=2 or {p.get('port_index') for p in pins}!={0,1}
+                or unit!='Ohm' or not math.isclose(_scalar(resistor.get('properties',{}).get('Resistance'),
+                    snapshot.get('parameters',{})),50,rel_tol=1e-12,abs_tol=0)):
+            raise ValueError('Native 50 ohm resistor or ground differs')
+        chain=[(('block',spec['host_block'],control['network_pin']),('block',control['resistor'],control['resistor_pin'])),
+               (('block',control['resistor'],1-control['resistor_pin']),('block',control['ground'],control['ground_pin']))]
+    else:
+        source=names.get(control['source'],{});bias=names.get(control['bias'],{});ground=names.get(control['ground'],{})
+        if (str(source.get('type','')).casefold()!='voltage signal source'
+                or str(bias.get('type','')).casefold()!='voltage dc source'
+                or str(ground.get('type','')).casefold()!='ground'):
+            raise ValueError('Control termination block types differ')
+        for block,want in ((source,50),(bias,0)):
+            if (block.get('property_metadata',{}).get('Ri',{}).get('unit')!='Ohm'
+                    or not math.isclose(_scalar(block.get('properties',{}).get('Ri'),snapshot.get('parameters',{})),want,rel_tol=1e-12,abs_tol=0)):
+                raise ValueError('Control resistance differs')
+        chain=[(('block',spec['host_block'],control['network_pin']),('probe',control['probe'],1)),
+               (('probe',control['probe'],0),('block',control['source'],0)),
+               (('block',control['source'],1),('block',control['bias'],0)),
+               (('block',control['bias'],1),('block',control['ground'],0))]
     for i,(a,b) in enumerate(chain):
         matches=[members for members in net_members if a in members and b in members]
-        if len(matches)!=1 or (i<3 and matches[0]!=frozenset((a,b))):
+        if len(matches)!=1 or (i<len(chain)-1 and matches[0]!=frozenset((a,b))):
             raise ValueError('Control termination topology differs')
     for block in blocks:
         kind=str(block.get('type','')).casefold()
@@ -128,5 +151,5 @@ def validate_native_static(snapshot,spec,task_readback,dependencies,impedance,*,
         files[path]=row['sha256']
     if project not in files or any(Path(f).resolve() not in files for block in blocks for f in block.get('files',[])):
         raise ValueError('Project or block file missing from dependency inventory')
-    return {'native_host_present':True,'diode_model_verified':False,
+    return {'native_host_present':True,'control_50_verified':True,'diode_model_verified':False,
             'em_reuse_verified':False,'solver_verified':False}

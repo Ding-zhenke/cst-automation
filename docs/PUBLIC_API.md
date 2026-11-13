@@ -1,8 +1,11 @@
 # cst-automation 与领域包的公共接口
 
+`native-static-sp-v3` 在 v2 串联源控制链之外，支持显式 `resistor_to_ground` 控制链：审阅指定宿主端口、双端电阻、接地块和各端口索引，检查原生完整网表、电阻单位及 50 Ω 阻值，不添加 DC 或泵源。该能力需要兼容的所属 worker；本轮仅离线验证，不代表七管实机 SP 已运行。
+
+
 ## 同工程宿主零偏静态 SP 会话操作
 
-`prepare_native_static_sp`、`review_native_static_sp`、`run_native_static_sp`、`read_native_static_sp` 使用已经保存且空闲的所属工程及 `native-static-sp-v2` worker，不启动 worker、不删除宿主块。准备与审阅请求包含 `project_id/em_job_id/expected_saved_digest/snapshot_digest/spec/confirm_idle`；审阅额外要求 `sample_observation`；spec 显式提供 host_block、host_pins、完整 expected_nets、control、diode_blocks 和 task。已连接的两测量端口是前提；准备使用现有 Python 任务函数创建或更新并启用一个 SP 叶任务，同时将支持的独立外加 DC 与 AC/HB 源幅值置零，逐项核对控制支路 50 Ω、端口阻抗和原生拓扑后保存。GUI 样本数观察为带 SHA256 的独立 JSON，不冒充原生 getter。运行须引用成功审阅、相同保存摘要与 EM 世代，执行单一 SP 叶；读取须引用成功运行和实际正 Run ID，比较四条复数曲线和完整实际频率轴。项目身份、源连接、控制负载、输入摘要不匹配时拒绝；部分写入或运行不确定保留围栏。只经离线测试，宿主 EM 复用、二极管模型身份、原生求解及结果归属仍需实际工程验收；不授权 CST HB。具体输入与能力见 `docs/guides/diode_workflow_integration.md`。
+`prepare_native_static_sp`、`review_native_static_sp`、`run_native_static_sp`、`read_native_static_sp` 使用已经保存且空闲的所属工程及 `native-static-sp-v3` worker，不启动 worker、不删除宿主块。准备与审阅请求包含 `project_id/em_job_id/expected_saved_digest/snapshot_digest/spec/confirm_idle`；审阅额外要求 `sample_observation`；spec 显式提供 host_block、host_pins、完整 expected_nets、control、diode_blocks 和 task。已连接的两测量端口是前提；准备使用现有 Python 任务函数创建或更新并启用一个 SP 叶任务，同时将支持的独立外加 DC 与 AC/HB 源幅值置零，逐项核对控制支路 50 Ω、端口阻抗和原生拓扑后保存。GUI 样本数观察为带 SHA256 的独立 JSON，不冒充原生 getter。运行须引用成功审阅、相同保存摘要与 EM 世代，执行单一 SP 叶；读取须引用成功运行和实际正 Run ID，比较四条复数曲线和完整实际频率轴。项目身份、源连接、控制负载、输入摘要不匹配时拒绝；部分写入或运行不确定保留围栏。只经离线测试，宿主 EM 复用、二极管模型身份、原生求解及结果归属仍需实际工程验收；不授权 CST HB。具体输入与能力见 `docs/guides/diode_workflow_integration.md`。
 
 ## 所属工程的原生求解状态只读
 

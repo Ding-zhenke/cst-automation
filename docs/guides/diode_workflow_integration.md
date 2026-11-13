@@ -41,13 +41,13 @@ these operations and should expose missing functionality as pending.
 
 ## Native zero-bias SP gap
 
-### Native-host v2 operations (offline validation; native acceptance pending)
+### Native-host v3 operations (offline validation; native acceptance pending)
 
 The following four operations supersede the earlier unpublished-host note below.
 Use `submit_cst_session_operation` / `SessionManager.submit` on the same owned
-saved project and an idle worker advertising `native-static-sp-v2` and
+saved project and an idle worker advertising `native-static-sp-v3` and
 `static-sp-guarded-run-v1`. They never launch or upgrade a worker. Existing
-`native-static-sp-v1` does not imply v2 support.
+`native-static-sp-v1` or `native-static-sp-v2` does not imply v3 support.
 
 Prepare the actual host, diode blocks, control network, exactly two connected
 measurement external ports first. The target SP task may be absent or an existing S-parameter **leaf**. Reuse
@@ -84,7 +84,15 @@ copy the entire actual `host_pins` and `expected_nets` from native inspection;
 all real diode names, task, units, frequency range and port impedances come from
 the reviewed project. The supported control chain is host pin → probe → voltage
 signal source Ri=50 Ω → voltage DC source Ri=0 Ω → ground, with no unreviewed
-parallel branch at the first three links. Other control topologies are refused.
+parallel branch at the first three links.
+Alternatively, use `control={"kind":"resistor_to_ground","network_pin":2,
+"resistor":"actual-resistor","resistor_pin":0,"ground":"actual-ground",
+"ground_pin":0,"resistance_ohms":50}` for an actual host → 50 Ω resistor →
+ground connection. The host-to-resistor net must have exactly those two endpoints;
+the ground net may also contain other grounded terminals. The existing native
+resistor's `Resistance` and resistance units are read, and its two pin indices
+are checked. No voltage, bias or pump source is created for this topology.
+Other control topologies are refused.
 The two connected measurement ports must already exist; a missing or existing SP leaf is created or updated through the existing Python task API. Missing topology is a specific setup gap,
 not a reason to delete a host or issue a solver command. Preparation validates the
 current EM/evidence and reviewed topology, records an exclusive before-audit,
@@ -112,7 +120,7 @@ the service operation and is not solver-only timing. `em_reuse_verified` and
 These operations are offline tested, not native acceptance: user authorization,
 complete EM evidence, compatible worker, actual idle/GUI review and safety of
 any preserved-DE handoff remain required. Do not hot-replace a running worker
-or claim the old project's v1 capability implements v2. CST HB remains outside
+or claim the old project's v1/v2 capability implements v3. CST HB remains outside
 this path; ADS is responsible for pumped HB.
 
 ### Current ordinary-candidate path and minimum gap (2026-11-13)

@@ -7,6 +7,12 @@ description: Manage independent persistent CST environments for separate convers
 
 # Persistent conversation sessions
 
+On this user's Windows workstation, actual CST SDK, native environment and solver
+work must run outside the desktop sandbox through the approved execution context.
+Use the owning session and the same identity and safety checks; this rule does not
+authorize a new solve, worker replacement, or an attach to another conversation.
+Offline source, JSON and test inspection can use the restricted context.
+
 Run session commands and background workers without a visible console window.
 On Windows use the applicable hidden launch options and retain logs and errors;
 show an interactive console only when the user explicitly requests one. This

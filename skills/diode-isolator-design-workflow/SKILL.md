@@ -40,7 +40,7 @@ the project-bound native bridge, checks the actual result frequency axis after
 the task, and can retain the reviewed existing topology. Its guarded run and read
 interfaces are implemented and offline tested; actual native execution, sample
 coverage and result identity must be established by that project's receipts.
-The separate normal native-host v2 prepare/review/run/read route is offline tested;
+The separate normal native-host v3 prepare/review/run/read route is offline tested;
 it requires a compatible idle owned worker, actual preconfigured measurement ports
 and reviewed topology, a verified 50 Ω control chain, GUI sample
 observation and current EM evidence. Read the integration contract for exact

@@ -7,7 +7,7 @@ from .native import file_digest
 from .store import alive,identifier,read
 
 
-CAPABILITY='native-static-sp-v2'
+CAPABILITY='native-static-sp-v3'
 REVIEW='review_native_static_sp'
 
 
@@ -27,12 +27,8 @@ def validate(params):
         raise ValueError('Explicit native host and pins required')
     if not isinstance(spec['expected_nets'],list) or not spec['expected_nets']:
         raise ValueError('Explicit reviewed native nets required')
-    control=spec['control']
-    if (not isinstance(control,dict) or set(control)!={'network_pin','probe','source','bias','ground','resistance_ohms'}
-            or type(control['network_pin']) is not int or control['network_pin']<0
-            or any(not isinstance(control[k],str) or not control[k].strip() for k in ('probe','source','bias','ground'))
-            or type(control['resistance_ohms']) not in (int,float) or control['resistance_ohms']!=50):
-        raise ValueError('Explicit 50 ohm control chain required')
+    from cst_solver.circuit.native_static_gate import validate_control_spec
+    validate_control_spec(spec['control'])
     if (not isinstance(spec['diode_blocks'],list) or not spec['diode_blocks']
             or any(not isinstance(n,str) or not n.strip() for n in spec['diode_blocks'])
             or len(set(spec['diode_blocks']))!=len(spec['diode_blocks'])):

@@ -16,7 +16,7 @@ def setup_case(tmp_path,monkeypatch):
     sha=hashlib.sha256(Path(project).read_bytes()).hexdigest()
     workflow={'revision':'rev','em_generation':3,'em_receipt':{'job_id':'em','em_generation':3,'saved_digest':sha}}
     state={'session_id':'session','backend':'cst','status':'ready','worker':{'pid':1},'environment':{'pid':2},
-           'worker_capabilities':['native-static-sp-v2','static-sp-guarded-run-v1'],
+           'worker_capabilities':['native-static-sp-v3','static-sp-guarded-run-v1'],
            'projects':{'p':{'project_id':'p','path':project,'saved':True,'saved_digest':sha,'workflow':workflow}}}
     from tpc_service.sessions.workflow import marker
     write(marker(project),{'session_folder':str(tmp_path.resolve()),'project_id':'p'})
