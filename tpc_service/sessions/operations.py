@@ -23,6 +23,10 @@ def execute(runtime, job):
             validate_options(params)
             if DISCRETE_READ_CAPABILITY not in runtime.state().get('worker_capabilities', []):
                 raise ServiceError('workflow_worker_upgrade_required', 'Discrete-port inspection requires a compatible execution worker')
+        if operation == 'inspect' and params.get('native_solver_status'):
+            from cst_solver.solver_status import CAPABILITY as STATUS_CAPABILITY
+            if STATUS_CAPABILITY not in runtime.state().get('worker_capabilities', []):
+                raise ServiceError('workflow_worker_upgrade_required', 'Status query requires a compatible execution worker')
         if operation=='inspect' and 'lumped_element_names' in params:
             from .model_api import POINT_LUMPED_CAPABILITY
             if POINT_LUMPED_CAPABILITY not in runtime.state().get('worker_capabilities',[]):

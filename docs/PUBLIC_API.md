@@ -1,5 +1,10 @@
 # cst-automation 与领域包的公共接口
 
+## 所属工程的原生求解状态只读
+
+`inspect` 可选 `native_solver_status=true`，必须同时提供 `native_readback=true`、`read_only_review=true`、`confirm_idle=true` 与已保存工程的 `expected_digest`。此模式只借用 worker 已持有的精确工程句柄，不启动 worker、不 attach、不读取或更改几何、不保存、不求解。逐项查询官方 Python SDK 的 `get_active_solver_name`、`is_solver_running` 和 `get_solver_run_info`，保留字段来源、工程身份、时间、原始值和状态；空值、异常或不匹配类型不伪装为成功。`get_active_solver_name` 只代表求解器名称，不证明 Direct。运行信息可能属于当前或上次计算；`is_solver_running=false` 不认证整个 DS/后处理或工程空闲。需实际 worker 广告 `native-solver-status-v1`，离线测试不证明真实 SDK 可用。活动网格类型及 Direct、残差、各实体局部网格、自适应、完整采样表当前不由此接口声称读回。
+
+
 ## 空工程参数初始化
 
 `initialize_parameters` 仅用于未绑定工作流的已保存工程。提交前校验完整参数名、表达式、依赖顺序和审阅摘要，并要求已运行且兼容的空闲所属 worker；不启动或重启 worker。执行前核对原生实体为空且无同名参数，使用现有 `app.paras`，逐项读回表达式与有限数值并保存；写入可能部分发生时保留不确定状态。它不声称已检查全部曲线等几何类别，也不启动求解。接口仅经离线测试，实际原生读回与保存仍需所属会话验收。

@@ -68,7 +68,15 @@ def inspect_saved_geometry(runtime, job):
                            prior_dialog_diagnostics=state.get('runtime_diagnostics')) from exc
     if not alive(identity):
         raise ServiceError('session_environment_mismatch', 'Environment changed during dialog scan')
-    app, handle, _ = borrow_open_project(runtime, identity, record['path'])
+    if params.get('native_solver_status'):
+        from cst_solver.environment import environment_pid
+        app = runtime.app
+        handle = getattr(runtime, 'handles', {}).get(params['project_id'])
+        if (app is None or handle is None or environment_pid(app.project) != identity['pid']
+                or path_key(handle.filename()) != path_key(record['path'])):
+            raise ServiceError('session_read_review_refused', 'Existing owned project handle required; no attach')
+    else:
+        app, handle, _ = borrow_open_project(runtime, identity, record['path'])
     app.cst_file = handle
     if 'lumped_element_names' in params:
         result = inspect_native(app,params,receipt_root=runtime.folder/'lumped_element_queries')
@@ -79,7 +87,7 @@ def inspect_saved_geometry(runtime, job):
     runtime.app = app
     runtime.handles[params['project_id']] = handle
     return dict(project=record, backend='cst', native_readback=result,
-                readback_verified=not result['errors'] and ('lumped_element_names' not in params or
+                readback_verified=not params.get('native_solver_status') and not result['errors'] and ('lumped_element_names' not in params or
                     (result.get('lumped_bridge') or {}).get('native_bridge_verified') is True),
                 geometry_verified=False, solver_verified=False,
                 message_read_status='not_read_preserve_queue', messages=[],

@@ -201,6 +201,14 @@ readback_verified/mesh_verified/solver_verified False. Session rebuild/save does
 not turn them into mesh or solver evidence. Report requested settings separately
 from checked native flags, actual mesh cells/DOF, convergence and solved results.
 
+For an idle, saved, already-owned project, the separate `inspect` option
+`native_solver_status=true` reads only the documented SDK solver name, 3D running
+flag and current/last run information; see [status fields and gaps](../../docs/guides/native_solver_status_readback.md).
+It does not read Direct, residual accuracy, per-solid local mesh, adaptation,
+active mesh type or the complete sampling table. Never infer those values from
+the solver name, history, request, default or a table scan that stopped at a blank.
+The old worker must not be restarted to load it; wait for safe owned-session review.
+
 Pure `configure_tetrahedral_mesh` batches, optionally combined with
 `configure_fd_linear_solver/configure_fd_frequency/configure_fd_parallelization`,
 now check messages and save without a full Rebuild. Require the actual worker's

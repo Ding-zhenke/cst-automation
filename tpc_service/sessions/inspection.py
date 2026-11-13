@@ -12,9 +12,10 @@ def validate_options(params):
             raise ServiceError('invalid_session_argument', message)
     require(not set(params) - {'project_id', 'depends_on', 'native_readback',
                                'parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids', 'lumped_element_names',
-                               'read_only_review', 'confirm_idle', 'expected_digest'},
+                               'read_only_review', 'confirm_idle', 'expected_digest', 'native_solver_status'},
             'Unsupported inspect option')
     require(type(params.get('native_readback', False)) is bool, 'native_readback must be boolean')
+    require(type(params.get('native_solver_status', False)) is bool, 'native_solver_status must be boolean')
     require(type(params.get('read_only_review', False)) is bool, 'read_only_review must be boolean')
     if params.get('read_only_review'):
         require(params.get('native_readback') is True and params.get('confirm_idle') is True,
@@ -24,6 +25,10 @@ def validate_options(params):
                 'Read-only review requires explicit saved expected_digest')
     else:
         require(not set(params) & {'confirm_idle', 'expected_digest'}, 'Review fields require read_only_review=true')
+    if params.get('native_solver_status'):
+        require(params.get('read_only_review') is True and not set(params) &
+                {'parameter_names', 'solid_names', 'sample_points', 'discrete_port_ids', 'lumped_element_names'},
+                'Solver status requires a separate owned-project read-only review')
     for key in ('parameter_names', 'solid_names'):
         if key in params:
             names = params[key]
@@ -58,6 +63,10 @@ def validate_options(params):
 
 
 def inspect_native(app, params, *, receipt_root=None):
+    if params.get('native_solver_status'):
+        from cst_solver.solver_status import read_native_solver_status
+        return {'native_executed': True, 'errors': [],
+                'solver_status': read_native_solver_status(app, expected_project=app.cst_file.filename())}
     if 'discrete_port_ids' in params:
         from cst_automation.discrete_ports import validate_ids
         validate_ids(params['discrete_port_ids'])

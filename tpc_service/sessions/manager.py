@@ -142,6 +142,11 @@ class SessionManager:
                 if 'sp-impedance-read-v1' not in state.get('worker_capabilities', []):
                     raise ServiceError('workflow_worker_upgrade_required', 'SP impedance query requires a compatible idle worker')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
+            if operation == 'inspect' and params.get('native_solver_status'):
+                from cst_solver.solver_status import CAPABILITY as STATUS_CAPABILITY
+                if (not state.get('worker') or not alive(state['worker']) or
+                        STATUS_CAPABILITY not in state.get('worker_capabilities', [])):
+                    raise ServiceError('workflow_worker_upgrade_required', 'Status query requires the compatible existing worker')
             if (operation == 'inspect' and 'discrete_port_ids' in params
                     and state.get('worker') and alive(state['worker'])
                     and DISCRETE_READ_CAPABILITY not in state.get('worker_capabilities', [])):
@@ -218,7 +223,7 @@ class SessionManager:
                 if state['status'] != 'needs_reconcile':
                     state['status'] = 'closing'
             write(folder / 'session.json', state)
-        if operation not in ('accept_saved_baseline', 'initialize_parameters', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ):
+        if operation not in ('accept_saved_baseline', 'initialize_parameters', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ) and not (operation == 'inspect' and params.get('native_solver_status')):
             self._launch(folder)
         return self.job(session_id, credential, job['job_id'])
 
