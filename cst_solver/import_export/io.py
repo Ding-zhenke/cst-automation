@@ -58,7 +58,7 @@ EndSubProject
 """
         self.cst_file.model3d.add_to_history("import external project: " + subproject_name, f1)
 
-    def sat_import(self, filename, tpn='True'):
+    def sat_import(self, filename, tpn='True', *, scale_to_unit=False):
         """
         导入 SAT 格式文件
         保留原函数名以兼容旧代码
@@ -66,13 +66,22 @@ EndSubProject
         :param filename: str, SAT 文件路径
         :param tpn: str, 是否将新材料设为 PEC，默认 'True'
         """
+        if type(scale_to_unit) is not bool:
+            raise ValueError('scale_to_unit must be boolean')
+        if type(tpn) is bool:
+            tpn = str(tpn)
+        if tpn not in ('True', 'False'):
+            raise ValueError('tpn must be boolean or True/False string')
+        if not isinstance(filename, str) or any(c in filename for c in ('"', '\r', '\n')):
+            raise ValueError('SAT filename must be a safe path string')
+        scale = 'True' if scale_to_unit else '0'
         f1 = f"""
             With SAT
             .Reset 
             .FileName "{filename}" 
             .Id "1" 
             .Version "9.0" 
-            .ScaleToUnit "0" 
+            .ScaleToUnit "{scale}"
             .ImportToActiveCoordinateSystem "True" 
             .Curves "True" 
             .TypePECForNewMaterials "{tpn}" 
@@ -81,12 +90,12 @@ EndSubProject
         """
         self.cst_file.model3d.add_to_history('Import Sat: ' + filename, f1)
 
-    def import_sat(self, filename, tpn='True'):
+    def import_sat(self, filename, tpn='True', *, scale_to_unit=False):
         """
         导入 SAT 文件（蛇形命名）
         等同于 sat_import()
         """
-        self.sat_import(filename, tpn)
+        self.sat_import(filename, tpn, scale_to_unit=scale_to_unit)
 
     def dxf_import(self, filename, add='True', HealSelfIntersections='False',
                    component='component2', material='Silicon (lossy)',

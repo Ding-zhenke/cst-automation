@@ -218,7 +218,7 @@ class PortMixin:
                                    adjust_polarization='False',
                                    polarization_angle='0.0',
                                    reference_plane_distance='0',
-                                   port_on_bound=True):
+                                   port_on_bound=True, parameterized_ranges=False):
         """
         用**坐标范围**创建波导端口（``Coordinates "Free"``），无需任何面拾取。
 
@@ -278,7 +278,14 @@ class PortMixin:
         for _line, _val in (('.Xrange', xrange), ('.Yrange', yrange),
                             ('.Zrange', zrange)):
             if _val is not None:
-                ranges += f'{_line} {_val[0]}, {_val[1]}\n            '
+                def range_expr(value):
+                    if parameterized_ranges and isinstance(value, str):
+                        try:
+                            float(value)
+                        except ValueError:
+                            return f'"{value}"'
+                    return str(value)
+                ranges += f'{_line} {range_expr(_val[0])}, {range_expr(_val[1])}\n            '
 
         if shield == 'electric':
             f2 = '.Shield "PEC"'
@@ -427,7 +434,7 @@ End With
             p1 = ["0", "0", "0"]
         if p2 is None:
             p2 = ["0", "0", "0.1"]
-        f1 = f"""With LumpedFaceElement
+        f1 = f"""With LumpedElement
      .Reset 
      .SetName "element{id_val}" 
      .Folder "Folder1" 
@@ -439,11 +446,9 @@ End With
      .SetI0 "1e-14"
      .SetT "300"
      .SetMonitor "True"
-     .SetP1 "True", "{p1[0]}", "{p1[1]}", "{p1[2]}"
-     .SetP2 "True", "{p2[0]}", "{p2[1]}", "{p2[2]}"
+     .SetP1 "False", "{p1[0]}", "{p1[1]}", "{p1[2]}"
+     .SetP2 "False", "{p2[0]}", "{p2[1]}", "{p2[2]}"
      .SetInvert "False" 
-     .UseProjection "False" 
-     .ReverseProjection "False" 
      .Create
 End With
 """

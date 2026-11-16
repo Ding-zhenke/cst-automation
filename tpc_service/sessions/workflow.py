@@ -254,6 +254,8 @@ def preflight(folder, state, operation, params, *, job=None):
     if operation == 'history' or (operation == 'circuit' and params.get('kind') == 'study'):
         reject('route_unsupported', 'Raw history and unmanaged circuit studies cannot bypass the guarded chain')
     if operation == 'model_api':
+        if any(call['method'] == 'para' for call in params['calls']):
+            reject('route_unsupported', 'Bound parameter edits require set_parameters')
         if any(call['method'] in PARAMETER_SWEEPS for call in params['calls']):
             reject('route_unsupported', 'Native geometry sweep requires a guarded per-case implementation')
     if operation == 'set_parameters':

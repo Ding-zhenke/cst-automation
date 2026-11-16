@@ -1720,9 +1720,10 @@ history submission. Offline command tests do not certify native geometry.
 and AutoDestination=False. Integer port IDs normalize to "Port N"; shape
 mirroring retains its component-qualified names. This corrects the old shape
 rules incorrectly applied to ports.
-Executing session `model_api` batches reject `log_flag` values other than the
-integer 1 before any batch mutation. Code-generation-only log_flag=0 belongs
-outside this route and cannot produce a successful modeled-stage receipt.
+Executing session `model_api` geometry calls require the integer `log_flag=1`
+before any batch mutation. Initial `para` calls are the explicit exception and
+require `log_flag=0`; after workflow binding, use `set_parameters` instead.
+Code-generation-only calls cannot produce a successful modeled-stage receipt.
 ## HB post-processing configuration evidence
 
 `cst_solver.circuit.native.configure_hb_postprocessing_chain(schematic,
@@ -1993,3 +1994,40 @@ older workers are rejected without replacement.
 ### EM-only guarded workflow (schema v2)
 
 A workflow specification may use `schema_version: 2` and `mode: "em_only"` with exactly `parameters`, `initial_values`, `em_checks`, and `evidence_rules`. Rules, native EM checks, digest, ownership and invalidation have the same meaning as v1; parameter rules must affect EM. Circuit solve/study and HB-specific operations are rejected. This mode requires worker capability `parameter-em-only-v2` at binding and execution; existing workers must not be upgraded while active. Version 1 remains unchanged. Offline validation alone does not prove a native solve or convergence.
+
+### Initial parameters and transient solver session routing
+
+`model_api` now explicitly routes existing `para`, `new_material`, `T_solver`,
+`set_gpu_acceleration`, `set_steady_state_limit`, `set_parallel_threads`,
+`set_mesh_adaption`, and `set_mesh_auto` methods. Initial `para` calls permit
+`log_flag=0`; the session still rebuilds and saves the complete batch.
+After workflow binding, `para` is rejected: use bounded `set_parameters`.
+Solver and mesh calls do not themselves start a solve.
+
+`set_mesh_auto` now omits unsupported Mesh.Reset, maps legacy PBA/Hexahedral to HexahedralFIT, and uses MinimumStepNumber. These legacy Mesh density commands still require actual effective-mesh validation.
+
+### Explicit single-port solver controls
+
+Session model_api routes configure_td_controls(settings) and configure_fd_excitation(port=1,mode=1). TD settings support excitation_port/excitation_mode, pulse_widths, steady_state_db, normalization_ohm, and s_parameter_stop {threshold, checks, frequency_range}. They generate documented Solver.StimulationPort/Mode, NumberOfPulseWidths and AddStopCriterionWithTargetFrequency commands without Reset or Start. FD selects FDSolver.Stimulation only. Settings-only batches save without Rebuild. Native effects and convergence require current-run evidence.
+
+`clear_em_results(confirm_delete=True)` routes the documented immediate model3d DeleteResults command, without adding replay history. Caller must preserve required results before explicit confirmation. This does not certify archive integrity or authorize a solve.
+
+### Parameter-only geometry refresh
+
+setup.update calls documented Application.RebuildOnParametricChange(False,False), processing affected blocks and preserving surviving parametric results. False raises before clearing the guard. This replaces SDK full_history_rebuild. Native IDs, parameter combinations and complex curves require project-specific verification.
+
+
+## SAT/SAB geometry import in owned sessions
+
+`model_api` routes `import_sat(filename, tpn="True", *, scale_to_unit=False)`.
+Require an existing absolute `.sat` or `.sab` file; both use the same CST
+`SAT.Read` route. `tpn` is a boolean or exact True/False string controlling
+TypePECForNewMaterials, not units. `scale_to_unit` is strictly boolean; False
+preserves legacy ScaleToUnit=0, True requests source-to-project unit scaling.
+Review source and target units and verify imported materials and geometry
+natively. The `sat_import` alias accepts the same keyword but is not separately
+session-routed. This change starts no CST process or solver.
+
+
+## Coordinate interface corrections
+create_lumped_element now uses documented LumpedElement with SetP1/SetP2 picked=False for explicit coordinates; picked-face behavior belongs to the face APIs. Free wave-port parameterized_ranges=True quotes symbolic string ranges as CST expressions; the default False retains the legacy text. Numeric range text stays unchanged.
