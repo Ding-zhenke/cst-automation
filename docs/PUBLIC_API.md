@@ -1824,6 +1824,12 @@ does not release an uncertain claim.
 
 ## Mandatory parameter → EM → HB workflow contracts
 
+Standalone EM: an unbound session may submit `solve` for its registered project
+without binding a workflow specification. Existing bound workflows retain their
+checks; parameter changes and circuit/HB operations still follow their respective
+contracts. Direct Python callers may open a project with `setup(path)` and call
+`app.run()` without a service or workflow contract.
+
 `SessionManager.bind_workflow(session_id, credential, project_id, spec,
 expected_revision=None)` binds an immutable, versioned engineering specification
 to an idle registered project. CLI `bind-workflow --project-id ... --spec-file ...`

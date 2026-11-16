@@ -15,7 +15,10 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 频率覆盖。仍核对工程身份、参数、保存状态、用户授权和未知任务/写入状态；
 提交后按实际日志、结果和可用证据报告，缺项保留未验证。
 
-原生会话的参数修改和 EM 求解必须先绑定[工程规格](../../docs/guides/workflow_enforcement.md)。
+单次运行已有 EM 工程时，可直接 `app = setup(project_path)`、`app.run()`，
+无需创建会话或绑定工作流；确认工程身份及先前运行状态，运行后依据日志与结果报告。
+也可通过未绑定工作流的所属会话提交 `solve`。已绑定的工作流继续执行自身检查。
+参数修改 → EM → HB 的受保护链按[工程规格](../../docs/guides/workflow_enforcement.md)执行。
 参数更新正常成功后提交 EM；若原更新因监测或几何验证而失败，先按下列
 “已审阅保存基线”规则核对，再决定是否继续，不重复写入同一参数；完成 EM 后提交关联本次回执和原始文件的数值报告，
 由服务检查后才可继续 HB。绑定工程暂不支持原生 EM 扫参配置或非托管 study，
@@ -53,7 +56,7 @@ Before choosing mesh/frequency settings, use
 and select automatic or representative-point adaptation. For native ranges and
 server scans use [cst-parameter-study](../cst-parameter-study/SKILL.md).
 
-For actual Codex operations, first apply [persistent conversation sessions](../cst-sessions/SKILL.md).
+For actual Codex operations other than a standalone existing-project EM run, first apply [persistent conversation sessions](../cst-sessions/SKILL.md).
 For server scan preparation, use [the project lifecycle](../cst-sessions/references/project-lifecycle.md):
 configure the original project without starting a solve, check corners in place,
 restore defaults, and retain the final file with its modeling Python. Use session
@@ -63,7 +66,7 @@ For Design Studio schematics, EM links, or field-circuit tasks, use [cst-circuit
 
 Before HB consumes new or changed EM data, apply the [HB coverage and stop gates](../cst-circuit/references/hb-and-postprocessing.md#hb-运行前的放行门槛). Read each actual passive block/file's valid data interval, including 0 Hz and the highest retained mixing frequency from actual tones/orders; a global frequency setting or a reference NPORT on another topology is insufficient. After topology/EM changes, pass bounded representative forward/reverse cases (DC operating point, actual RF incidence/matching and spectra) before the full parent sweep. The first initialization/numerical failure stops later groups and dependent templates without valid current-run inputs. These are caller orchestration requirements, not capabilities implied by the EM solver or HB configuration wrappers.
 
-Confirm the target project, requested configuration, ports, boundaries and outputs before starting a costly solve. Record separately which settings were actually read back; when the user explicitly waives named noncritical readbacks for this run, proceed with the documented warning instead of imposing another check. Reuse the accepted geometry; do not silently rebuild or replace a user's project. Use `run_checked`/the service run contract, save before reading results, and report the exact run identity and status.
+Confirm the target project and requested configuration before starting a solve. Reuse the accepted geometry; do not silently rebuild or replace a user's project. For a standalone EM run, `run()` is sufficient to start the solver; `run_checked` and the service contract are optional. Save completed results before reading them, and report status from actual logs and results.
 
 For multi-stage work, reload the [workflow checkpoint](../cst-sessions/references/workflow-checkpoint.md)
 and check the requested stage before submission. Compare available evidence to the
@@ -138,4 +141,4 @@ Report actual cells/DOF only when meshing has been performed; configured limits
 are not convergence evidence. This guidance specifies decisions, not a claim
 that the current general mesh wrappers cover every F-solver setting.
 
-For standalone reviewed EM solves, the owning session supports a guarded `schema_version=2`, `mode="em_only"` contract; see the workflow guide. It requires the actual worker capability `parameter-em-only-v2`, retains identity and native checks, and rejects circuit solves. Do not upgrade a live worker.
+An optional guarded `schema_version=2`, `mode="em_only"` contract is available when its extra checks are desired; it is not required for a standalone EM solve.

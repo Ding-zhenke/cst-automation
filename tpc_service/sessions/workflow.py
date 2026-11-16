@@ -233,7 +233,7 @@ def preflight(folder, state, operation, params, *, job=None):
     if not workflow:
         if project and marker(project['path']).exists():
             reject('owner_mismatch', 'Protected project has no matching session contract')
-        if protected(operation, params) and not standalone_transient and state['backend'] == 'cst' and operation != 'prepare_static_sp':
+        if protected(operation, params) and not standalone_transient and state['backend'] == 'cst' and operation not in ('prepare_static_sp', 'solve'):
             reject('required', 'Bind an engineering specification before parameter/EM/HB execution')
         return None
     relevant = protected(operation, params) or mutates(operation, params) or operation == 'prepare_static_sp'
