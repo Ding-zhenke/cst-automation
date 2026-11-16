@@ -38,9 +38,15 @@ API。不得为“一次性提交”改写整台设备。会话未路由已有�
 
 1. 先读目标工程及当前要求，明确长度/频率单位、全局坐标、传播方向、层叠、材料、
    端口编号与法向、源工程和输出位置。参数值、公式、说明分开记录；不从旧案例猜值。
-2. 独立尺寸和派生尺寸保留为参数及联动公式。`para(name,value,expression=说明)` 中
-   value 是数值/可执行公式，expression 是含义、单位和关系说明；会话用
-   `set_parameters` 的 values/expressions。不要用数值展开破坏可扫描的依赖关系。
+2. 每个用于几何建模的参数都要写 `expression`，让参数名能对应到结构及物理意义。
+   用所属 Python API `app.para(name, value, expression=description)` 写入；会话参数更新
+   使用 `set_parameters` 的 `values` 和 `expressions`，其底层调用同一
+   `app.para(name, value, expression=description)` API。`expression` 是参数说明文本，
+   至少写清结构部位/物理含义与单位；对派生参数还要说明其依赖参数及关系。可执行数值
+   或 CST 联动公式放在 `value`，例如 `value="w_main/2"`、
+   `expression="主线半宽（mm），由主线宽度 w_main 派生"`。不要把公式塞进说明字段，也
+   不要只靠参数名、注释或建模代码替代 `expression`。独立尺寸和派生尺寸保留为参数及
+   联动公式，不要用数值展开破坏可扫描的依赖关系。
    已建好模型的逐点参数更新使用会话 `set_parameters`；当前 `app.update()`
    实际调用 SDK `model3d.full_history_rebuild()`，并非已验证的轻量参数刷新。
    后续 solve 不再追加一次重建。修改前保留所需结果，结果是否留存须按实际工程核验；
