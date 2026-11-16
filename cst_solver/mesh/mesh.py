@@ -152,8 +152,9 @@ class MeshMixin:
         :param lines_per_wavelength: int, 每波长网格线数，默认 10
         :param mesh_type: str, 网格类型 'PBA'/'Tetrahedral'/...
         """
+        # CST 2026's Mesh object does not support Reset; leave unspecified
+        # mesh properties intact and set only the values requested here.
         f1 = f"""With Mesh
-     .Reset
      .LinesPerWavelength "{lines_per_wavelength}"
      .MeshType "{mesh_type}"
 """
@@ -197,8 +198,9 @@ End With"""
         :param ratio_limit: int, 网格比例限制，默认 10
         :param smallest_mesh_step: str, 最小网格步长，默认 '1e-6'
         """
+        # CST 2026's Mesh object does not support Reset; set the listed
+        # automatic-mesh properties without clearing unrelated settings.
         f1 = f"""With Mesh
-     .Reset
      .LinesPerWavelength "{lines_per_wavelength}"
      .LowerMeshLimit "{lower_mesh_limit}"
      .MeshType "{mesh_type}"
