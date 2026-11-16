@@ -8,6 +8,53 @@ Keep build, solver, and performance verdicts independent. The default `flow` pro
 
 Record tone order, powers, impedances, bias, harmonic and mixing orders, oversampling, oscillator-search settings, requested spectral products, phasor convention, and frequency/amplitude tolerances before simulation. Select the intended HB block and signal by identity; a dataset's existence or a converged but physically wrong setup is not acceptance.
 
+## Native HB RF-frequency sweeps
+
+For an HB RF-frequency scan, use the native controller `SweepVar` and `SweepPlan`
+(or its DE Start/Stop/Step settings) before considering an external RF-point loop.
+Keep pump frequency, pump amplitude, bias and other state parameters fixed within
+each sweep. Run the whole RF axis in one `CircuitSimulator.run_netlist` call per
+state and excitation direction; native HB continuation can reuse the previous
+point's solution. Set `Restart=no` when that continuation is intended.
+
+Plan and report simulator invocations separately from frequency points. For
+example, seven pump settings and two directions require 14 directional sweeps;
+61 RF points per sweep produce 854 directional frequency points, not 854 process
+launches. Validate one complete native sweep's current `.ds` axis and finite
+results before submitting the remaining sweeps.
+
+Generate the controller through the installed DE API and inspect the emitted
+netlist. A two-tone finite-power example, with `RF_GHz` a dimensionless variable
+used as `RF_GHz GHz` by the RF sources, is:
+
+```text
+RF_GHz=110
+SweepPlan:RFPlan Start=110 Stop=170 Step=1
+HB:HB1 Freq[1]=PUMP_GHz GHz Order[1]=16 Freq[2]=RF_GHz GHz Order[2]=1 MaxOrder=17 Oversample[1]=4 Oversample[2]=4 Restart=no SweepVar="RF_GHz" SweepPlan="RFPlan"
+```
+
+The 16/1 orders and 4/4 oversampling are an example, not universal accuracy
+settings. Select and validate truncation for the requested device and metric.
+Keep sweep values and source frequency units consistent. ADS requires a quoted
+string for `SweepVar`; in the DE API assign
+`hb.parameters["SweepVar"].value = '"RF_GHz"'`, then verify the saved netlist.
+
+Preserve the requested RF power and full nonlinear HB analysis. A 0 dBm request
+must remain 0 dBm; do not switch to pumped small-signal analysis just to accelerate
+the sweep. Retain LO/pump and RF as separate HB fundamentals where appropriate.
+A coincident-frequency warning alone is not a reason to replace the whole scan
+with hundreds of common-fundamental harmonics. Select mix indices and physical
+frequencies from the native dataset; coherently sum terms at the same physical
+frequency for a total finite-power carrier metric, and retain the warning.
+
+Use pointwise process launches only for an explicit user request, an isolated
+failure/accuracy diagnostic, or a demonstrated native-sweep limitation. Record
+the reason and affected points; preserve successful native sweeps and failed
+attempts rather than restarting the complete RF grid. Native frequency sweeping
+does not by itself validate harmonic accuracy or device performance. Report
+measured solver-call wall time and native stopwatch time separately; an earlier
+8-second sweep is not a runtime requirement for another network.
+
 ## Mixer
 
 ### Build contract

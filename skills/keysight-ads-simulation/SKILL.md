@@ -23,6 +23,15 @@ Use the ADS **official Python API** as the primary control surface and the `.ds`
 
 Protect user work: inventory the requested root first, create unique workspace and run-output paths, and **never overwrite** an existing workspace, dataset, display, netlist, log, layout, or fabrication export unless the user explicitly authorizes that exact replacement.
 
+## HB RF-frequency sweeps
+
+Prefer ADS native HB sweeps: one simulator invocation per fixed pump/bias/state
+and excitation direction, with all requested RF frequencies swept inside ADS.
+Do not restart the simulator for every RF point. Read the
+[native HB sweep contract](references/nonlinear-rf-workflows.md#native-hb-rf-frequency-sweeps)
+before planning an HB frequency scan; it covers controller settings, sweep counts,
+finite-power analysis, coincident mixing products and justified pointwise fallbacks.
+
 ## Select the validation level
 
 - `flow` is the default. Prove the requested build and solver path with the smallest useful run, inspect the resulting database/netlist/dataset directly, and report measured values without imposing an unstated performance specification.
