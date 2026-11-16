@@ -197,11 +197,13 @@ End With"""
         :param ratio_limit: int, 网格比例限制，默认 10
         :param smallest_mesh_step: str, 最小网格步长，默认 '1e-6'
         """
+        native_type = {"PBA":"HexahedralFIT", "Hexahedral":"HexahedralFIT"}.get(mesh_type, mesh_type)
+        if native_type not in ("HexahedralFIT", "HexahedralTLM", "Tetrahedral"):
+            raise ValueError("Unsupported native mesh type")
         f1 = f"""With Mesh
-     .Reset
      .LinesPerWavelength "{lines_per_wavelength}"
-     .LowerMeshLimit "{lower_mesh_limit}"
-     .MeshType "{mesh_type}"
+     .MinimumStepNumber "{lower_mesh_limit}"
+     .MeshType "{native_type}"
      .RatioLimit "{ratio_limit}"
      .SmallestMeshStep "{smallest_mesh_step}"
      .Automesh "True"

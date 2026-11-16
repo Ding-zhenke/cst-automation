@@ -16,6 +16,22 @@
 
 # 验证记录
 
+## 2026-11-12：多 DE 和多工程现场测试
+
+- 两个新建的隔离会话各自启动了 CST 2026 DE；记录的 DE 身份不同。
+  Windows 虚拟环境启动器与实际 worker PID 不同，不能用启动器 PID 代替 worker 或 DE。
+  第一个 DE 创建两个空 MWS 工程，并分别完成原生只读检查；均未求解。
+- 第二个 DE 的两个工程均已登记并保存，但第二次创建期间对 CST 脚本模式窗口
+  的 Control View 读取超时，Raw View 读到提示与按钮，因文本完整性未确认而被
+  判为未知阻塞。创建调用已返回，最终窗口快照为 clear，首次监测失败仍被锁存，
+  会话为 needs_reconcile；该次任务不记为成功，不能以最终 clear 撤销失败。
+  后续使用 `cst_solver.dialogs` 对同一 PID、创建时间、owner 和 HWND 只读复查，
+  完整读到同一正文及 `Minimize` / `Switch to Interactive Mode` 按钮，分类为
+  非阻塞 `scripting_control`。这确认当前窗口身份，不补写旧快照的完整性；
+  失败任务和会话围栏仍保留。是否可安全改进分类尚待验证。
+- 两个隔离测试会话及原始回执位于本机 `work/sessions`，不发布工程或凭据。
+  本次未验证跨 DE 的有区别参数路由、原生重连、多项目恢复或黑框来源。
+
 ## 2026-11-12：非交互进程后台启动（0.3.78）
 
 - 仓库离线检查中有若干 Python 子进程此前未显式指定隐藏控制台，是可能的窗口
@@ -1156,3 +1172,7 @@ CST 2026 Help 的 transient shooting 模式、steady state period detection/peri
 - Frozen complete saved packages were read with official `cst.results.ProjectFile(..., allow_interactive=False)`: all nine complex S entries, their common positive run ID, frequency axes, stored parameters and reference impedances were retained. This validates extraction and execution/save observations separately from convergence or device performance.
 - Focused regression: `.venv/Scripts/python.exe -m pytest tests/test_workflow_em_only.py tests/test_workflow_enforcement.py tests/test_network_transient_route.py -q -p no:cacheprovider` — 58 passed, repeated after review. Earlier full-suite execution had 16 failures and one skip; the introduced transient-route compatibility failure was fixed and is covered by the passing focused run. The other 15 failures concern geometry saved-review and session-monitor completion evidence; their prior-baseline status was not established. No full-suite pass is claimed.
 - Traceable engineering receipts, original warning outcome and hashed frozen results remain in the user's dated 2026-11-16 run archive; no private project, geometry, machine credential or result data is published here. A repository-wide clean baseline was not captured before the change; unrelated untracked external-baseline files were excluded from this commit.
+
+## 2026-11-16: ACIS binary, symbolic wave-port ranges and coordinate RLC in an owned engineering model
+
+The owned fresh CST 2026 model imported an unchanged binary SAB via the existing SAT.Read route; free wave ports using parameterized_ranges=True and a coordinate LumpedElement rebuilt and saved with no reported messages. Independent width parameter changes were checked against native named-solid volumes and restored; Chinese descriptions were checked in the saved CST parameter metadata. This is configuration/rebuild/readback evidence, not modal impedance, mesh, EM or HB validation. Targeted regression: 28 passed. An earlier full suite had 2565 passed, 2 deselected and one failure, cst_solver/tests/test_guards.py::test_update_clears_dirty; it is not recorded as a green full suite. Parallel pre-existing working-tree changes were preserved; no combined commit or push was attempted.

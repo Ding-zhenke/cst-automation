@@ -11,7 +11,9 @@ HF_TET_CURVATURE_CAPABILITY = 'hf-tet-curvature-order-v1'
 HF_TET_CURVATURE_POLICY_CAPABILITY = 'hf-tet-curvature-policy-v1'
 PORT_IDENTITY_CAPABILITY = 'port-identity-edit-v1'
 POINT_LUMPED_CAPABILITY = 'point-lumped-element-v1'
-SETTINGS_ONLY_METHODS = frozenset(('configure_fd_linear_solver', 'configure_fd_frequency',
+SETTINGS_ONLY_METHODS = frozenset(('clear_em_results', 'configure_td_controls',
+                                 'configure_fd_excitation', 'configure_fd_linear_solver',
+                                 'configure_fd_frequency',
                                  'configure_fd_parallelization', 'configure_tetrahedral_mesh', 'set_frequency_range'))
 
 
@@ -73,7 +75,10 @@ def settings_capability(calls):
     return (MESH_SETTINGS_CAPABILITY if any(call.get('method') == 'configure_tetrahedral_mesh'
             for call in calls) else SETTINGS_ONLY_CAPABILITY)
 
-METHODS = frozenset(('set_units','para','new_component','new_curve','square','polyline',
+METHODS = frozenset(('configure_td_controls','configure_fd_excitation','clear_em_results',
+    'para','new_material','T_solver','set_gpu_acceleration','set_steady_state_limit',
+    'set_parallel_threads','set_mesh_adaption','set_mesh_auto','set_units',
+    'new_component','new_curve','square','polyline',
     'extrude','add','subtract','create_elliptical_cylinder',
     'create_brick','cylinder','create_cylinder','create_sphere','create_cone','create_torus',
     'configure_sweep','configure_discrete_sweep','add_sweep_parameter_arbitrary_points',
@@ -96,7 +101,7 @@ METHODS = frozenset(('set_units','para','new_component','new_curve','square','po
     'blend_curve','chamfer_curve','trim_curves','boolean_imprint','blend_edge',
     'set_edge','pick_face_at','pick_edge_at','pick_point_at',
     'align_wcs','wcs_rotate_axis','scale_wcs',
-    'rename_solid','rename_component','change_component','change_material_color','import_step'))
+    'rename_solid','rename_component','change_component','change_material_color','import_step','import_sat'))
 
 
 def _preflight_settings(method, bound):
@@ -125,6 +130,26 @@ def _preflight_settings(method, bound):
             validate_name(description, kind='parameter description')
         if type(values['log_flag']) is not int or values['log_flag'] != 0:
             raise ValueError('Initial model_api para calls must use log_flag=0; the stage rebuild is managed by the session')
+    elif method == 'clear_em_results':
+        if values['confirm_delete'] is not True: raise ValueError('Explicit archived-result deletion confirmation required')
+    elif method == 'configure_td_controls':
+        from cst_solver.simulation.td_controls import commands
+        commands(values['settings'])
+    elif method == 'configure_fd_excitation':
+        from cst_solver.simulation.td_controls import fd_excitation
+        fd_excitation(values['port'],values['mode'])
+    elif method == 'import_sat':
+        from pathlib import Path
+        path = values['filename']
+        if not isinstance(path, str) or not Path(path).is_absolute() or Path(path).suffix.lower() not in ('.sat', '.sab') or not Path(path).is_file():
+            raise ValueError('Existing absolute SAT/SAB file required')
+        if any(c in path for c in ('"', '\r', '\n')):
+            raise ValueError('SAT filename must be a safe path string')
+        if type(values['scale_to_unit']) is not bool:
+            raise ValueError('scale_to_unit must be boolean')
+        tpn = values['tpn']
+        if type(tpn) is not bool and tpn not in ('True', 'False'):
+            raise ValueError('tpn must be boolean or True/False string')
     elif method == 'import_step':
         from pathlib import Path
         path = values['filename']
