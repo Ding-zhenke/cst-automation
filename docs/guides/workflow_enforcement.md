@@ -84,3 +84,7 @@ EM 参数、几何及 EM 配置变动在写入前清除旧 EM 放行证据。重
 SDK 返回失败时，普通失败回执仍不能放行。仅对已保存结果与 SDK abort 矛盾的特定
 情况，使用 [已保存 EM 资格核验](saved_em_qualification.md)；它保留原错误、独立读取
 原生结果，不解除保护或触发重算。MOR/DC 与文件交接入口及明确限制见同页。
+
+## EM-only contract (schema v2)
+
+For a reviewed standalone EM solve, bind `schema_version=2`, `mode="em_only"`, and exactly `parameters`, `initial_values`, `em_checks`, `evidence_rules`. Parameter rules must affect EM; all existing numeric, identity, digest, native-check, revision and invalidation protections remain. This contract rejects circuit solve/study and HB handoffs. Worker capability `parameter-em-only-v2` is required at execution; do not replace an active worker. A successful bind or offline test is not native solver evidence or convergence.

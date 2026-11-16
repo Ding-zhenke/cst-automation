@@ -1983,3 +1983,7 @@ Service `circuit/build/configure_task_execution` and MCP
 `configure_circuit_task_execution` queue and save the configuration. Owning
 sessions require an already running worker advertising `circuit-task-execution-v1`;
 older workers are rejected without replacement.
+
+### EM-only guarded workflow (schema v2)
+
+A workflow specification may use `schema_version: 2` and `mode: "em_only"` with exactly `parameters`, `initial_values`, `em_checks`, and `evidence_rules`. Rules, native EM checks, digest, ownership and invalidation have the same meaning as v1; parameter rules must affect EM. Circuit solve/study and HB-specific operations are rejected. This mode requires worker capability `parameter-em-only-v2` at binding and execution; existing workers must not be upgraded while active. Version 1 remains unchanged. Offline validation alone does not prove a native solve or convergence.

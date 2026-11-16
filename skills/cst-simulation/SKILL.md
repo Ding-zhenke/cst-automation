@@ -137,3 +137,5 @@ or its error indicator. Only enable cross-case reuse when supported and checked.
 Report actual cells/DOF only when meshing has been performed; configured limits
 are not convergence evidence. This guidance specifies decisions, not a claim
 that the current general mesh wrappers cover every F-solver setting.
+
+For standalone reviewed EM solves, the owning session supports a guarded `schema_version=2`, `mode="em_only"` contract; see the workflow guide. It requires the actual worker capability `parameter-em-only-v2`, retains identity and native checks, and rejects circuit solves. Do not upgrade a live worker.

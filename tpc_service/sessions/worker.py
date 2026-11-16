@@ -248,7 +248,7 @@ def run(folder):
                 return  # A concurrent legacy resume must not replace the frozen worker.
             state['worker'] = process_identity(os.getpid())
             from .manager import UPGRADE_CAPABILITY
-            from .workflow import CAPABILITY
+            from .workflow import CAPABILITY, EM_ONLY_CAPABILITY
             from .model_api import SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY
             from .read_review import CAPABILITY as READ_REVIEW_CAPABILITY
             from cst_automation.port_replacement import CAPABILITY as PORT_CAPABILITY
@@ -262,6 +262,7 @@ def run(folder):
             from .model_api import HF_TET_ORDER_CAPABILITY
             state['worker_capabilities'] = [EXPLORATORY_CAPABILITY, BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
             from .model_api import PORT_IDENTITY_CAPABILITY
+            state['worker_capabilities'].append(EM_ONLY_CAPABILITY)
             state['worker_capabilities'].append(PORT_IDENTITY_CAPABILITY)
             state['worker_capabilities'].append(HANDOFF_CAPABILITY)
             state['worker_capabilities'].append(EXPLORATORY_SP_NETWORK_CAPABILITY)

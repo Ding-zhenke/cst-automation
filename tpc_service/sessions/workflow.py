@@ -9,6 +9,7 @@ from .native import file_digest
 from .store import alive, read, write, identifier
 
 CAPABILITY = 'parameter-em-hb-v1'
+EM_ONLY_CAPABILITY = 'parameter-em-only-v2'
 READ_CIRCUIT = frozenset(('inspect', 'read_results', 'read_run_parameters', 'read_sp_impedances', 'package', 'stage_postprocessing_template'))
 PARAMETER_SWEEPS = frozenset(('configure_sweep', 'configure_discrete_sweep',
     'add_sweep_parameter_arbitrary_points', 'add_parameter_sweep_sequence', 'add_sweep_parameter_samples'))
@@ -38,10 +39,11 @@ def mutates(operation, params):
     return operation == 'circuit' and params.get('kind', 'build') == 'build' and params.get('settings', {}).get('operation') not in READ_CIRCUIT
 
 
-def check_worker(state):
-    if state.get('worker') and alive(state['worker']):
-        if CAPABILITY not in state.get('worker_capabilities', []):
-            reject('worker_upgrade_required', 'Existing worker lacks workflow enforcement; wait for safe upgrade')
+def check_worker(state, spec=None, *, executing=False):
+    required = EM_ONLY_CAPABILITY if spec and spec.get('schema_version') == 2 else CAPABILITY
+    if executing or (state.get('worker') and alive(state['worker'])):
+        if required not in state.get('worker_capabilities', []):
+            reject('worker_upgrade_required', 'Existing worker lacks required workflow capability; wait for safe upgrade')
 
 
 def bind(folder, state, project_id, spec, expected_revision):
@@ -51,11 +53,11 @@ def bind(folder, state, project_id, spec, expected_revision):
         reject('project_required', 'An open registered project is required')
     if state['status'] != 'ready' or state.get('uncertain_jobs') or state.get('launch_intent') or JobIndex.load(folder).active_jobs():
         reject('busy', 'Bind or revise a specification only with an idle, resolved session')
-    check_worker(state)
     try:
         spec = normalize(spec)
     except (ValueError, TypeError, KeyError) as exc:
         reject('spec_invalid', str(exc))
+    check_worker(state, spec)
     old = project.get('workflow')
     revision = digest(spec)
     if old and old['revision'] == revision:
@@ -136,6 +138,15 @@ def check_evidence(folder, project):
 
 
 def preflight(folder, state, operation, params, *, job=None):
+    project_for_mode = state['projects'].get(params.get('project_id'))
+    bound = project_for_mode.get('workflow') if project_for_mode else None
+    if bound and bound.get('spec', {}).get('schema_version') == 2 and (
+            (operation == 'circuit' and params.get('kind', 'build') in ('solve', 'study'))
+            or operation in ('fit_em_network', 'update_hb_network', 'prepare_hb_embedded_network',
+                             'prepare_exploratory_sp_network', 'configure_exploratory_linear_sp',
+                             'run_exploratory_linear_sp', 'prepare_static_sp',
+                             'prepare_native_static_sp', 'run_native_static_sp', 'run_fenced_static_sp')):
+        reject('route_unsupported', 'EM-only workflow does not permit circuit or HB solving')
     if operation == 'initialize_parameters':
         from .initial_parameters import preflight as initial_preflight
         initial_preflight(folder, state, params, job=job)
@@ -230,8 +241,7 @@ def preflight(folder, state, operation, params, *, job=None):
         return None
     if read(marker(project['path'])) != {'session_folder': str(Path(folder).resolve()), 'project_id': params['project_id']}:
         reject('owner_mismatch', 'Workflow ownership marker is missing or changed')
-    if job is None:
-        check_worker(state)
+    check_worker(state, workflow['spec'], executing=(job is not None and workflow['spec'].get('schema_version') == 2))
     expected = {'revision': workflow['revision'], 'em_generation': workflow['em_generation'],
                 'hb_generation': workflow['hb_generation']}
     if job is not None and job.get('workflow_guard') != expected:

@@ -45,8 +45,12 @@ def normalize(spec):
     data = copy.deepcopy(spec)
     required = {'schema_version', 'parameters', 'initial_values', 'em_checks', 'hb_checks',
                 'hb_task', 'hb_request', 'evidence_rules'}
-    if set(data) != required or type(data['schema_version']) is not int or data['schema_version'] != 1:
-        raise ValueError('Workflow schema v1 requires explicit fields only')
+    version = data.get('schema_version')
+    em_only = type(version) is int and version == 2 and data.get('mode') == 'em_only'
+    v2_required = {'schema_version', 'mode', 'parameters', 'initial_values', 'em_checks', 'evidence_rules'}
+    if not ((type(version) is int and version == 1 and set(data) == required)
+            or (em_only and set(data) == v2_required)):
+        raise ValueError('Workflow requires explicit v1 or em_only v2 fields')
     if not isinstance(data['parameters'], dict) or not data['parameters']:
         raise ValueError('Explicit parameter rules required')
     from cst_solver.expressions import validate_parameter_name
@@ -55,6 +59,8 @@ def normalize(spec):
             raise ValueError('Parameter names must be canonical')
         if not isinstance(rule, dict) or rule.get('affects') not in ('em', 'hb'):
             raise ValueError('Each parameter requires affects=em or hb')
+        if em_only and rule['affects'] != 'em':
+            raise ValueError('EM-only parameters must affect EM')
         if set(rule) not in ({'value', 'affects'}, {'min', 'max', 'affects'}):
             raise ValueError('Use a fixed value or bounded independent numeric parameter')
         for key in set(rule) - {'affects'}:
@@ -64,7 +70,7 @@ def normalize(spec):
     if not isinstance(data['initial_values'], dict) or set(data['initial_values']) != set(data['parameters']):
         raise ValueError('initial_values must cover every declared parameter')
     parameter_changes(data, data['initial_values'])
-    for stage in ('em_checks', 'hb_checks'):
+    for stage in (('em_checks',) if em_only else ('em_checks', 'hb_checks')):
         checks = data[stage]
         if not isinstance(checks, list) or not checks:
             raise ValueError('Nonempty native checks required for ' + stage)
@@ -88,12 +94,13 @@ def normalize(spec):
                     raise ValueError('Negative tolerance')
             elif not isinstance(expected, str) or 'atol' in check:
                 raise ValueError('Expected native value must be text or number, not a passed flag')
-    text(data['hb_task'])
-    request = data['hb_request']
-    if not isinstance(request, dict) or request.get('mode') != 'network':
-        raise ValueError('HB requires explicit network mode')
-    if set(request) & {'operation', 'task_name', 'expected_results', 'reuse'}:
-        raise ValueError('Reserved HB request fields')
+    if not em_only:
+        text(data['hb_task'])
+        request = data['hb_request']
+        if not isinstance(request, dict) or request.get('mode') != 'network':
+            raise ValueError('HB requires explicit network mode')
+        if set(request) & {'operation', 'task_name', 'expected_results', 'reuse'}:
+            raise ValueError('Reserved HB request fields')
     rules = data['evidence_rules']
     if not isinstance(rules, dict) or not rules:
         raise ValueError('Explicit numerical evidence rules required')
