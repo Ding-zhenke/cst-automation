@@ -48,7 +48,7 @@ class ValidationMixin:
         :param rebuild: bool, 是否执行 ``Rebuild()`` 重放工程历史，默认 True。
             重放会重新生成几何，是发现「参数改了但历史没重建」的最后一道检查。
         :param rebuild_mode: ``full`` 使用原生 Rebuild（删除结果）；
-            ``parametric`` 使用 SDK full_history_rebuild 的 app.update 路径。
+            ``parametric`` 使用 RebuildOnParametricChange(False, False) 的 app.update 路径。
         :param messages_prefix: str, 预留参数（当前未用于过滤，仅为将来按导航树
             筛消息留出签名位置）
         :return: dict::

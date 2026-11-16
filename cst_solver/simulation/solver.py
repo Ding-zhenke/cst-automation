@@ -132,6 +132,31 @@ End With"""
         from .em_time import configure_em_time_settings
         return configure_em_time_settings(self, settings)
 
+    def clear_em_results(self, *, confirm_delete=False):
+        """Delete current native results only after caller archives required data."""
+        if confirm_delete is not True:
+            raise ValueError('Archive data and explicitly confirm deletion first')
+        from cst_solver.native import execute_vba
+        execute_vba(self.cst_file, 'Sub Main\nDeleteResults\nEnd Sub', target='model3d')
+        return {'delete_requested':True, 'archiving_verified':False}
+
+    def configure_td_controls(self, settings):
+        """Set explicit excitation/convergence; no reset, save or solve."""
+        from .td_controls import commands
+        from cst_automation.settings_history import history_caption
+        code = commands(settings)
+        self.cst_file.model3d.add_to_history(history_caption('TD controls', code), code)
+        return {'requested':dict(settings), 'submitted':True, 'native_commands':code,
+                'readback_verified':False, 'solver_verified':False}
+
+    def configure_fd_excitation(self, port=1, mode=1):
+        """Select one frequency-domain source without resetting the solver."""
+        from .td_controls import fd_excitation
+        from cst_automation.settings_history import history_caption
+        code = fd_excitation(port, mode)
+        self.cst_file.model3d.add_to_history(history_caption('FD excitation', code), code)
+        return {'port':port, 'mode':mode, 'submitted':True, 'readback_verified':False}
+
     def run(self):
         """
         执行当前 CST 工程的求解器计算，提交仿真任务
@@ -185,12 +210,10 @@ End With"""
                                        message_source='sdk_pending_queue')
 
     def update(self):
-        """
-        刷新当前 CST 工程的模型历史，使参数修改生效
-
-        这也是守卫层认可的「重建」动作 —— 调用后参数脏标记清除。
-        """
-        self.cst_file.model3d.full_history_rebuild()
+        """Refresh affected history and retain surviving parametric results."""
+        updated = self.cst_file.model3d.RebuildOnParametricChange(False, False)
+        if not updated:
+            raise RuntimeError('CST parameter-only history update failed')
         get_guard_state(self).mark_rebuilt()
 
     def configure_fem_solver(self, accuracy='1e-6', mesh_adaption=True):

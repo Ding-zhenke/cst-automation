@@ -122,6 +122,40 @@ def test_project_reuses_existing_native_tab_after_handle_loss(tmp_path):
     assert runtime.project('main')[0].cst_file is tab
 
 
+def test_two_environments_each_route_multiple_project_handles(tmp_path, monkeypatch):
+    from tpc_service.sessions import native
+    from cst_solver import environment
+    import cst_solver
+
+    manager = SessionManager(str(tmp_path.resolve()), backend='fake')
+    bindings = [manager.ensure(name, name) for name in ('first', 'second')]
+    identities = [dict(pid=101, started=1, image='cst'), dict(pid=202, started=2, image='cst')]
+    apps = {}
+    runtimes = []
+    for index, binding in enumerate(bindings):
+        runtime = Runtime(tmp_path / binding['session_id'], 'cst')
+        tabs = {}
+        records = {}
+        for name in ('one', 'two'):
+            path = tmp_path / f'{index}-{name}.cst'
+            path.write_text(name, encoding='utf-8')
+            tabs[str(path)] = SimpleNamespace(activate=lambda: None, label=(index, name))
+            records[name] = dict(project_id=name, path=str(path), saved=True, saved_digest=file_digest(path))
+        de = SimpleNamespace(pid=identities[index]['pid'], list_open_projects=lambda tabs=tabs: list(tabs),
+                             get_open_project=lambda path, tabs=tabs: tabs[path])
+        apps[de.pid] = SimpleNamespace(project=de, open=lambda *_: pytest.fail('Unexpected project reopen'))
+        runtime.update(environment=identities[index], projects=records)
+        runtimes.append(runtime)
+    monkeypatch.setattr(native, 'alive', lambda identity: identity in identities)
+    monkeypatch.setattr(cst_solver, 'setup', SimpleNamespace(attach=lambda *, pid: apps[pid]))
+    monkeypatch.setattr(environment, 'environment_pid', lambda de: de.pid)
+    for index, runtime in enumerate(runtimes):
+        for name in ('one', 'two', 'one'):
+            app, _ = runtime.project(name)
+            assert app is apps[identities[index]['pid']]
+            assert app.cst_file.label == (index, name)
+
+
 def test_inspection_is_outside_history_rebuild_and_save(tmp_path):
     _, _, runtime, record = fixture(tmp_path)
     solid = SimpleNamespace(GetNumberOfShapes=lambda: 1, GetNameOfShapeFromIndex=lambda index: 'c:s',

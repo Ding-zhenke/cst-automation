@@ -61,6 +61,14 @@ Build, solver, and performance are independent gates. A valid schematic or layou
 6. Generate CSV/JSON and noninteractive plots from the same parsed data when review artifacts are requested. Record formulas, units, conventions, paths, and hashes.
 7. Add only the checks required by the selected circuit-family reference and validation level. Keep circuit, layout, EM, fabrication, and performance verdicts separate.
 
+Prefer relative paths for files referenced by generated ADS netlists, especially
+when the workspace path contains Chinese characters. In one observed failure,
+ADS could not parse a netlist containing a Chinese absolute path; changing the
+reference to a relative path resolved it. Run with a known working directory
+and verify that each relative reference resolves from there. If parsing fails,
+preserve the failing netlist and full failure log before making a path change so
+the cause remains inspectable.
+
 Create or inspect DDS only when the user requests it or the deliverable requires a Data Display. Programmatic reopen, structural inspection, and agreement with the independently parsed `.ds` are sufficient for headless validation. When the user did not request visible UI verification, report exactly `GUI check is not applicable`.
 
 Preserve warnings, model limitations, and fatal errors as distinct evidence. Behavioral or ideal models support only the claims their parameters justify; they do not turn simulated performance into a hardware guarantee.
