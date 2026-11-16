@@ -29,6 +29,9 @@ skills do not establish that the active worker loaded them.
 `passed=true` 或助手承诺代替；旧 worker 能力不符时等待安全升级，不重启正在求解的环境。
 
 For actual CST work in Codex conversations, use the persistent session entry point by default.
+Exception: a standalone EM run of an existing project can open it and call `app.run()`
+directly, without a session or workflow binding. Check the project and prior run state;
+use the native log and results to determine the outcome.
 Use [in-situ validation](../cst-in-situ-validation/SKILL.md) to validate and improve automation while carrying out the authorized engineering task.
 Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
 Read [project reuse and delivery](references/project-lifecycle.md) for scans, native

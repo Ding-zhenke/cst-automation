@@ -10,6 +10,8 @@ For parameter → EM → HB work, use the mandatory
 [session workflow contract](../docs/guides/workflow_enforcement.md).
 The submission and execution gates run automatically; the optional checkpoint
 script is not a substitute. Existing running workers must not be interrupted to upgrade.
+For a standalone run of an existing EM project, open it and call `app.run()`;
+binding a workflow or creating a session is not a prerequisite.
 
 Codex skill entry points for this package:
 

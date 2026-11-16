@@ -60,7 +60,16 @@ regressions are tested offline; native parameter linkage still needs CST readbac
 
 `app.create_material_gyrotropic(name, epsilon, *, larmor_omega, gyrotropic_omega, damping, bias_direction=(0,0,1), mu_infinity=1, kappa=0, color=None, colour=None)` wraps the native magnetic Gyrotropic model using SI inputs. Both omega inputs are angular frequencies in rad/s (use `2*pi*f_hz` from Hz), direction is a unit vector, and all physical inputs accept CST parameter-expression strings. Numeric ranges and unit directions are checked before project access. It submits material history only, without running a solver. Bias-source selection retains CST's reset default and requires native inspection in projects with magnetostatic sources; see [the SI interface and limits](../guides/material_tensors.md#原生-si-接口与-cst-参数).
 
-`setup.run()` retains its legacy behavior. `setup.run_checked(...)` returns a structured run contract and distinguishes submission, message checks, result presence, and result identity. Save completed results before reading them. Do not report a successful solve unless the run contract status says `succeeded`; record its run token/ID and relevant diagnostics.
+For an existing project, the direct EM entry point is:
+
+```python
+from cst_solver import setup
+
+app = setup(r"D:\Projects\example.cst")
+app.run()
+```
+
+`run()` returns `None`; check the actual solver log and results before reporting completion. `run_checked(...)` is optional and adds a structured run contract. Save completed results before reading them. A returned call alone does not establish numerical convergence.
 
 For a solver stall, inspect [the actual CST dialog](../guides/cst_dialogs.md), including title, body, buttons, process, and PID. A closed dialog or a returned SDK call does not by itself prove solver success.
 

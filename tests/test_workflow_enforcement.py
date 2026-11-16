@@ -51,9 +51,17 @@ def submit(setup, operation, params, request='request'):
     return manager.submit(ref['session_id'], ref['credential'], request, operation, dict(project_id='p', **params))
 
 
-def test_missing_contract_cannot_launch_cst(setup):
+def test_unbound_standalone_em_can_be_queued(setup):
+    job = submit(setup, 'solve', {})
+    assert job['status'] == 'queued'
+    from tpc_service.sessions.workflow import preflight
+    state = read(setup[2] / 'session.json')
+    assert preflight(setup[2], state, 'solve', job['params'], job=job) is None
+
+
+def test_missing_contract_still_rejects_parameter_changes(setup):
     with pytest.raises(ServiceError) as caught:
-        submit(setup, 'solve', {})
+        submit(setup, 'set_parameters', {'values': {'width': 2}})
     assert caught.value.code == 'workflow_required'
     assert setup[-1] == []
     assert not list((setup[2] / 'jobs').glob('*.json'))
