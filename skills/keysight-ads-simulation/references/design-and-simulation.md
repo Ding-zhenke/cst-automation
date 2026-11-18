@@ -32,6 +32,35 @@ Do not hand-author workspace database files. A palette caption is not necessaril
 - Parameter spelling, indexing, accepted expressions, and units are definition-specific. Verifying `instance.parameters` plus the netlist is the required evidence chain.
 - Generate the netlist after saving, then inspect component models, values, node connectivity, port numbering, source fundamentals, sweep variables, and controller settings.
 
+## Open an editable schematic in desktop ADS
+
+Reuse the interactive ADS session that owns the intended workspace. Run this
+AEL example inside that session, replacing the library and cell with the
+qualified target. The native call brings an existing window forward or opens
+a new one and returns its handle.
+
+```text
+decl target = "myLibrary:myCell:schematic";
+decl context = db_get_design_context_from_name(target, APPEND_DSN_MODE);
+decl windowH = NULL;
+if (!db_is_design_read_only(context))
+    windowH = de_bring_context_to_top_or_open_new_window(context);
+```
+
+Check that the returned handle has a valid context with
+`de_window_has_valid_context(windowH)`. Read the design name from the resolved
+context with `db_get_design_name(context)` and confirm that the returned handle
+is in `de_get_windows_with_same_context(context)`. Keep the verified window
+open. If the target is locked or only accessible in read mode, report that
+condition instead of closing another session or overriding its lock.
+
+An external `db_uu.open_design()` defaults to read mode and supplies a database
+object. Use the interactive call and window readback as evidence of desktop
+delivery. An external caller needs a supported bridge that executes inside the
+target session. Verify that path separately for the installed release.
+These calls are documented in the bundled ADS 2026 AEL help. External
+delivery into a running ADS session has not been verified for this example.
+
 ## Select the analysis from the measurement
 
 | Analysis | Typical purpose | Minimum solver evidence |

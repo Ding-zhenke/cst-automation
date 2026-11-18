@@ -52,6 +52,7 @@ Build, solver, and performance are independent gates. A valid schematic or layou
 
 - Always read [environment-and-compatibility.md](references/environment-and-compatibility.md) before importing an ADS package.
 - Read [design-and-simulation.md](references/design-and-simulation.md) before creating or changing a workspace, schematic, simulation controller, layout generated from a schematic, EM co-simulation view, or netlist.
+- To display an editable schematic, use the [native desktop window API](references/design-and-simulation.md#open-an-editable-schematic-in-desktop-ads) inside the target ADS session and verify the returned window.
 - Read [linear-rf-workflows.md](references/linear-rf-workflows.md) for an amplifier, filter, or RF switch, including DC, S-parameter, state-sweep, and circuit-to-Momentum comparisons.
 - Read [nonlinear-rf-workflows.md](references/nonlinear-rf-workflows.md) for a mixer or oscillator, including harmonic balance, spectral products, oscillator search, and phase noise.
 - Read [dataset-and-dds.md](references/dataset-and-dds.md) before accepting a `.ds` result or creating or inspecting a `.dds` display.
