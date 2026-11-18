@@ -14,11 +14,24 @@ and solver starts still require authorization for the engineering task.
 Use the normal sandbox for plain `doctor --json` without an SDK probe, source,
 logs, exported CSV/Touchstone files and fake tests that do not call CST.
 
-For repository work, run commands and background processes without showing a
-console window. On Windows use hidden process-launch options, such as
-`Start-Process -WindowStyle Hidden` or Python's `CREATE_NO_WINDOW`, as
-appropriate; retain output and error diagnostics. Show an interactive console
-only when the user explicitly requests one.
+## Running Python without a console window
+
+On Windows invoke noninteractive Python from the existing PowerShell host with
+the [hidden launcher](keysight-ads-simulation/scripts/invoke_hidden.ps1), including the
+first interpreter for a one-off script, a probe, or a session CLI command.
+Resolve the launcher from the selected plugin or repository. For example,
+from the repository root, an offline environment check is:
+
+```powershell
+& .\skills\keysight-ads-simulation\scripts\invoke_hidden.ps1 -Executable .\.venv\Scripts\python.exe -ArgumentList @('-m', 'cst_solver', 'doctor', '--json')
+exit $LASTEXITCODE
+```
+
+Pass arguments individually and keep the task's working directory. Use the
+same launcher with approved host permissions for native operations. For long
+jobs, let the command tool yield and continue following the same process or
+job. Keep output, errors and the exit code. Show an interactive console only
+when requested; keep CST diagnostic dialogs available to the user.
 
 For parameter → EM → HB work, use the mandatory
 [session workflow contract](../docs/guides/workflow_enforcement.md).

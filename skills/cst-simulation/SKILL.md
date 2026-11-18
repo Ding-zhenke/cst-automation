@@ -11,6 +11,7 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 用 Codex 命令工具启动时，首条会导入 CST SDK、打开工程或启动原生 worker 的命令
 即指定 `sandbox_permissions="require_escalated"`。已有工程的单次
 `setup(project_path)`、`app.run()` 同样适用。启动求解仍需当前任务的授权。
+Windows 下首个非交互 Python 进程用[后台启动脚本](../keysight-ads-simulation/scripts/invoke_hidden.ps1)运行，保留原生求解日志和 CST 弹窗。
 
 当用户明确要求本轮优先推进并豁免指定的非关键设置读回时，将这些字段及
 下发记录列为 `warning / 未独立读回`，继续已授权的 EM，不为补 getter、截图

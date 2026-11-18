@@ -14,6 +14,8 @@ on the approved host on the first attempt. In Codex command tools, set
 check the native license. Preserve the complete report. Assess installation
 discovery, Python ABI compatibility, SDK/DLL loading, license availability,
 project readback and solver execution separately.
+Use the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1) for either
+noninteractive Python command on Windows; keep CST diagnostic dialogs visible.
 
 For routine run/stop checks, use the [reusable read-only workflow](../../docs/guides/reusable_operations.md)
 and existing job/native/dialog/log evidence before screenshots. Diagnosing status

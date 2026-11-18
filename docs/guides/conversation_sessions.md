@@ -275,8 +275,7 @@ PID 可以不同；只有同一种身份与其记录或原生读回不符，才�
 数量、前台窗口或其他会话的 PID 推断错误。身份无法确认时报告实际缺失的
 证据，不改连任意 DE，也不新建工程代替原目标。
 
-仓库的安装、构建、验证和更新均按非交互方式运行，Windows 子进程使用
-`cst_automation.process.hidden_console_flags` 或适当的隐藏启动方式，保留
-日志及错误；CST 本身及其需要诊断的弹窗不隐藏。排查用户看到的黑框时，
+Windows 上，非交互会话 CLI 的首个 Python 进程由[后台启动脚本](../../skills/keysight-ads-simulation/scripts/invoke_hidden.ps1)运行。启动原生操作仍使用经批准的宿主环境。
+会话管理器对新 Python worker 设置 `CREATE_NO_WINDOW` 并保留独立进程组和原有日志。CST 自身界面和需要诊断的弹窗照常显示。排查用户看到的黑框时，
 记录实际启动入口和进程归属；离线子进程测试通过不证明所有外部启动入口
 都已覆盖。更新源代码或插件不会热更新已经运行的 worker。
