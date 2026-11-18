@@ -1,5 +1,7 @@
 # 真机验收预览（待审阅）
 
+适用范围为本页给出的独立波导验收工程。复用本例时重新确认当前预览和授权；已取得的实机证据见[验证记录](VALIDATION.md)。
+
 此页是后续真机验收的具体方案，不是 CST 执行记录。按 `AGENTS.md` 和 [cst-modeling](../skills/cst-modeling/SKILL.md) 的要求，先审阅下图及参数，再创建几何。本轮只生成参数预览，没有创建或修改 CST 工程。
 
 ![按下表参数绘制的矩形波导、端口及坐标预览](validation/waveguide-preview.svg)

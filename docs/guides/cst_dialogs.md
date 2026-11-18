@@ -1,11 +1,11 @@
 # CST 弹窗检测与恢复
 
-建模静默约 30 秒时，先读取一次弹窗，不能把进程存活或窗口响应当成任务有进展。
+建模静默约 30 秒时，先读取一次弹窗，不能把进程存活或窗口响应当成任务有进展。将 `$cstPid` 设为所属 CST 的实际进程号。仅作窗口发现时可省略 `--pid`，涉及处置前必须核实归属。旧入口 `scripts/cst_dialog_guard.py` 兼容。
 
-```bash
-python -m cst_solver.dialogs --json
-python -m cst_solver.dialogs --json --pid 12345
-# 兼容旧入口：python scripts/cst_dialog_guard.py --json
+```powershell
+$hidden = (Resolve-Path 'skills/keysight-ads-simulation/scripts/invoke_hidden.ps1').Path
+$py = (Resolve-Path '.venv/Scripts/python.exe').Path
+& $hidden -Executable $py -ArgumentList @('-m','cst_solver.dialogs','--json','--pid',$cstPid)
 ```
 
 快照提供 `pid`、`hwnd`、`title`、`body`、`buttons`、`text_readable`、`read_errors`。
@@ -34,10 +34,10 @@ with guard('build/save', timeout=600, poll=1, pid=pid):
 独立巡检线程在 SDK **尚未返回**时即向 stderr 输出 `[CST_DIALOG]` JSON，并立即 flush。
 旧 `with guard(...)` 与 `from cst_dialog_guard import guard` 可继续使用。
 合法长求解使用 `timeout=None`，保留弹窗检测；超时但没有弹窗单独报告为 `timeout`。
-需要进程外监测时，另开终端运行：
+需要进程外监测时，在有权读取原桌面的宿主后台运行，使用已核实的 CST 进程号 `$cstPid`：
 
-```bash
-python -m cst_solver.dialogs --watch --pid 12345
+```powershell
+& $hidden -Executable $py -ArgumentList @('-m','cst_solver.dialogs','--watch','--pid',$cstPid)
 # 测试用有限持续时间：--duration 10；Ctrl+C 退出返回 130
 ```
 

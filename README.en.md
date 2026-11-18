@@ -210,7 +210,7 @@ cst-automation/
 ├── cst_solver/        # CST projects, modeling, simulation, results, diagnostics
 ├── tpc_service/       # General task service and backends
 ├── cst_mcp/           # MCP adapter and tool registration
-├── skills/            # Eleven repository-local Codex skills
+├── skills/            # Task-specific Codex skills
 ├── docs/              # Installation, usage, contracts, migration, validation
 ├── tests/             # Repository tests; packages also contain their own tests
 ├── .github/workflows/ # Windows CI tests and builds
@@ -251,7 +251,7 @@ Install development dependencies in an isolated environment and run:
 
 ```powershell
 python -m pip install -e ".[dev,mcp]"
-python -m pytest -o addopts='' -m "not gui" -q
+python -m pytest -o addopts='' -m "not gui and not cst_live" -q
 python -m build --wheel --sdist
 ```
 

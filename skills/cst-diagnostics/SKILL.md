@@ -3,7 +3,7 @@ name: cst-diagnostics
 description: Diagnose CST installation, Python ABI, SDK import, solver stalls, dialogs, and structured task failures without guessing.
 ---
 
-**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+读完本入口和当前操作要求的引用章节，按[完整阅读规则](../README.md#完整阅读规则)补读和恢复。
 
 # CST diagnostics
 
@@ -17,81 +17,15 @@ project readback and solver execution separately.
 Use the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1) for either
 noninteractive Python command on Windows; keep CST diagnostic dialogs visible.
 
-For routine run/stop checks, use the [reusable read-only workflow](../../docs/guides/reusable_operations.md)
-and existing job/native/dialog/log evidence before screenshots. Diagnosing status
-and answering a prompt are separate actions. The bounded UIA reader tries Raw View
-when Control View has no body; missing text stays unknown. For a known authorized
-cache-choice prompt, reuse the guide's explicit inspect/select/independent-inspect/
-confirm API rather than writing another coordinate script. It is UI Automation,
-not a CST SDK API; cache integrity and the original call's return need separate checks.
-The published 0.3.57 wrapper has scoped real-project acceptance for that exact Qt
-prompt, including independent selection readback and retained original failure.
-Reuse it for matching authorized prompts; do not generalize to unknown Yes/No.
-Cache matrix integrity remains unverified: freeze the saved package before a new
-solve and read the copy noninteractively, never fallback to interactive on rejection.
+For a stall or timeout, inspect the original job/exception, messages, logs and PID-scoped window title, complete body, buttons and owning process. Raw View can recover missing text; unresolved text remains unknown. Keep the original failure. A dismissed dialog or a ready session cannot certify the solver or authorize replay of an unresolved write. Prefer structured evidence before screenshots.
 
-For a stall, inspect the actual dialog title, body, buttons, process ID, and owning CST process before any response. Do not blindly dismiss prompts or rerun a write while the original SDK call may still be blocked. A timeout or a closed dialog is not success; state the observed status and next actionable step.
+| Observed condition | Required procedure before acting |
+|---|---|
+| Run or stop status only | Use [read-only status operations](../../docs/guides/reusable_operations.md). Separate status inspection from answering a prompt. |
+| Stop scope uncertain or Qt abort prompt | Read [3D/DS stop scope](../../docs/guides/solver_stop_scope.md) and [explicit Qt confirmation](../../docs/guides/cst_dialogs.md#qt-停止确认的显式-yes). Confirm only an exactly matched prompt under existing stop authorization; pending or unknown DS state blocks new writes and handoff. |
+| History error or unavailable VBA method | Follow [history error diagnosis](../../docs/guides/cst_dialogs.md#历史错误优先代码诊断). Use installed official help and the actual wrapper to repair the source. Preserve the error and wait for the original call to return before writing. |
+| Result invalidation, cache selection or repeated INFO | Read [result-retention decisions](../../docs/guides/cst_dialogs.md#结果失效弹窗的-api-预处理). Preserve and verify required data first. For the known authorized cache choice, inspect, select, independently inspect, then confirm. Freeze and read the saved copy noninteractively before a rerun. Repeated messages remain evidence; quiet mode, window disappearance or a selection receipt cannot verify cache integrity. |
+| Ordinary session exception | Read [bounded exception diagnostics](../../docs/guides/session_exception_diagnostics.md). Record the failing stage, OS error and bounded stack. Prior receipts without these fields stay unknown. |
+| Returned/saved action with a latched monitoring failure | Read [completion evidence](../../docs/guides/session_completion_monitor_evidence.md). Record the original error, first monitor failure, final snapshot and loaded worker identity. A clear final snapshot does not release a prior fence. |
 
-For Abort scope dialogs or apparently completed 3D stops, read
-[3D stop versus DS sequence idle](../../docs/guides/solver_stop_scope.md).
-For the exact CST 2026 Qt question “Do you really want to abort this calculation?”
-with Yes/No/Cancel, use the [explicit abort confirmation](../../docs/guides/cst_dialogs.md#qt-停止确认的显式-yes)
-only under existing stop authorization. `qt_abort_dialog.inspect/confirm_yes`
-checks fresh process/window/owner/runtime identities and complete content; it is
-not the multi-option Abort scope dialog or a general Yes handler. It does not
-issue abort_solver, retry the stop, or establish that the original call returned.
-Model3D running=False and session ready do not certify DS/sequence/postprocessing
-idle. Pending scope confirmation or unknown DS state prevents new writes and handoff;
-do not guess a whole-sequence stop API or treat a locked/unlocked log as an idle getter.
-
-## History errors: code and text first
-
-Minimize Computer Use. Read the original session job/exception, CST messages and PID-scoped
-`cst_solver.dialogs` snapshot first; the session worker already monitors dialogs independently
-of the blocked SDK call. No routine screenshots or UI clicks are needed when this evidence is
-complete. Read [the recovery procedure](../../docs/guides/cst_dialogs.md#历史错误优先代码诊断)
-for bounded programmatic acknowledgement and the conditions requiring visual inspection.
-For a reviewed Qt History Error with virtual buttons, use the explicit
-`cst_solver.qt_history_error.inspect/acknowledge` flow in that procedure. It accepts
-only a fresh complete exact error with OK and optional Details >>; no choices,
-background acknowledgement or replay. This wrapper has offline tests only.
-
-For `Method or property not found`, trace the reported command to its source and check the
-installed official VBA help and existing Python wrapper before correcting it. For example,
-the CST 2026 DiscretePort help does not document `DiscretePort.Delete`; do not invent a
-replacement method or treat this as proof of a missing port. A new empty project avoids
-inherited history, but cannot make unsupported commands valid. Fix the source, retain the
-failure evidence, and verify the corrected stage; never suppress the error or disable history
-to report success. An unresolved call must return before any further SDK write or retry.
-
-## Result incompatibility prompts: prefer API preparation
-
-`cst_results_incompatible` identifies the known title but remains blocking; it does
-not authorize a cache selection or clear a latched monitor failure. For repeated
-`get_messages()` snapshots, do not assume reads consume the queue or subtract equal
-text. `repeated_snapshot` is diagnostic only; INFO can describe missing external
-dependencies, so repeated INFO alone cannot certify rebuilt geometry.
-
-For `Results May Get Incompatible With Model`, read the [API handling guidance](../../docs/guides/cst_dialogs.md#结果失效弹窗的-api-预处理) before resorting to Computer Use.
-
-- Before a model-changing call, determine the result-retention policy from existing user instructions. Preserve and verify any required results before cleanup; ask only if the needed choice is still unspecified.
-- CST VBA `DeleteResults` is documented to delete all results of the actual project. Do not equate it with the dialog's **keep result cache** option or claim cache preservation without version-specific evidence. Confirm the target project and 3D/schematic execution context before invoking it through an available macro interface.
-- Python `de.quiet_mode_enabled()` temporarily enables quiet mode and restores the prior state. It suppresses message boxes, but the official API excludes dialogs requiring user input; it does not guarantee suppression of this multi-option prompt or select a retention policy.
-- Prefer preparing results through verified APIs before submitting the model change. If a call is already blocked, inspect the original task and dialog first; do not issue another SDK write to clear results or replay the change while it remains pending.
-- These are documented CST API options, not a newly implemented repository endpoint or proof that the prompt has been eliminated on a real project. Retain dialog monitoring and verify the original call's return, messages, and resulting state.
-
-See [environment setup](../../docs/guides/cst_environment.md), [dialog handling](../../docs/guides/cst_dialogs.md), and [troubleshooting](../../docs/guides/troubleshooting.md).
-
-## 会话普通异常
-
-对 session_operation_failed 先读 [受限异常诊断](../../docs/guides/session_exception_diagnostics.md)：
-检查 error.details.diagnostics 的异常类型、OS filename/errno、最后执行 stage 及文件/函数/行号。
-stage 不是成功检查点；PermissionError 或磁盘未变不授权重放未知写入，不猜 OS 原因。
-旧 job 缺字段不回填；不为加载新诊断中断当前 CST 或 worker。
-
-## 最终 clear 与首失败锁存
-
-当 returned_saved 未能保持 ready，先读[收尾监测证据与加载代码身份](../../docs/guides/session_completion_monitor_evidence.md)：
-主操作错误可与首个 monitor.failure 并存；最终 clear 不代表没有历史监测失败。检查
-error.details.session_monitor、job.completion_evidence 与 worker_runtime，不拿磁盘 HEAD
-当作活跃 worker 已加载版本。旧回执缺字段保持未知，不自动清围栏或重放写入。
+For setup and further diagnosis, use [environment setup](../../docs/guides/cst_environment.md), [dialog inspection](../../docs/guides/cst_dialogs.md) or [troubleshooting](../../docs/guides/troubleshooting.md). Keep the active worker intact when its diagnostics are older than the source.

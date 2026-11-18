@@ -1,0 +1,30 @@
+# F 求解器及瞬态设置
+
+F-solver CPU parallelization uses `configure_fd_parallelization(settings)` through
+the existing session `model_api`: boolean `enabled`, positive integer `threads`
+and `cpu_devices` (sockets), with omitted fields preserved. Use explicit enabled=True
+to turn it on; do not substitute transient `set_parallel_threads` or DS HB settings.
+The receipt records configuration only; verify actual threads from the native run log.
+This interface does not configure GPU acceleration or choose a different solver.
+
+For F-solver linear comparisons use `configure_fd_linear_solver(settings)` with
+`solver_type=Auto|Iterative|Direct` and optional explicit `limit_iterations/max_iterations`.
+Do not use unrestricted SolverParameter keys or assume an iteration cap triggers Direct fallback.
+Submit only `configure_fd_linear_solver/configure_fd_frequency/configure_fd_parallelization`
+in one settings batch: the session automatically checks messages and saves without a full rebuild.
+`configure_tetrahedral_mesh` can join this batch only with the newer worker
+capability `mesh-settings-no-rebuild-v1`; it also avoids full Rebuild.
+Mixed geometry batches still rebuild; keep them separate when retaining existing results matters.
+The worker must advertise `solver-settings-no-rebuild-v1`; never restart a busy worker to upgrade.
+No-rebuild receipts do not prove CST retained every result: archive required data and check native
+IDs/readback in the authorized idle engineering session. Compare bounded cases before a full band.
+
+For reviewed transient EM projects, `app.configure_em_time_settings(settings)` sets a sparse `stability_factor` in `(0,1]` and/or `output_sampling="every_step"/"automatic"`. It submits history only, without reset, rebuild, save, DS changes, external-link edits, or solving. Save explicitly. Requested factor and history submission do not establish actual integration timestep or every-step output: native readback is unsupported and verification flags stay False. See the [time-control guide](../../../docs/guides/circuit_cosimulation.md#em-时间步与每步输出配置). Do not start validation solves when the user requests offline work only.
+
+## 线性求解残差的有界回退
+
+- 本规则用于未另行要求不可放宽精度的已授权求解。目标相对残差 `1e-7` 无法达到，且已排除工程/几何错误、缺失端口和不明提交后，可仅对未通过的工况放宽一次到 `1e-6`；同一授权内直接接续，不反复索取确认。用户指定更严格门槛或仅允许某个频点时，以该限制为准，不自动推广到整段或其他工况，也不继续自动放宽到 `1e-5`。
+- 使用 `1e-7`、`1e-6` 或 `1×10⁻⁷`、`1×10⁻⁶`，避免 `10e-7` 这类与十次幂混淆的写法。相对残差不是 S 参数误差；不得因此降低矩阵质量、实际低频采样、拟合、无源性、互易性或网格/结果收敛验收。
+- 重试前确认旧求解已结束，保全原生失败日志、参数和提交标记；不强杀或并行重交未知任务，不重算已通过频点。复用数据须保留各自原生运行身份、矩阵和日志来源，不拼接成虚假的单次运行。
+- 重试使用有界迭代/运行预算；仍未达到 `1e-6` 就停止并诊断，不盲目循环。验收依据本次日志中的全部实际激励残差与结果矩阵，剔分追加日志中的旧运行，不把历史错误误判为本次失败，也不把有争议的接口状态改写成 SUCCESS。
+- 报告实际用时、最大残差、迭代次数、采用的门槛和验收范围；满足条件即推进既有授权的后续阶段，单点通过不等于全扫通过。

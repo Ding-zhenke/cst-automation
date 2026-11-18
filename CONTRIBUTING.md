@@ -16,11 +16,11 @@ Run the offline suite and build both release artifacts:
 
 ```powershell
 $env:PYTHONDONTWRITEBYTECODE = '1'
-python -B -m pytest -o addopts='' -m "not gui" -q
+python -B -m pytest -o addopts='' -m "not gui and not cst_live" -q
 python -B -m build --wheel --sdist
 ```
 
-常规离线套件排除 `gui` 标记的真实桌面测试。需要交互式 Windows 会话的 UI Automation 测试应显式运行：`python -B -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py`。常规测试不得要求本机 CST、用户专属绝对路径或外部项目 checkout；使用 stub/fake backend 验证 SDK 与服务行为。不得把模拟几何、结果解析或求解状态描述为真实 CST 证据。
+常规离线套件排除 `gui` 桌面测试和 `cst_live` 许可宿主测试。需要交互式 Windows 会话的 UI Automation 测试应显式运行：`python -B -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py`。常规测试不得要求本机 CST、用户专属绝对路径或外部项目 checkout；使用 stub/fake backend 验证 SDK 与服务行为。不得把模拟几何、结果解析或求解状态描述为真实 CST 证据。
 
 ## API and evidence changes
 
@@ -34,3 +34,5 @@ python -B -m build --wheel --sdist
 ## Release build
 
 The GitHub Actions workflow runs offline tests, MCP protocol tests, and wheel/sdist builds on clean Windows runners. Review the artifact metadata and `docs/VALIDATION.md` before creating a release.
+
+规则维护请核对[迁移对照表](docs/RULE_MIGRATION.md)及[任务分派验证](docs/validation/rule-routing.md)。

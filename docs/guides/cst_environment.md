@@ -8,13 +8,13 @@ Python 包的导入不再加载 CST 接口，不修改 `sys.path`，也不向 st
 
 ```powershell
 $env:CST_INSTALL_PATH = 'C:\SOFTWARE\CST Studio Suite 2026'
-python -m cst_solver doctor
+& .\skills\keysight-ads-simulation\scripts\invoke_hidden.ps1 -Executable .\.venv\Scripts\python.exe -ArgumentList @('-m','cst_solver','doctor')
 ```
 
 本机 Codex 中，上面的路径检查可在沙箱内执行。下面的 SDK 探测需要在能访问 CST 许可证的宿主执行，第一次命令调用即设置 `sandbox_permissions="require_escalated"`，并在该环境沿用同一解释器和安装配置。
 
 ```powershell
-python -m cst_solver doctor --probe
+& .\skills\keysight-ads-simulation\scripts\invoke_hidden.ps1 -Executable .\.venv\Scripts\python.exe -ArgumentList @('-m','cst_solver','doctor','--probe')
 ```
 
 也可将以下 JSON 保存到自己的目录，再将 `CST_CONFIG_FILE` 设为该文件路径：
@@ -72,7 +72,7 @@ diagnose_environment()['interface_abi']   # doctor / 诊断里也带这一段
 
 `DesignEnvironmentStartupError`、进程提前退出和 license 错误可能有多种原因。先保留 `doctor --json` 输出及异常链，分别核对安装发现、Python ABI、DLL 导入、许可证和进程退出信息；不要仅凭 `EXITCODE_NOLICENSE` 或最后一条日志推断根因。若启动进程被调用环境的作业限制终止，应在允许启动 CST 子进程的环境中复核。
 
-本仓库没有把特定机器的 license server 状态或 CST/Python 组合当成通用保证。离线和真机验证边界见 [验证记录](../VALIDATION.md)。
+本仓库没有把特定机器的 license server 状态或 CST/Python 组合当成通用保证。离线和真机验证边界见 仓库的 `docs/VALIDATION.md`。
 
 ### 复用已有会话：`setup.attach()`（P4/V2，2026-09）
 
@@ -106,4 +106,4 @@ with setup(r'D:\out\working-copy.cst') as app:
 
 `cst_solver` 的项目和材料运行消息使用 logging，默认不往 stdout 写。用户若将日志配置到 stdout，或上层模板/CST 原生输出写 stdout，仍会影响 MCP；MCP 接入层必须单独验证和隔离。
 
-离线测试覆盖路径、配置、异常链、无 CST 导入与会话清理；没有据此声称真实 CST 生命周期已验证。参见 [验证记录](../VALIDATION.md)。
+离线测试覆盖路径、配置、异常链、无 CST 导入与会话清理；没有据此声称真实 CST 生命周期已验证。参见 仓库的 `docs/VALIDATION.md`。

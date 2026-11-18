@@ -1,87 +1,41 @@
-# Repository skills
+# 按任务选择 CST 与 ADS 技能
 
-## CST execution on this Windows workstation
+## 完整阅读规则
 
-Use the approved host outside the sandbox from the first native CST operation so
-CST can access its license. For a Codex shell command that imports the CST SDK
-(including `doctor --probe`), checks a license, starts or resumes a native worker,
-opens or connects to CST, reads results through the native SDK, or runs a solver,
-set `sandbox_permissions="require_escalated"` on the first call. This includes
-standalone EM via `setup(path)` and `app.run()`. An existing authorized host
-worker can perform the native operation in its owning session. Project changes
-and solver starts still require authorization for the engineering task.
+读完所选 `SKILL.md` 和当前操作标为必读的引用章节，再执行依赖它的写入或求解。按当前工况选择引用；其他分支留待触发时读取。搜索命中、文件头、哈希、已读标记和历史摘要都不能代替原文。输出截断时连续补齐缺段。上下文压缩后若只剩摘要，先重新读取相关规则、恢复工程要求；已完整保留且未改的原文可继续使用。由执行者主动完成，无需用户提醒。
 
-Use the normal sandbox for plain `doctor --json` without an SDK probe, source,
-logs, exported CSV/Touchstone files and fake tests that do not call CST.
+仓库维护使用根目录 `skills/`，安装版使用该插件自带技能。首次记录实际选用的技能路径和运行库模块位置；检查正在运行的 worker 能力，避免混用副本或为加载新版中断工程。
 
-## Running Python without a console window
+## 执行环境
 
-On Windows invoke noninteractive Python from the existing PowerShell host with
-the [hidden launcher](keysight-ads-simulation/scripts/invoke_hidden.ps1), including the
-first interpreter for a one-off script, a probe, or a session CLI command.
-Resolve the launcher from the selected plugin or repository. For example,
-from the repository root, an offline environment check is:
+本机首次原生 CST 或 ADS 调用使用能访问许可证的沙箱外宿主。Codex shell 命令从第一次起指定 `sandbox_permissions="require_escalated"`，包括 CST SDK 导入、`doctor --probe`、原生 worker 启动或恢复、连接与打开工程、原生读结果、求解，以及 ADS 原生操作。已有经授权的宿主服务可复用所属 worker。工程写入和求解另按用户授权范围执行。普通 `doctor --json`、已导出 CSV/Touchstone、日志和 fake 测试可在沙箱内执行。
+
+Windows 非交互 Python 从第一个进程起使用[后台启动脚本](keysight-ads-simulation/scripts/invoke_hidden.ps1)。按所选仓库或插件解析脚本，保留工作目录、独立参数、输出、错误和退出码；长任务继续跟踪原进程或任务。交互终端只在用户要求时显示，CST 诊断窗口保持可见。以下为仓库根目录下的离线检查：
 
 ```powershell
 & .\skills\keysight-ads-simulation\scripts\invoke_hidden.ps1 -Executable .\.venv\Scripts\python.exe -ArgumentList @('-m', 'cst_solver', 'doctor', '--json')
 exit $LASTEXITCODE
 ```
 
-Pass arguments individually and keep the task's working directory. Use the
-same launcher with approved host permissions for native operations. For long
-jobs, let the command tool yield and continue following the same process or
-job. Keep output, errors and the exit code. Show an interactive console only
-when requested; keep CST diagnostic dialogs available to the user.
+## 任务入口
 
-For parameter → EM → HB work, use the mandatory
-[session workflow contract](../docs/guides/workflow_enforcement.md).
-The submission and execution gates run automatically; the optional checkpoint
-script is not a substitute. Existing running workers must not be interrupted to upgrade.
-For a standalone run of an existing EM project, open it and call `app.run()`;
-binding a workflow or creating a session is not a prerequisite.
+| 当前请求 | 首选技能 | 何时追加 |
+|---|---|---|
+| 读取已导出 CSV 或 CST 原生结果、导出已保存扫参矩阵 | [结果读取](cst-results/SKILL.md) | 绘图追加绘图技能；在线读取追加所属会话。读取请求不授权重算。 |
+| 单次运行已有、已审阅的 EM 工程 | [EM 仿真](cst-simulation/SKILL.md) | 可直接在宿主运行 `setup(path)`、`app.run()`。已有绑定或在途工作按原身份处理。 |
+| 配置服务器扫描或选择逐点控制 | [参数研究](cst-parameter-study/SKILL.md) | 准备服务器任务只配置、核对并保存。启动与结果导出有各自入口。 |
+| 建模、改几何、材料、端口 | [建模](cst-modeling/SKILL.md) | 实际写入用所属会话；真实参数预览经审阅后再分阶段构建。 |
+| 选择网格、频率采样或自适应策略 | [网格与频率](cst-mesh-frequency/SKILL.md) | 按求解器和所改设置读取专项说明。 |
+| 绑定、恢复、交接或清理工程 | [持久会话](cst-sessions/SKILL.md) | 未知写入先查原任务、状态、回执；发生弹窗或停滞再读诊断。 |
+| SDK、许可证、阻塞或弹窗 | [诊断](cst-diagnostics/SKILL.md) | 按实际窗口类型和进程归属选择恢复流程。 |
+| Design Studio 原理图、静态 SP、场路协同、原生 HB | [场路联合](cst-circuit/SKILL.md) | HB 验证默认 ADS；只有用户明确要求启动 CST HB 才提交。 |
+| ADS 电路、HB、数据集、显示、版图或制造输出 | [Keysight ADS](keysight-ads-simulation/SKILL.md) | 按仿真类型和交付物选择参考页。 |
+| 二极管建模、接口、极性、偏置 | [二极管加载](cst-diode-loading/SKILL.md) | 做性能评估时追加表征。 |
+| 工况、指标、逐管电压或性能结论 | [器件表征](cst-device-characterization/SKILL.md) | 二极管评估交付实际 VAK(t)、相应指标和来源。 |
+| 几何预览与科研图 | [绘图](cst-figures/SKILL.md) | 使用实际参数和结果；输出图片本身不授权工程变更。 |
+| 隔离器 EM、同工程静态 SP、SNP 或 ADS HB 迭代 | [隔离器流程](diode-isolator-design-workflow/SKILL.md) | 按用户要求选择阶段，读取对应实现和证据要求。 |
+| 实际工程中遇到可复用缺陷或获得实机证据 | [现场验证](cst-in-situ-validation/SKILL.md) | 在当前授权内修复、脱敏记录；额外专项求解需另有任务依据。 |
 
-Codex skill entry points for this package:
+## 跨阶段提交
 
-The user prohibits treating a partial skill read as completion. Read each selected
-`SKILL.md` through its end, plus the reference sections required by the operation.
-`-TotalCount`, `head`, `Select -First`, search hits and remembered summaries do not
-meet this requirement. If tool output is truncated, retrieve the missing contiguous
-sections before any dependent model write or solve. Split large reads instead of
-batching so much text that the tool drops the middle. A full-file read command alone
-does not prove that its output reached the model in full.
-
-After context compaction, if only a summary remains, reload the selected entry
-points and needed reference sections before acting. Reuse complete unchanged text
-still present in the current context; do not reread it mechanically on every call.
-Restore the current project requirements as well. Do not ask the user to remind
-you, and do not substitute a read receipt, file hash or `read=true` flag for reading.
-
-- [cst-sessions](cst-sessions/SKILL.md): default conversation-bound persistent CST environments, recovery, and deduplication.
-- [cst-in-situ-validation](cst-in-situ-validation/SKILL.md): validate and improve reusable automation during authorized engineering work.
-
-- [cst-modeling](cst-modeling/SKILL.md)
-- [cst-simulation](cst-simulation/SKILL.md)
-- [cst-mesh-frequency](cst-mesh-frequency/SKILL.md): electrical-size/cost assessment, frequency sampling and mesh-adaptation decisions.
-- [cst-parameter-study](cst-parameter-study/SKILL.md): linear/logarithmic/discrete native scans and server preparation.
-- [cst-circuit](cst-circuit/SKILL.md): Design Studio schematics, EM links, field-circuit tasks, circuit results, and service/MCP workflows.
-- [diode-isolator-design-workflow](diode-isolator-design-workflow/SKILL.md): coordinate CST EM, native zero-bias circuit SP, ADS HB and iterative analysis.
-- [cst-device-characterization](cst-device-characterization/SKILL.md): device evaluation conditions, metrics, and evidence-based reporting.
-- [cst-diode-loading](cst-diode-loading/SKILL.md): diode representations, bias/interface checks, parasitics, and numerical validity.
-- [cst-figures](cst-figures/SKILL.md): scientific plots, geometry previews, and reproducible figure styles.
-- [cst-results](cst-results/SKILL.md)
-- [cst-diagnostics](cst-diagnostics/SKILL.md)
-
-These repository-local rules preserve preview-first geometry work, real-dialog diagnosis, dependency-stage acceptance, and evidence boundaries without relying on a user-level skill installation.
-
-For multi-turn engineering, start from the saved
-[workflow checkpoint](cst-sessions/references/workflow-checkpoint.md), not a remembered
-subset of the last turn. The selected task skill supplies the checks; the checkpoint
-preserves current requirements, dependencies and evidence across handoffs.
-When both user-level and plugin copies exist, record the chosen skill path and
-runtime module path once and use that source consistently. Repository maintenance
-uses this directory; plugin consumers use their installed bundle. A source edit
-does not update an installed plugin or an already running worker.
-
-Current field-circuit work prioritizes functional coverage and reusable skills. Dedicated engineering validation is deferred to actual projects; existing evidence and acceptance criteria remain in force. See [development priorities](../docs/CIRCUIT_DEVELOPMENT.md).
-
-- [keysight-ads-simulation](keysight-ads-simulation/SKILL.md): ADS circuits, HB datasets, and CST-to-ADS Touchstone handoff.
+跨轮建模、EM→HB、优化或中断恢复，从工程工作目录的 [workflow.json 与检查器](cst-sessions/references/workflow-checkpoint.md)恢复身份、要求、输入及证据；用户纠正后先更新，再由调用方在依赖阶段提交前执行一致性检查。已绑定的参数→EM→HB 工程还执行[服务提交和 worker 执行检查](../docs/guides/workflow_enforcement.md)。只有当前输入的实际证据可放行下一阶段。简单文件读取及已有工程的单次 EM 不强制建立这套跨轮清单。

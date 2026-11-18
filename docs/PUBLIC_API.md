@@ -883,10 +883,7 @@ to an already live worker. Updating source/plugin does not upgrade a running wor
 ## EM 参数更新与结果保留
 
 会话 `set_parameters` 更新参数后使用 `validate_model(rebuild_mode="parametric")`，
-调用 `app.update()`（SDK `full_history_rebuild()`）并检查异常及消息；后续
-`solve` 复用 `run_checked`，不再次重建。SDK 更新接口不提供可供本包装器认证的
-原生布尔结果。原工程会话已观察到该路径下两组参数的四条 S 参数叶各保留两个正 ID
-及对应参数；这不保证任意结果或工程均保留，保存重开仍须另验。
+调用 `app.update()` 并检查异常及消息。当前封装使用 `model3d.RebuildOnParametricChange(False, False)` 刷新受影响的历史块，返回假值会抛错。后续 `solve` 调用 `run_checked`，不追加一次完整重建。变更前保存需要的复数结果与日志；按实际加载版本核查正 Run ID、存储参数和曲线。原工程记录过两组参数的四条 S 叶保留两个正 ID，该观察限于当时的工程与实现；保存重开需另验。
 其他几何/历史操作仍走既有完整 `Rebuild`，CST 文档说明该操作删除全部结果，
 执行前须保存所需历史。`validate_model` 默认保持完整重建，参数更新模式为显式选项。
 这与配置原生 Parameter Sweep 是不同工作流，不能据此认定原生历史已保留；须在同一

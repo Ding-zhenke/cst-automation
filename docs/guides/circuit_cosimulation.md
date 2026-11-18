@@ -1,8 +1,6 @@
 # Design Studio 接口与当前边界
 
-当前工作重点已调整为功能完善与 skill 建立，专项实机验收留待后续工程逐步开展；见 [开发重点](../CIRCUIT_DEVELOPMENT.md) 与 [场路联合 skill](../../skills/cst-circuit/SKILL.md)。以下已有证据及未验证边界保持原义。
-
-当前为 `0.2.0.dev0` 开发版。CST 2026.1 已完成纯电路、批准几何/端口和线性 network 定量验证。后续真实线性瞬态联合通过实际时间步、三种负载、两侧端口量、独立局部电场积分和普通网络对照。新运行无插值警告，原警告记录仍保留未验证。分阶段数据见 [时间步复核](../CIRCUIT_TIMESTEP_REPORT.md) 与 [首轮实机记录](../CIRCUIT_LIVE_REPORT.md)。
+按[场路联合入口](../../skills/cst-circuit/SKILL.md)确认授权、所属工程和本轮操作。CST 2026.1 的既有验收覆盖特定纯电路、批准几何/端口、线性 network 和线性瞬态联合样例。线性联合核对了实际时间步、三种负载、两侧端口量、独立局部电场积分和普通网络对照。该运行无插值警告，早期带警告的运行仍为未验证。仓库维护记录见 `docs/CIRCUIT_DEVELOPMENT.md`、`docs/CIRCUIT_TIMESTEP_REPORT.md` 和 `docs/CIRCUIT_LIVE_REPORT.md`。
 
 ## 不连接 CST 的使用方式
 
@@ -21,18 +19,14 @@ preview_circuit({"schema_version": 1}, "work/empty-circuit-preview")
 ## 用户审批后的原理图操作
 
 ```python
-from cst_solver import setup
 from cst_solver.circuit import CircuitResult
 
-app = setup("work/reviewed-project.cst")
-try:
-    snapshot = app.circuit.inspect()
-    # app.circuit.apply(spec)  # 先校验 schema，遇到名称冲突不删除已有对象
-    # app.circuit.link_em(block_name=..., source="self", port_map=..., parameter_map={})
-    # outcome = app.circuit.run_checked(task_name, mode="transient_cosim",
-    #                                  expected_results=[{"tree_path": actual_path, "run_id": actual_run_id}])
-finally:
-    app.close()
+# app 为所属会话按 project_id 取得的工程，沿用其 worker 和句柄。
+snapshot = app.circuit.inspect()
+# app.circuit.apply(spec, conflict="error")
+# app.circuit.link_em(block_name=..., source="self", port_map=..., parameter_map={})
+# outcome = app.circuit.run_checked(task_name, mode="transient_cosim",
+#     expected_results=[{"tree_path": actual_path, "run_id": actual_run_id}])
 
 # reader = CircuitResult("work/reviewed-project.cst")
 # reader.get_tree_items()  # 再选择真实路径和实际 run ID
@@ -50,6 +44,18 @@ schema v1 包含 units、parameters、blocks、external_ports、nets、probes、
 部分写入仍需保留现场核对，不能通过重放已完成阶段恢复；不自动求解。
 
 物理属性在当前适配器中安全求值后写成 SI 数值，并为该属性选用对应局部单位；不会为了改一个元件而改变已有工程的全局单位。原始参数表达式保存在规格/审计中。**修改 CST 全局参数不会自动改变已固化的元件值**：必须通过 `set_properties` 重新求值写入。参数序列也按每点明确的属性和 expected_results 执行，不冒充原生 DS 参数扫描。
+
+用 `validate_circuit_spec` 校验规格，`preview_circuit` 生成原理图。涉及几何或端口改变，使用真实坐标预览并等候审阅。新电路在官方范围内明确元件与端口的紧凑位置，以原生 getter 核对网格吸附后的坐标，请求值或 XML 坐标不能代替读回。移动 Block/ExternalPort 使用 `app.circuit.set_position`，所属会话需 `circuit-position-v1`。缺 getter 时记录未验证，不用裸 history 绕过保护，不为排布中断进行中的任务或擅自改排旧工程。
+
+同工程已有 EM 块用 `source="self"`，逐项提供 `pin_name/port_id/mode/reference/polarity` 及显式 `parameter_map`。MOR 拟合按公共协议显式选用极点参数，并以实际拟合数据验收。已有 Transient 或 Spectral Lines 的并行度及结果选项使用 `app.circuit.configure_task_execution` 和具备 `circuit-task-execution-v1` 的所属 worker；只传当前任务支持的值，实际线程数以运行日志为准。
+
+## 任务运行与停止条件
+
+- 保存工作副本，核对任务、工程、依赖路径及摘要，然后使用 `run_checked(task_name, mode=..., expected_results=..., reuse="never")`，为每个结果提供真实树路径和整数运行 ID。依赖缺失、已迁移或原生更新无法验证时记录具体缺项，不用 Update File References 对话框代替受管操作。
+- `transient_cosim` 需原生 transient 任务的 `circuit simulator=cosimulation` 与本次三维侧证据。普通网络瞬态在未绑定工作流且无保护标记时可用 `circuit/solve/run_network_transient`，明确提供 `task_name` 与 `expected_results`；先原生核对 transient、cst 网络模式及无子任务。保护中的工程服从已有入口，保留失败原因，禁止裸 Update 或 SDK 绕过。
+- `reuse="verified"` 检查已有结果缓存；MOR 文件存在、时间戳和单次耗时均不能证明本轮 MOR 命中。上述普通网络瞬态入口不保证强制 MOR 复用或原生取消。用户要求必须复用而无法在启动前保证时，不提交可能冷启动的计算。
+- 用户规定可取消的时间上限时，先核验独立控制路径能向所属任务发出原生取消、读回并证明停止。能力未经核实时记录未实现并停止提交。Python 等待超时、线程中断和强杀进程均不能证明 CST 已停。
+- 3D Abort 返回、Model3D `is_solver_running=False`、EM 完成日志和 session ready 均不能证明 DS 序列或后处理空闲。`GetNameOfCurrentTask` 与 `GetActivePostprocessingTask` 的观察范围有限，尚未验收为外部 idle 门槛。按[停止范围](solver_stop_scope.md)核对原任务、回执及原生状态；不明时禁止新写入和交接。SDK 停滞时按[弹窗诊断](../../skills/cst-diagnostics/SKILL.md)读取真实标题、正文、按钮及进程归属，窗口消失不证明成功。
 
 ## 当前刻意保留为未验证的能力
 
@@ -173,6 +179,8 @@ app.save()
 
 SPICE 文件由调用方提供；接口不生成虚构模型。方言支持 AUTOMATIC/SPICE3/PSPICE/HSPICE，省略时沿用原生设置。返回原生 file/model/filter、属性及前后 pins，改变子电路可能改变引脚，调用方须据此重新核对连线。仅创建/配置块，不自动接线。模型名前缀等差异不自动忽略；读回不一致保留部分失败。外部依赖闭包和可搬运性仍使用既有依赖接口独立判定。
 
+内置模型身份可来自已标明的原生参数模式证据。SPICE 的选中模型名、方言和源文件摘要分别保留，求解后出现模型名前缀也应作为读回差异核对。
+
 Python 配置方法不自动保存。service 的 `build` 操作 `configure_task_ports/configure_nonlinear_model` 则配置并保存，参数分别为 task_name/ports 和 block_name/settings/create。文件路径按 service workdir 解析并限制在其内，不按原始工程目录猜测；MCP 对应 `configure_circuit_task_ports/configure_circuit_nonlinear_model`，仍需工程标识。新工具保持显式注册、单 worker 和失败审计，不能隐式触发 `run_circuit_task`。
 
 任务 `properties` 可以设置 `sampling method="Simulated"`，保存全部实际仿真时间点；`SetSweepData` 会将它重置成 Manual，应在设置输出区间之后再选 Simulated。5 ps 的手工绘图点不能证明内部采用 5 ps 积分。
@@ -207,6 +215,8 @@ job = service.submit("build", project_path="work/circuit-service/reviewed.cst",
 
 `project_path` 使用服务 workdir 内的工程绝对路径或当前工作目录下的有效路径。对应 MCP 工具名也是 `configure_em_time_settings`，接受 `project_id/project_path/request_id/settings`，不要求 DS task_name。两者都进入唯一 worker 并保存，部分提交失败保留失败审计、消息和工程；成功状态仅表示配置保存，不证明实际时钟或物理收敛。
 
+修改现代六面体网格时读回实际生成网格。部分旧 Mesh 命令对新生成器无效；需要校准时以本机官方 MeshSettings 示例与结果核对加密。
+
 局部电场沿批准的 P1→P2 路径积分时，CST 定向端口电压采用正的 `integral E dot dl`，不能误称为相反方向的标量电势差。极性依据官方端口/网格电压定义及实际端点读回固定，不通过反号拟合取得一致性。
 
 ## 服务和 MCP
@@ -217,7 +227,7 @@ CST 2026 帮助说明，Design Studio 的 Post-Processing 任务会在每次求�
 
 先把模板源码放在服务 workdir 内，再调用 `stage_circuit_postprocessing_template`，参数为 `template_source`（workdir 内 `.py`/`.rtpy` 文件）、`group` 和 `name`。输出位于 `workdir/cst_template_library/Result Templates/<group>/<name>.rtpy`。静态检查只验证 Python 语法与 CST 入口参数名，不导入或运行模板。
 
-首次使用时，在 CST 的库设置中把返回的 `library_root` 加入全局库路径，然后在目标工程创建或选择 Post-Processing 任务，在模板对话框中加入此模板。模板绑定和 HB 结果映射尚无本仓库实机读回；帮助文档没有记录从 `SimulationTask` API 自动添加模板步骤的方法。暂存文件并不表示已经绑定或已验证自动更新。
+实际内嵌绑定用所属会话 `circuit/build/register_postprocessing_template`，对应 `app.circuit.register_python_result_template` 或 MCP `register_circuit_postprocessing_template`。CST 2026.1 已验证资源格式每个专用 Post 支持单个模板。首次拒绝同名，替换需当前完整注册摘要。该接口原生保存、关闭并重开目标工程，核验归档恢复的资源和任务链；配置授权不包含模板执行或求解。完整限制及读回见[原生注册与运行证据](native_hb_postprocessing.md)。
 
 ```python
 from tpc_service import RunService
@@ -230,13 +240,13 @@ register_circuit_handlers(service)  # 不打开 CST；仅安装路由
 
 `params.workflow="circuit"` 与合法 operation 才进入电路分支；其他任务仍使用原实现。所有 SDK 访问由同一 worker 执行，工作工程/导出路径限制在服务 workdir 内。
 
-MCP 入口为 `cst_mcp.circuit_tools.register_circuit_tools()`，显式注册十一个工具，不改用户全局配置。`configure_circuit_transient_task` 将 `task_name/settings/create` 交给 service 的 `build / configure_transient_task`；`configure_em_time_settings` 配置当前工程的 EM 时间控制；`stage_circuit_postprocessing_template` 在 workdir 内检查并暂存 `.rtpy` 文件。配置仅保存或生成文件；实际求解仍须另行明确调用 `run_circuit_task`。注册不创建服务；首个需要队列的调用才启用对应服务路由。`compose_handlers=True` 用于明确与已有领域 handler 组合。预览也遵守已配置的工作目录。
+MCP 通过 `cst_mcp.circuit_tools.register_circuit_tools()` 显式注册，保留用户全局配置。服务例程 `register_circuit_handlers` 只安装路由，首个需要队列的调用才启用服务；`compose_handlers=True` 用于明确组合。具体工具与 service 操作映射以 `cst_mcp/circuit_tools.py` 和 `tpc_service/circuit.py` 为准。`configure_circuit_transient_task` 将 task_name/settings/create 交给 `build/configure_transient_task`；端口/模型、EM 时间、模板暂存/注册均按各自操作的保存与读回范围执行。实际求解、显式逐点参数研究分别经 `run_circuit_task` 与 `run_circuit_parameter_study`；`study/parameter_sequence` 没有独立 MCP 工具。预览、工程和导出均受服务 workdir 限制。
 
-命令行可显式启用：`python -m cst_mcp --enable-circuit --workdir work/circuit-service`。本轮通过独立 stdio 客户端检查 initialize、list_tools 和离线 preview 调用；该传输测试不连接 CST。
+Windows 非交互 CLI 使用[后台启动器](../../skills/keysight-ads-simulation/scripts/invoke_hidden.ps1)，向目标解释器传 `-m cst_mcp --enable-circuit --workdir work/circuit-service`；涉及原生操作时首次即走获准宿主。既有测试通过独立 stdio 客户端检查 initialize、list_tools 和离线 preview 调用；该传输测试不连接 CST。
 
 所有失败证据可通过服务状态/产物接口查看；`unverified` 映射为任务 failed 和 `circuit_result_unverified`，不会增加新任务状态。`configure` 成功表示写入与保存完成，其 result_summary 的原理图/solver 验证字段仍须分别查看。
 
-完整目标与冻结验收标准见 [设计文档](../superpowers/specs/2026-10-19-design-studio-cosimulation-design.md)。
+仓库维护记录中的原始目标及冻结验收标准见 `docs/superpowers/specs/2026-10-19-design-studio-cosimulation-design.md`。扩展先沉淀通用 Python 接口，再按公共协议显式注册 service/MCP。交付分别报告可调用入口、离线检查、原生读回、实际求解与数值证据；缺项保留未执行。
 
 
 ## 周期稳态射击法配置

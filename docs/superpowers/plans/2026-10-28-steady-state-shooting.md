@@ -1,5 +1,7 @@
 # Steady State shooting configuration
 
+> 历史记录（2026-10-28）。本页的批准、执行顺序和验收范围属于当时任务。当前操作按[技能索引](../../../skills/README.md)及本次工程授权执行。
+
 User requested the documented CST periodic steady-state feature as a reusable library API.
 Add configure_steady_state_task(task_name, settings, create=False), separate from ordinary
 transient integration/source configuration. Support automatic period detection, unit-explicit

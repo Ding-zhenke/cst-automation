@@ -4,13 +4,48 @@ import json
 from pathlib import Path
 import re
 import shutil
+import unicodedata
 from zipfile import ZipFile
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("build_plugin", ROOT / "scripts/build_plugin.py")
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
+
+
+def heading_ids(markdown):
+    ids = set(re.findall(r'<a\s+(?:name|id)="([^"]+)"', markdown))
+    fence = False
+    for line in markdown.splitlines():
+        if line.startswith("```"):
+            fence = not fence
+            continue
+        heading = re.match(r"^#{1,6}\s+(.+?)\s*#*\s*$", line) if not fence else None
+        if heading:
+            text = heading.group(1).lower()
+            slug = "".join(c for c in text if c in "-_ " or unicodedata.category(c)[0] in "LMN").replace(" ", "-")
+            key = slug
+            number = 0
+            while key in ids:
+                number += 1
+                key = f"{slug}-{number}"
+            ids.add(key)
+    return ids
+
+
+def assert_local_links(root, paths):
+    headings = {}
+    for path in paths:
+        for target, fragment in builder.local_links(path.read_text(encoding="utf-8")):
+            resolved = (path.parent / target).resolve() if target else path
+            assert root.resolve() in resolved.parents and resolved.is_file(), (path, target)
+            if fragment and resolved.suffix == ".md":
+                if resolved not in headings:
+                    headings[resolved] = heading_ids(resolved.read_text(encoding="utf-8"))
+                assert fragment in headings[resolved], (path, target, fragment)
 
 
 def test_first_native_call_guidance_at_each_skill_entry():
@@ -42,6 +77,9 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
     shutil.copyfile(ROOT / "LICENSE", tmp_path / "LICENSE")
     # Unrelated local files must never enter a plugin release.
     (tmp_path / ".env").write_text("PRIVATE=example", encoding="utf-8")
+    (tmp_path / "docs/guides/unlinked.md").write_text("Private draft", encoding="utf-8")
+    (tmp_path / "skills/cst-circuit/private.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "skills/cst-circuit/references/unlinked.md").write_text("Draft", encoding="utf-8")
     before = {p.relative_to(tmp_path).as_posix(): p.read_bytes()
               for p in (tmp_path / "skills").rglob("*") if p.is_file()}
     archive = builder.build_plugin(tmp_path)
@@ -57,13 +95,18 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
         assert bundle.read('skills/README.md') == before['skills/README.md']
         assert "mcpServers" not in manifest
         entries = sorted(n for n in names if n.startswith("skills/") and n.endswith("/SKILL.md"))
-        assert {Path(n).parent.name for n in entries} == {
-            "cst-circuit", "cst-device-characterization", "cst-diagnostics",
-            "cst-diode-loading", "cst-figures", "cst-mesh-frequency", "cst-modeling",
-            "cst-parameter-study", "cst-results", "cst-sessions", "cst-simulation",
-            "cst-in-situ-validation", "keysight-ads-simulation", "diode-isolator-design-workflow"}
+        assert set(entries) == {p for p in before if p.endswith("/SKILL.md")}
+        assert {"README.md", "skills/keysight-ads-simulation/LICENSE",
+                "skills/keysight-ads-simulation/agents/openai.yaml",
+                "skills/cst-figures/assets/research.mplstyle",
+                "skills/cst-sessions/scripts/check_workflow.py",
+                "skills/keysight-ads-simulation/scripts/invoke_hidden.ps1"} <= names
+        assert not names.intersection({".env", "docs/guides/unlinked.md", "docs/VALIDATION.md",
+                                       "skills/cst-circuit/private.json", "docs/MIGRATION_MAP.md",
+                                       "skills/cst-circuit/references/unlinked.md"})
+        assert not any(n.startswith(("docs/superpowers/", "docs/validation/")) for n in names)
         for name, content in before.items():
-            if '__pycache__' in Path(name).parts or name.endswith('.pyc'):
+            if any(part in ("__pycache__", "tests") for part in Path(name).parts) or name.endswith((".pyc", "private.json", "unlinked.md")):
                 assert name not in names
                 continue
             assert bundle.read(name) == content
@@ -73,15 +116,8 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
         (extracted / "plugin.json").write_text(json.dumps({"name": "cst-automation", "version": "0.0.0"}), encoding="utf-8")
         bundle.extractall(extracted)
         assert json.loads((extracted / "plugin.json").read_text(encoding="utf-8"))["version"] == manifest["version"]
-        for entry in [*entries, 'skills/README.md',
-                      'skills/cst-sessions/references/workflow-checkpoint.md']:
-            text = (extracted / entry).read_text(encoding="utf-8")
-            for target in re.findall(r"\]\(([^)]+)\)", text):
-                # Markdown heading fragments are not part of the file path.
-                resolved = ((extracted / entry).parent / target.split("#", 1)[0]).resolve()
-                assert extracted.resolve() in resolved.parents
-                assert resolved.is_file(), (entry, target)
-        assert all(n in ("LICENSE", "plugin.json", ".codex-plugin/plugin.json")
+        assert_local_links(extracted, sorted(extracted.rglob("*.md")))
+        assert all(n in ("LICENSE", "README.md", "plugin.json", ".codex-plugin/plugin.json")
                    or n.startswith(("skills/", "docs/")) for n in names)
     assert before == {p.relative_to(tmp_path).as_posix(): p.read_bytes()
                       for p in (tmp_path / "skills").rglob("*") if p.is_file()}
@@ -95,3 +131,15 @@ def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
                 assert marketplace.read(prefix + name) == plugin.read(name)
     # A second build works without deleting or editing source directories.
     assert builder.build_plugin(tmp_path) == archive
+
+
+def test_link_to_repository_private_file_refuses_build(tmp_path):
+    skill = tmp_path / "skills/demo"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("[private](../../work/secrets.md)", encoding="utf-8")
+    (tmp_path / "skills/README.md").touch()
+    guide = tmp_path / "docs/guides/codex-plugin.md"
+    guide.parent.mkdir(parents=True)
+    guide.touch()
+    with pytest.raises(ValueError, match="outside plugin inputs"):
+        builder.release_files(tmp_path, [skill])

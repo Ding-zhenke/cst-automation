@@ -1,5 +1,7 @@
 # Nine-skill CST Plugin Implementation Plan
 
+> 历史记录（2026-10-30）。本页的批准、执行顺序和验收范围属于当时任务。当前操作按[技能索引](../../../skills/README.md)及本次工程授权执行。
+
 > **For agentic workers:** Use superpowers:executing-plans. User approved implementation in this chat; proceed without another approval checkpoint.
 
 **Goal:** Deliver a portable, model-free plugin containing the nine approved CST skills.

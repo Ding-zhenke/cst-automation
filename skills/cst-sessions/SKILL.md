@@ -3,177 +3,34 @@ name: cst-sessions
 description: Manage independent persistent CST environments for separate conversations, including recovery and deduplication.
 ---
 
-**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+# 所属会话、工程与恢复
 
-# Persistent conversation sessions
+完整阅读本入口及当前操作要求的引用章节，按[完整阅读规则](../README.md#完整阅读规则)补读和恢复。
 
-On this Windows workstation, CST needs the licensed host **from the first native
-call**. For Codex shell commands set `sandbox_permissions="require_escalated"` on
-the first and each subsequent native command. This covers SDK imports (including
-`doctor --probe`), license checks, native worker launch/resume, creating or connecting to
-a DE, opening projects, native result reads and solver runs. With an existing
-host-backed session, reuse its owning worker. Host permission and authorization
-to solve are separate. Source, saved job JSON, exported CSV and fake tests can
-use the sandbox.
+本机从首次原生调用起即使用有 CST 许可证的宿主。通过 Codex 命令工具导入 SDK、探测许可证、启动或恢复原生 worker（含 `resume`）、连接环境、打开工程、原生读结果或求解时，首次及后续命令均指定 `sandbox_permissions="require_escalated"`。Windows 非交互 Python 使用[后台启动器](../keysight-ads-simulation/scripts/invoke_hidden.ps1)，保留日志、退出码及 CST 诊断弹窗；只在用户明确要求时显示交互控制台。已有回执、导出 CSV 和 fake 测试可在沙箱读取或执行。
 
-On Windows start the first noninteractive session CLI or direct Python command
-with the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1).
-Retain logs, errors and the exit code; use the approved host for native work.
-Show an interactive console only when explicitly requested
-and keep CST diagnostic dialogs visible.
+**已有工程的单次 EM** 可在已授权的宿主直接打开并调用 `app.run()`。先核对工程、已有任务状态及求解授权，再以本轮原生日志与结果判定完成。其余在线建模、配置、读取和求解默认复用对话所属会话。保护中的工程遵守其已绑定的工作流。
 
-Routine status, stop review, parameter updates and saved-baseline acceptance reuse
-the [existing operations and examples](../../docs/guides/reusable_operations.md).
-Do not turn an API status check into GUI control or a worker restart. Maintenance
-development runs independently of engineering optimization; new code/installed
-skills do not establish that the active worker loaded them.
+## 日常操作
 
-参数修改 → EM → HB 使用[强制工作流接口](../../docs/guides/workflow_enforcement.md)：
-空闲时绑定工程规格，提交入口与 worker 自动检查。不能用可选 checklist、
-`passed=true` 或助手承诺代替；旧 worker 能力不符时等待安全升级，不重启正在求解的环境。
+1. 确定用户授权的工程、已保存基线及操作范围。缺少这项确认时先取得确认；同一基线和范围内的授权跨轮有效。每次接续核对现场、文件身份与原任务。未确认写入、基线实质改变或现场不明时重新审阅。
+2. 首次建模前，以本仓库固定的 `work/sessions` 根目录、`work/conversations` 中新 UUID 引用建立会话。记录并告知恢复引用路径。新对话或分叉默认新绑定，有明确恢复要求时沿用旧绑定。后续通过同一 worker、DE 和明确的 `project_id` 操作；禁止无 PID 附加、按当前活动窗口选工程或用独立脚本接管已绑定工程。MCP 未启用时用同一虚拟环境的会话 CLI。见[首次绑定、状态查询与原任务接续](references/session-operations.md)。
+3. 新器件默认从空工程和已审阅代码开始；续改或恢复时保留原工程及必需内容。同拓扑扫描、重试复用原身份。提交几何前按真实参数预览并等待审阅，用稳定的 stage_id/request_id 标识阶段与重试。初始参数、角点核验、正式路径与交付按[工程生命周期](references/project-lifecycle.md)。实机阶段按[工程验证](../cst-in-situ-validation/SKILL.md)记录实际证据。
+4. 跨轮建模、EM→电路、优化或中断恢复先读[工程阶段清单](references/workflow-checkpoint.md)。保存当前要求、授权、工程和输入证据；用户纠正后先更新。提交依赖阶段前由调用方运行只读一致性检查。受管参数→EM→HB 链还须在空闲时绑定获准的规格，服务和 worker 自动执行[工作流检查](../../docs/guides/workflow_enforcement.md)。检查失败或旧 worker 缺少能力时保留现场与原回执，按安全接续程序办理。
+5. 常规状态、停止范围、参数更新和已审阅基线按[已有操作](../../docs/guides/reusable_operations.md)。当前版本的 `set_parameters` 调用所属 `app.update()` 做参数刷新并检查消息，后续 `solve` 无需追加完整重建。改变历史或拓扑前保全所需结果，按原生运行身份、参数和曲线核验留存。独立记录配置、保存或重开、几何、实际求解与数值验收。
 
-For actual CST work in Codex conversations, use the persistent session entry point by default.
-Exception: a standalone EM run of an existing project can open it on the licensed host
-and call `app.run()` directly, without a session or workflow binding. Check the project and prior run state;
-use the native log and results to determine the outcome.
-Use [in-situ validation](../cst-in-situ-validation/SKILL.md) to validate and improve automation while carrying out the authorized engineering task.
-Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
-Read [project reuse and delivery](references/project-lifecycle.md) for scans, native
-checks, relocation checks, temporary tabs, backups and final artifacts.
+## 异常、交接与关闭
 
-For multi-turn builds, EM→circuit handoffs and optimization, maintain and reload
-the [workflow checkpoint](references/workflow-checkpoint.md) before continuing.
-It preserves the latest requirements and binds each observation to its actual
-inputs; run its read-only checker before dependent submissions. It does not
-replace native inspection or the session's job/recovery checks.
+超时、断线或宿主启动失败时保留诊断，先查原 job、进程身份、弹窗和工程；不复制工程、换 ID 重交、强停或重放未知写入。worker 丢失后恢复原队列；软件更新本身不能证明正在运行的 worker 已加载新版。
 
-At task start identify the exact project and saved baseline and obtain explicit
-user confirmation if it has not already been given. Record the authorization,
-scope, project identity and baseline evidence in the conversation checkpoint.
-That authorization persists through discussion and later turns for the same
-baseline and already authorized recovery, modeling and solving. Do not ask the
-user to repeat it merely because another turn or review step occurred. Verify
-current job state, file identity, idle state and evidence independently; renewed
-review is needed when an unconfirmed write, material baseline change or unknown
-scene makes the existing authorization insufficient.
+| 触发条件 | 操作前必读 |
+|---|---|
+| 首次导入已复制或登记但失败 | [初始意图恢复](../../docs/guides/initial_project_intent_recovery.md)，在原 ID 上核验磁盘与空闲状态。 |
+| 已返回且保存的电路失败、几何未验证、外部保存、`needs_reconcile` | [会话操作与失败审阅](references/session-operations.md#失败与基线审阅)。保留失败记录，只处理已审阅的 job。 |
+| 停止 3D 后 DS 或后处理状态未明 | [停止与空闲的范围](../../docs/guides/solver_stop_scope.md)。确认对应序列空闲前禁止新写入或交接。 |
+| 维护升级、保留 DE 的交接、静态准备后的旧 worker 已退出 | [worker 与工程交接](references/session-operations.md#worker-交接)。先确认队列、身份和现场，使用对应的完整协议。 |
+| 3D History Error 后工程变化且有已验证原生归档 | 完整阅读[受保护归档恢复](../../docs/guides/model3d_archive_recovery.md)，保留同一事务、备份及原错误，再做定向现场审阅。 |
+| 建模结束，需要关闭并清理过程工程 | [工程生命周期](references/project-lifecycle.md#临时检查标签有明确终点)。正式工程、配套数据和依赖核验后，通过 `close_project` 取得保存、关闭和退休回执，再删除本任务已确认的过程文件；保留 DE 和审计引用。 |
+| 关闭整个 DE | 只在用户明确要求时使用所属会话 `close`。断线、一次回复结束、过程工程退休均保留 DE。 |
 
-- Before the first actual modeling call, allocate one conversation-specific recovery reference with
-  the CLI or ensure_cst_session. Use an explicit authorized absolute root, normally this repository's
-  `work/sessions`, and a fresh UUID reference file in `work/conversations` for each new conversation.
-- Retain and report that reference path in the conversation so interrupted work can resume. Later
-  turns reuse it. New chats/forks create new bindings unless the user explicitly asks to recover one.
-- For session-managed work, route modeling, configuration, solves and online reads through
-  the owning session with its explicit project_id. Never use connect_to_any, last-active-window
-  routing, or a standalone setup/close script to take over a session-managed project.
-- For a new device, default to create_project (an empty MWS/DS project), reusing reviewed modeling
-  code rather than importing an old CST as a template. Use an existing project for requested
-  continuation/recovery or required project content. Once bound, retain that project across stages,
-  scans and retries; a clean start is not permission to discard uncertain work.
-- For reviewed initial parameters on an unbound saved empty project, use the owned session's
-  `initialize_parameters` batch instead of authoring raw StoreParameter history. Bind the
-  saved digest and complete mapping digest; the worker must already be compatible and idle.
-  Native readback/save are separately evidenced; a partial write is never silently retried.
-- Complete actual-parameter geometry preview and wait for review under cst-modeling before history
-  submission. Stable stage_id and request_id identify retries. A preview hash does not prove review.
-- Initial create/import obtains the existing environment before registering the new project
-  intent; do not treat a first copied input as a missing old reviewed tab. For an already failed
-  copied/registered import, follow [initial-intent recovery](../../docs/guides/initial_project_intent_recovery.md):
-  no automatic replay or review bypass; genuinely review disk/idle, record resolution through
-  the existing API, then inspect/continue the same project ID. Never hand-write human_reviewed.
-- Query original job receipts after a timeout/disconnect. Resume the original worker when lost;
-  never resubmit uncertain work under a fresh ID or copy/rebuild the original model automatically.
-- Cooperative worker upgrade requires `cooperative-worker-upgrade-v1`, an idle unfenced session,
-  and, for native sessions, a verified absent DE. Freeze first through the documented begin/finish
-  API and retain the frozen state until the replacement advertises the requested capabilities.
-  Legacy workers cannot respond to this protocol; ordinary upgrade does not preserve a live DE.
-  Do not force-stop a worker, close a DE, or represent fake tests as native upgrade evidence.
-- For an explicitly approved preserved-DE native handoff trial, use the separate
-  [native worker handoff](../../docs/guides/native_worker_handoff.md) protocol.
-  Read its entire procedure before use. It freezes, verifies, cooperatively exits,
-  verifies the exact original DE and repeats native checks on the replacement's SDK
-  thread before a fresh token-bound release. No create/reopen/force-stop fallback.
-  The owning session reported native acceptance of a 0.3.44 independent small project,
-  including failed-launch recovery and client interruption continuation, with unchanged
-  DE/tab/test parameter and synthetic three-point stored curve. No EM was computed:
-  this does not certify physical results, real EM/HB preservation, all SDK/worker versions
-  or the main engineering project. Preserve target-specific review and authorization;
-  do not infer approval from installing new code. See the guide and VALIDATION record.
-  Windows launcher/actual-worker PID differences require the protocol's nonce and
-  parent-identity admission, never a relaxed identity comparison. A consumed launch
-  that failed before admission uses only the guide's explicit reviewed recovery;
-  confirm the entire failed process tree is gone. Recovery does not launch a worker.
-  For a worker that created its DE, use the guide's explicit owned path and its
-  separate exit-risk acceptance; confirm_borrowed_worker must be false. Validate
-  an actual owned-worker small-project handoff before the engineering target.
-  A creator process exiting with its DE intact alone is not full handoff acceptance.
-  If the exact old worker has already exited after a returned and saved static
-  completion, use `begin_dead_static_worker_recovery` with the exact completion,
-  original failure, reviewed circuit digest and process-tree absence; then use
-  the same finish handoff. It preserves the failure fence and does not reopen or
-  solve. Its native validation is separate and cannot be inferred from offline tests.
-  The owning session subsequently reported 0.3.46 owned-worker handoff acceptance
-  on both an independent synthetic-data project and its reviewed engineering target:
-  original DE, registered tabs, full parameters and current result tree remained.
-  Existing unqualified matrices remained unqualified. This is scoped lifecycle
-  evidence, not matrix-value equivalence, EM/HB success or universal SDK compatibility.
-- A failed circuit run_task with explicit returned/saved receipts may leave the session ready
-  after project/run identity, saved and disk digests, and absence of prior uncertainty/dialogs
-  are verified. The job remains failed and the solver outcome unverified/review_required.
-  Review missing numerical evidence before dependent tasks; ready alone does not approve them.
-  Missing leaf logs do not by themselves mean an SDK write is still running. Existing historical
-  needs_reconcile is not cleared automatically; distinguish that fence from numerical review.
-- Geometry validation may return unverified with INFO messages despite a normally returned
-  Rebuild. A fully identified returned/saved failure remains failed/review_required; ready is
-  not geometry/dependency acceptance. For an existing geometry fence, use the explicit
-  [bounded read-only review](../../docs/guides/geometry_validation_review.md) only after actual idle
-  confirmation and digest checks; it never rebuilds, saves, opens missing tabs or clears the fence.
-- A ready session with a reviewed external file save uses the separate
-  [saved-baseline acceptance](../../docs/guides/conversation_sessions.md#接受已审阅的外部保存) operation.
-  Require old/new digests, original idle open tab, complete native parameters,
-  reviewed block types/properties and explicit authorization. Do not manufacture
-  a failure fence, call reconcile on ready, or hand-edit session state. Acceptance
-  invalidates old EM/HB evidence; it does not approve a solve or change parameter ranges.
-  Existing incompatible workers are refused, never automatically restarted.
-- A returned 3D abort, Model3D running=False, ready or completed reconcile does not
-  certify DS sequence idle. Before handoff after a stop, read
-  [stop scope](../../docs/guides/solver_stop_scope.md). Pending Abort scope confirmation
-  or unknown DS/postprocessing state prevents new writes and handoff; do not reuse
-  an earlier idle assertion or infer idle from log-file lock release.
-- needs_reconcile requires actual scene evidence and a matching explicit baseline authorization.
-  Reuse existing authorization when its scope covers the reviewed recovery; do not invent user
-  approval. Resolve only the explicitly reviewed uncertain job IDs, never unrelated failures.
-  Reconcile does not certify the solver, erase original errors or authorize replay.
-- For a returned 3D History Error with a changed saved file and a verified successful
-  native archive, read the entire [fenced archive recovery procedure](../../docs/guides/model3d_archive_recovery.md).
-  Use the controller begin/finish interface to freeze, preserve the failed companion,
-  cooperatively retire stale handles and restore the exact archive in the same DE.
-  Do not substitute schematic recovery, ordinary reload, partial companion copying
-  or preemptive reconcile. Completion still requires targeted scene reconciliation;
-  ambiguous mutations are not replayed. The owning session reported one complete
-  0.3.61–0.3.65 native recovery and handoff; see VALIDATION for its limited scope.
-  Preserve native Discrete port mode counts of 0 in recovery inventories; only
-  Waveguide requires a positive count. Do not replace the observed 0 with 1.
-  The archive backup excludes only its root Model.lok, recording metadata and
-  explicitly uncopied content. Continue an empty uncommitted backup only through
-  the same reviewing transaction; never delete a partial snapshot to retry.
-  For the exact pre-close companion-difference refusal after worker exit, use the
-  guide's explicit full-hash SimProps drift review. It preserves Temp deltas and
-  the original backup/token; other content changes or any close intent refuse.
-  After a verified reopen rejected only for the guide's exact three reviewed INFO
-  messages, use postopen review, never restore/close/open again. This read-only
-  continuation still requires full identity/history/parameter/port checks and
-  does not certify geometry, external dependencies or solving.
-- Keep the working project and its DE while the approved task is active, including replies and
-  disconnects. Once modeling is complete and the formal CST plus paired data are verified, use
-  session `close_project` to save, close and retire this task's process projects, then delete their
-  confirmed process files and paired folders under [project lifecycle](references/project-lifecycle.md).
-  This includes `model.cst` copies not originally marked temporary; retain the DE and audit reference.
-  Preserve unfinished/uncertain projects, formal deliverables, required dependencies, user-retained
-  references and other tasks. Closing the whole DE still requires the user's request.
-- If a host launch or identity check fails, preserve its diagnostics and inspect the original
-  session and job before recovery. Do not invent paths, attach targets or launch workarounds.
-- Keep native/process/offline/geometry/solver evidence separate. Fake backend never certifies CST.
-- For existing EM parameter points, `set_parameters` uses the session-owned
-  `app.update()` and message validation; `solve` does not add a full rebuild.
-  Full `Rebuild` on geometry/history operations can delete results: preserve
-  required history before topology changes. Native save/reopen acceptance remains separate.
+解释器、运行库身份与离线诊断见[环境与能力](references/runtime.md)；命令和返回字段见[会话指南](../../docs/guides/conversation_sessions.md)。私有工程和凭据留在当前工程环境，保持用户全局 MCP 配置。

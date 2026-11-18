@@ -1,5 +1,7 @@
 # CST conversation sessions implementation plan
 
+> 历史记录（2026-10-27）。本页的批准、执行顺序和验收范围属于当时任务。当前操作按[技能索引](../../../skills/README.md)及本次工程授权执行。
+
 > **For agentic workers:** Use superpowers:executing-plans inline. Follow test-first steps and record evidence in work/session_validation/progress.md.
 
 **Goal:** Isolate each conversation's CST environment, preserve it across client disconnects, and resume without replaying uncertain writes.

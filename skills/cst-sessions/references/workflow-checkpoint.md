@@ -71,9 +71,17 @@ Python 均可运行；仅标准库，不连接 CST、不写文件。插件包含
 记录，不能在输入改变后单独刷新摘要来复用旧证据。所有影响该检查的输入必须加入
 `depends_on`；输入字段记录具体值或内容摘要，修改时同步更新，不维护永不变的标签。
 
+Windows 在所选仓库或插件中解析后台启动器和检查脚本，用已配置的工程解释器及实际清单路径。以下两个命令分别在采集证据、提交依赖阶段前调用。
+
 ```powershell
-& <project-python> <skill-path>/scripts/check_workflow.py <workflow.json> --basis source_impedance
-& <project-python> <skill-path>/scripts/check_workflow.py <workflow.json> --stage before_hb
+$launcher = Join-Path $skillsRoot 'keysight-ads-simulation/scripts/invoke_hidden.ps1'
+$checker = Join-Path $skillsRoot 'cst-sessions/scripts/check_workflow.py'
+& $launcher -Executable $projectPython -ArgumentList @($checker, $workflowPath, '--basis', 'source_impedance')
+```
+
+```powershell
+& $launcher -Executable $projectPython -ArgumentList @($checker, $workflowPath, '--stage', 'before_hb')
+exit $LASTEXITCODE
 ```
 
 返回码：0 为声明项一致，1 为缺项/过期/文件变更/值不匹配，2 为无效清单。

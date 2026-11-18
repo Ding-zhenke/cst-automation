@@ -25,11 +25,15 @@ Python setup.attach 标记 _attached=True；本库没有自动析构关闭逻辑
 
 ## 入口与审阅字段
 
-使用原 root、reference 和同一仓库解释器的会话 CLI：
+在获准的许可宿主使用原会话根目录、恢复引用和同一仓库解释器；变量取当前交接的实际值。
 
-```text
-python -m tpc_service.sessions --root <原会话根目录> --reference <原引用文件> begin-native-worker-handoff --review-file <审阅JSON>
-python -m tpc_service.sessions --root <原会话根目录> --reference <原引用文件> finish-native-worker-handoff
+```powershell
+$hidden = (Resolve-Path 'skills/keysight-ads-simulation/scripts/invoke_hidden.ps1').Path
+$py = (Resolve-Path '.venv/Scripts/python.exe').Path
+$sessionArgs = @('-m','tpc_service.sessions','--root',$sessionRoot,'--reference',$conversationRef)
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('begin-native-worker-handoff','--review-file',$reviewFile))
+# 核查第一步回执及下文交接条件后，再完成交接。
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('finish-native-worker-handoff'))
 ```
 
 Python 对应 SessionManager.begin_native_worker_handoff / finish_native_worker_handoff；
@@ -105,8 +109,8 @@ startup_error；不能仅凭 PID 不同就替换身份或跳过检查。
 
 仅对 starting 阶段、启动令牌已消费但实际 worker 尚未登记的失败，可调用：
 
-```text
-python -m tpc_service.sessions --root <原root> --reference <原引用> recover-native-worker-handoff --review-file <恢复审阅JSON>
+```powershell
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('recover-native-worker-handoff','--review-file',$recoveryReviewFile))
 ```
 
 Python 为 recover_native_worker_handoff，MCP 为 recover_cst_native_worker_handoff。
@@ -131,7 +135,7 @@ Python 为 recover_native_worker_handoff，MCP 为 recover_cst_native_worker_han
 最终 complete，原 DE/标签/测试参数和三点 synthetic/not-EM 存储曲线逐项不变，
 新 worker 加载 HF controls；随后单独 close_project 保存、关闭标签并退役，保留 DE。
 未强杀、未 create/reopen fallback、未用 Computer Use、未做电磁计算。维护端未独立
-读取私有回执，本记录来源及边界见 [验证记录](../VALIDATION.md)。这不认证物理结果、
+读取私有回执，本记录来源及边界见 仓库的 `docs/VALIDATION.md`。这不认证物理结果、
 真实 EM/HB 数据保留、网格收敛或主工程交接；不能把小工程通过当作任意目标的放行。
 
 同日后续：所属会话报告 0.3.46 的实际 worker 创建 DE 小工程和目标工程均完成 owned

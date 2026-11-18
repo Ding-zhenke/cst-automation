@@ -5,6 +5,8 @@ description: Use when working with Keysight PathWave ADS RF circuits or physical
 
 # Keysight ADS Simulation
 
+Read this entire entry and the reference sections required by the selected operation. Recover missing text after truncation or context loss before using the native APIs.
+
 The desktop sandbox has no access to the ADS license on this Windows
 workstation. Run every native ADS operation on the approved host outside the
 sandbox from the first call. For Codex shell commands, set
@@ -79,7 +81,7 @@ and verify that each relative reference resolves from there. If parsing fails,
 preserve the failing netlist and full failure log before making a path change so
 the cause remains inspectable.
 
-Create or inspect DDS only when the user requests it or the deliverable requires a Data Display. A request for native Data Display windows requires opening the saved `.dds` in the visible ADS Data Display application, checking the intended dataset and plots in the window, and leaving the window open for the user. Follow the [native window workflow](references/dataset-and-dds.md#deliver-a-native-data-display-window). For headless deliverables, use programmatic reopen, structural inspection, and agreement with the independently parsed `.ds`.
+Create or inspect DDS only when the user requests it or the deliverable requires a Data Display. A request for native Data Display windows requires opening the saved `.dds` in the visible ADS Data Display application, checking the intended dataset and plots in the window, and leaving the window open for the user. Follow the [native window workflow](references/dataset-and-dds.md#deliver-a-native-data-display-window). For headless deliverables, use programmatic reopen, structural inspection, and agreement with the independently parsed `.ds`. Record `GUI check is not applicable` for a headless delivery.
 
 Preserve warnings, model limitations, and fatal errors as distinct evidence. Behavioral or ideal models support only the claims their parameters justify; they do not turn simulated performance into a hardware guarantee.
 

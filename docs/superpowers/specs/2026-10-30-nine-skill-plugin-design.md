@@ -1,5 +1,7 @@
 # 通用 CST 九 skill 插件
 
+> 历史记录（2026-10-30）。本页的批准、执行顺序和验收范围属于当时任务。当前操作按[技能索引](../../../skills/README.md)及本次工程授权执行。
+
 用户已批准一个通用插件：cst-sessions、cst-modeling、cst-simulation、cst-circuit、cst-results、cst-diagnostics、cst-diode-loading、cst-device-characterization、cst-figures。
 
 skills/ 是唯一指令源码；插件构建只复制明确列出的公共文件。六个基础 skill 使用可迁移的局部参考资料，新增二极管加载、器件表征、科研绘图三个 skill。共用运行依赖说明由 sessions 维护，绘图样式由 figures 维护。Python 库继续独立提供执行接口，插件不包含 CST SDK、模型、运行数据或自动安装动作。

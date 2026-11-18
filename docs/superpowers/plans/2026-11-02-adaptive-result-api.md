@@ -1,5 +1,7 @@
 # Adaptive result API implementation plan
 
+> 历史记录（2026-11-02）。本页的批准、执行顺序和验收范围属于当时任务。当前操作按[技能索引](../../../skills/README.md)及本次工程授权执行。
+
 Goal: merge explicitly supplied modeler paths with offline results paths and read
 complex S versus mesh pass without confusing them with frequency sweeps.
 

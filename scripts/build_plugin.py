@@ -5,8 +5,50 @@ Uses only the standard library and never imports or starts CST.
 from pathlib import Path
 import json
 import os
+import re
 import tempfile
+from urllib.parse import unquote, urlsplit
 from zipfile import ZIP_DEFLATED, ZipFile
+
+
+def local_links(markdown):
+    """Yield relative inline Markdown links outside fenced examples."""
+    for line in re.sub(r"^```[^\n]*\n.*?^```[^\n]*$", "", markdown, flags=re.M | re.S).splitlines():
+        for target in re.findall(r"\]\(([^\s)]+)\)", line):
+            parsed = urlsplit(target)
+            if not parsed.scheme and not parsed.netloc:
+                yield unquote(parsed.path), unquote(parsed.fragment)
+
+
+def release_files(root, skill_dirs):
+    files = {root / "skills/README.md", root / "docs/guides/codex-plugin.md"}
+    for directory in skill_dirs:
+        files.add(directory / "SKILL.md")
+        for pattern in ("LICENSE", "scripts/*.py", "scripts/*.ps1",
+                        "assets/*.mplstyle", "agents/openai.yaml"):
+            files.update(path for path in directory.glob(pattern) if path.is_file())
+
+    pending = sorted(path for path in files if path.suffix == ".md")
+    while pending:
+        source = pending.pop()
+        for name, _ in local_links(source.read_text(encoding="utf-8")):
+            if not name:
+                continue
+            target = (source.parent / name).resolve()
+            if target in files:
+                continue
+            relative = target.relative_to(root)
+            skill_reference = target.parent.name == "references" and target.parent.parent in skill_dirs
+            guide = relative.parts[:2] in (("docs", "guides"), ("docs", "packages"))
+            if target.suffix != ".md" or not (
+                skill_reference or guide or relative == Path("docs/PUBLIC_API.md")
+            ):
+                raise ValueError(f"{source.relative_to(root)} links outside plugin inputs: {name}")
+            if not target.is_file():
+                raise ValueError(f"Missing plugin reference: {source.relative_to(root)} -> {name}")
+            files.add(target)
+            pending.append(target)
+    return sorted(files)
 
 
 def build_plugin(root: Path) -> Path:
@@ -30,11 +72,10 @@ def build_plugin(root: Path) -> Path:
 
     # Explicit inputs keep environments, projects, credentials, and work/ out.
     entries = [(template, ".codex-plugin/plugin.json"), (root / "LICENSE", "LICENSE"),
-               (root / "skills" / "README.md", "skills/README.md")]
-    for directory in [*skill_dirs, root / "docs"]:
-        for source in sorted(directory.rglob("*")):
-            if source.is_file() and "__pycache__" not in source.parts and source.suffix != ".pyc":
-                entries.append((source, source.relative_to(root).as_posix()))
+               (template.parents[1] / "README.md", "README.md")]
+    for source in release_files(root, skill_dirs):
+        source.resolve().relative_to(root)
+        entries.append((source, source.relative_to(root).as_posix()))
 
     output_dir = root / "dist"
     output_dir.mkdir(exist_ok=True)

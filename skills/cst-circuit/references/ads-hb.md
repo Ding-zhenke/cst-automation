@@ -1,6 +1,6 @@
 # ADS 双音 HB：版本与证据
 
-调用前识别实际 ADS 版本、DE API、Python、EDA Toolbox、所需模块与许可证环境。社区 `keysight-ads-simulation` 的 2026 U1 基线及示例不自动适用于 2025；以本机版本的文档和实际对象读回为准。设置 `HPEESOF_DIR` 后再导入 ADS，使用匹配该版本的 Python。沙箱中许可证失败时保留具体错误；如授权允许，在宿主同一环境独立检查，不将沙箱失败等同于许可证本身不可用，也不修改许可服务器配置。
+调用前识别实际 ADS 版本、DE API、Python、EDA Toolbox、所需模块与许可证环境。社区 `keysight-ads-simulation` 的 2026 U1 基线及示例不自动适用于 2025；以本机版本的文档和实际对象读回为准。设置 `HPEESOF_DIR` 后再导入 ADS，使用匹配该版本的 Python。按[ADS 执行环境](../../keysight-ads-simulation/SKILL.md)从首次原生调用即使用获准宿主。Codex shell 的首次及后续原生命令均设置 `sandbox_permissions="require_escalated"`，用非交互后台启动器保留日志、错误和退出码。若先前在沙箱中失败，独立保留该错误，仅在获准宿主核实实际状态；不要修改许可服务器配置。
 
 一次实际工程中，ADS 2025 Update 2、DE API 620、Python 3.12.2、EDA Toolbox 1.2.4 的保存网表 → CircuitSimulator → dataset 双音 HB 流程覆盖 122 个工况。此事实仅证明该工程与环境中的流程，不能推广为通用接口实机验收、器件性能或收敛。`run_netlist` 返回值和成功语义按实际版本核实，保留提交网表、完整日志、dataset、对应工况和数据摘要。
 

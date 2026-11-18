@@ -1,5 +1,7 @@
 # Native Parameter Sweep Modes Implementation Plan
 
+> 历史记录（2026-11-03）。本页的批准、执行顺序和验收范围属于当时任务。当前操作按[技能索引](../../../skills/README.md)及本次工程授权执行。
+
 > For agentic workers: use superpowers:executing-plans, one task at a time.
 
 **Goal:** expose native linear/logarithmic ranges and existing primitive APIs through owned sessions.

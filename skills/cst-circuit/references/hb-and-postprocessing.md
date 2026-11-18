@@ -46,3 +46,11 @@ HB 失败的输入按上游失败跳过；HB 成功但模板缺节点是独立�
 有效 HB 数据、修正映射后重出图，不为补图重跑物理求解。注册/排序/保存重开通过
 均不能替代回调实际执行。交付时对比授权工况集合与实际 Run ID/参数集合，缺失、
 重复或旧输入混入都要列出；全带曲线与逐管 VAK 图按当前要求一起交付。
+
+要求自动出图时须在实际父任务中核对 HB→Post 顺序、启用状态、绑定的内嵌源码及调用方设置，保留原生保存关闭重开后的审计。仅暂存 .rtpy、空 Post 或静态 Results 不完成交付。频率、方向、探针、参数、指标定义和分组由调用方提供，横轴取实际输入 RF；缺方向不补零，有限功率同频 b/a 保留其定义。
+
+`registration_persistence_verified/reopen_verified` 仅证明归档重建；空闲上下文的空模板枚举也不能判断注册失败。`binding_verified/native_template_enumeration_verified/template_execution_verified` 的值按独立证据报告。直接 app 注册重开后须刷新所属会话句柄；会话路由自动处理。只配置时不执行模板，不因软件安装声称已部署。回调身份、单模块 M0D/v11、single_run 和替换前重新读取注册摘要按[原生注册合同](../../../docs/guides/native_hb_postprocessing.md)执行。
+
+## HB CPU 并行设置
+
+在实际 Spectral Lines/HB 任务 `Properties > Specials > General > Parallelization` 核对 CPU 配置。用户未限额时优先 `Maximum`，由 CST 按可用物理核心数选择；需限额时按 CST/系统实认核心数使用 `Use up to`。使用当前版本已核实的枚举或设置入口，避免写死线程数。保留并行选项与本轮原生日志中的实际线程数，硬件规格、逻辑线程数、3D EM GPU 状态均不能替代该任务的运行读回。

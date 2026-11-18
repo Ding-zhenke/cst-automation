@@ -3,7 +3,7 @@ name: cst-figures
 description: Use when plotting supplied CST or electromagnetic research data, parameter-based geometry previews, field maps, spectra, or device comparison figures with reproducible scientific styles.
 ---
 
-**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+读完本入口和当前操作要求的引用章节，按[完整阅读规则](../README.md#完整阅读规则)补读和恢复。
 
 # 科研图与结构预览
 

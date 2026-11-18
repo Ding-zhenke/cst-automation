@@ -1,5 +1,7 @@
 # cst-automation 拆分与迁移实施计划
 
+本页保留原拆分项目的实施计划。后续任务按[当前技能索引](../skills/README.md)与[公开接口](PUBLIC_API.md)执行。
+
 ## 目标与边界
 
 把原 TPC 仓库中的 CST 通用能力整理为独立 `cst-automation` 发行包，供 TPC 与 em-enclosure 单向依赖。保留 `cst_solver`、`tpc_service`、`cst_mcp` 的 Python 导入名；新增 `cst_automation.curves` 与 `cst_automation.s2p` 作为共享、无 CST 初始化的通用数据接口。TPC 专有的建模规则通过注册 handler 接入通用服务；通用包运行时不得导入 `mesh_grid`、`topo_modeler`、`topo_templates`、`em_enclosure` 或旧 `tpc_toolkit`。

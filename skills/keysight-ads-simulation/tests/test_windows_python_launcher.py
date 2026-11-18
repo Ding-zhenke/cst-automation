@@ -35,7 +35,10 @@ class AdsLauncherTests(unittest.TestCase):
         invocation = tmp_path / "invoke.ps1"
         invocation.write_text(
             "param($Launcher, $Probe, $AdsRoot)\n"
-            "& $Launcher -Script $Probe -AdsRoot $AdsRoot -ScriptArgs @('a b', 'x\"y', '')\n"
+            # Inspect stream 2 before Windows PowerShell formats and wraps native errors.
+            "& $Launcher -Script $Probe -AdsRoot $AdsRoot -ScriptArgs @('a b', 'x\"y', '') 2>&1 | "
+            "ForEach-Object { if ($_ -is [Management.Automation.ErrorRecord]) { "
+            "[Console]::Error.WriteLine($_.Exception.Message) } else { $_ } }\n"
             "exit $LASTEXITCODE\n",
             encoding="utf-8",
         )
@@ -50,4 +53,4 @@ class AdsLauncherTests(unittest.TestCase):
         )
         assert child.returncode == 19, (child.stdout, child.stderr)
         assert json.loads(child.stdout) == [str(root), ["a b", 'x"y', ""], False]
-        assert "probe diagnostics" in child.stderr
+        assert "probe diagnostics" in child.stderr.splitlines()

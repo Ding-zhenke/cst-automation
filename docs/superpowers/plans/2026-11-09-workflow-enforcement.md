@@ -1,5 +1,7 @@
 # Parameter → EM → HB Enforcement Implementation Plan
 
+> 历史记录（2026-11-09）。本页的批准、执行顺序和验收范围属于当时任务。当前操作按[技能索引](../../../skills/README.md)及本次工程授权执行。
+
 > **For agentic workers:** implement sequentially in this session; the user has already approved the design and implementation.
 
 **Goal:** Reject incomplete or conflicting engineering requests at the actual service boundary without touching live simulations.

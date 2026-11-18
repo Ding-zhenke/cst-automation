@@ -4,7 +4,7 @@
 
 执行前核对 cst-automation 的版本、模块位置和实际 API。以该版本 docs/PUBLIC_API.md 和源码确定签名；本文列出的扩展可能晚于已安装版本。缺少能力时报告准确缺项，保持离线规划，不假造工具、不自动安装新版本。
 
-诊断时，`python -m cst_solver doctor --json` 只检查配置、路径和 ABI，可在沙箱内运行。加 `--probe` 会导入原生 SDK，首次调用就使用能访问 CST 许可证的沙箱外宿主；通过 Codex 命令工具启动时指定 `sandbox_permissions="require_escalated"`。检查返回的导入状态和错误；许可证可用性、工程读回和求解各需相应证据。
+Windows 非交互 Python 从首次启动使用[后台启动器](../../keysight-ads-simulation/scripts/invoke_hidden.ps1)，保留日志、错误和退出码，CST 诊断弹窗保持可见。诊断参数 `-m cst_solver doctor --json` 只检查配置、路径和 ABI，可在沙箱内运行。加 `--probe` 会导入原生 SDK，首次调用就使用能访问 CST 许可证的沙箱外宿主；通过 Codex 命令工具启动时指定 `sandbox_permissions="require_escalated"`。检查返回的导入状态和错误；许可证可用性、工程读回和求解各需相应证据。
 
 会话模块为 tpc_service.sessions；电路为 cst_solver.circuit；数据处理为 cst_automation；MCP 为 cst_mcp。模块名是兼容接口，不表示依赖其他领域仓库。先查帮助/能力，普通导入不连接 CST。
 

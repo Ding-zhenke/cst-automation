@@ -19,12 +19,15 @@
 `sandbox_permissions="require_escalated"`。仅登记恢复引用或读取已保存的回执可在沙箱内完成。
 首先为当前对话选择一个新的
 UUID 文件名，保存其绝对路径供本对话持续使用；不要每轮换文件，也不要所有对话共用
-一个 reference.json。下面的 conversation-a 只是示例，不是通用默认文件名。
+一个 reference.json。首次分配后记下引用路径，后续命令复用该路径。以下 CLI 示例列出参数；Windows 非交互调用使用[后台启动脚本](../../skills/keysight-ads-simulation/scripts/invoke_hidden.ps1)，MCP stdio 由宿主管理协议流。
 
 ```powershell
-$sessionRoot = 'E:\Autocode\cst-automation\work\sessions'
-$conversationRef = 'E:\Autocode\cst-automation\work\conversations\conversation-a.json'
-.\.venv\Scripts\python.exe -m tpc_service.sessions --root $sessionRoot --reference $conversationRef ensure
+$sessionRoot = (Join-Path (Get-Location).Path 'work/sessions')
+$conversationRef = (Join-Path (Get-Location).Path ('work/conversations/' + [guid]::NewGuid().ToString() + '.json'))
+$hidden = (Resolve-Path 'skills/keysight-ads-simulation/scripts/invoke_hidden.ps1').Path
+$py = (Resolve-Path '.venv/Scripts/python.exe').Path
+$sessionArgs = @('-m','tpc_service.sessions','--root',$sessionRoot,'--reference',$conversationRef)
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('ensure'))
 ```
 
 ensure 原子保存恢复引用，不打开 CST。中断 ensure 后使用原文件重新执行；不要另建
@@ -42,12 +45,12 @@ ensure 原子保存恢复引用，不打开 CST。中断 ensure 后使用原文�
 ```
 
 ```powershell
-.\.venv\Scripts\python.exe -m tpc_service.sessions --root $sessionRoot --reference $conversationRef submit --request-id create-model-main --operation create_project --params-file E:\Autocode\cst-automation\work\create-project.json
-.\.venv\Scripts\python.exe -m tpc_service.sessions --root $sessionRoot --reference $conversationRef status
-.\.venv\Scripts\python.exe -m tpc_service.sessions --root $sessionRoot --reference $conversationRef job --job-id <返回的job_id>
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('submit','--request-id','create-model-main','--operation','create_project','--params-file',(Resolve-Path 'work/create-project.json').Path))
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('status'))
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('job','--job-id',$jobId))
 ```
 
-submit 只表示任务已持久接受；以 job 的 succeeded 和 result 判断完成。查询不提交第二次
+将上例的 `$jobId` 设为提交回执返回的实际任务 ID。submit 只表示任务已持久接受；以 job 的 succeeded 和 result 判断完成。查询不提交第二次
 工作；提交回执丢失则用原 request-id 和原参数重试。request-id 或 operation-id 相同而
 内容不同会被拒绝，不能“换个 request-id 再试”来绕开不确定状态。
 
@@ -59,7 +62,7 @@ submit 只表示任务已持久接受；以 job 的 succeeded 和 result 判断�
 | create_project | project_id，project_type=MWS 或 DS |
 | import_project | project_id，源 CST 工程的绝对 source_path；只首次复制 |
 | inspect | project_id；未知状态返回持久现场信息，不冒充原生读回 |
-| set_parameters | project_id、values 参数字典；使用 app.update() 并读消息。当前 update 调用 SDK full_history_rebuild，后续 solve 不再追加重建；事先保全需要的结果 |
+| set_parameters | project_id、values 参数字典；使用 app.update() 并读消息。当前 update 调用 RebuildOnParametricChange(False, False)，后续 solve 不再追加重建；事先保全需要的结果 |
 | history | project_id、稳定 stage_id、name、完整 vba、preview_digest |
 | solve | project_id，可选 note；使用现有 run_checked |
 | circuit | project_id、kind=build/solve/study、settings=原 circuit handler 参数 |
@@ -77,7 +80,7 @@ history 用于通用 CST 历史块，VBA 是受信任用户代码，并非隔离
 ## 中断恢复
 
 ```powershell
-.\.venv\Scripts\python.exe -m tpc_service.sessions --root $sessionRoot --reference $conversationRef resume
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('resume'))
 ```
 
 - worker 尚存：接回原队列，任务继续；不因等待超时重跑。
@@ -129,13 +132,13 @@ execution_state=returned_saved、review_required=true，session 维持 ready。
 
 1. 所属会话先暂停提交，等原任务到可审阅的终态。核对无排队、运行和未知写入，确认 CST 空闲且没有需答复的窗口。记录原 worker 与 DE 的 PID、创建身份、已登记工程路径和保存摘要，保留结果归档。旧任务若有围栏，先独立审阅其证据。
 2. 如果原 worker 已退出并释放锁，使用同一个 `.venv`、root 和私有 reference 执行 `resume`；主动升级仅在上述能力和限制内使用协作接口。核对新 worker 身份、原 DE 身份及工程路径一致，然后在所属会话执行已登记目标的只读检查。若 DE 身份、保存摘要或标签不符，停在现场核对阶段。
-3. 记录续跑前目标工程的正 3D Run ID 基线。用两个连续且参数不同的已授权几何工况，分别调用 `set_parameters` 和 `solve`，保存后读回。核对新任务的 `worker_runtime` 指纹和几何回执 `rebuild_mode="parametric"`；此标记仅表明封装器选择 update 路径，当前 SDK 调用仍是 full_history_rebuild，不证明轻量更新。每组同时记录原生完成日志、保存摘要及实际参数。
+3. 记录续跑前目标工程的正 3D Run ID 基线。用两个连续且参数不同的已授权几何工况，分别调用 `set_parameters` 和 `solve`，保存后读回。核对新任务的 `worker_runtime` 指纹和几何回执 `rebuild_mode="parametric"`；当前封装调用 RebuildOnParametricChange(False, False)，旧 worker 以其加载代码为准；回执本身不能证明历史曲线留存。每组同时记录原生完成日志、保存摘要及实际参数。
 4. 第二组保存后，从同一工程的全部所需 3D S 参数叶枚举共同正 ID，逐 ID 核对实际存储参数、复数曲线和频轴。两组须可同时读回，只有 `[0, 1]` 或两个日志均写 Run ID 1 时，仍未证明不同几何的历史保留。Run 0 和最大编号不能代替参数匹配。在另一个获准的空闲点保存关闭重开，重复读回以验证重开持久化。
 
 ## 明确关闭
 
 ```powershell
-.\.venv\Scripts\python.exe -m tpc_service.sessions --root $sessionRoot --reference $conversationRef close --request-id close-conversation-a
+& $hidden -Executable $py -ArgumentList ($sessionArgs + @('close','--request-id','close-conversation-a'))
 ```
 
 关闭前已接受的任务按序完成；新任务被拒绝。不强杀求解。close_failed 保留环境与错误，
@@ -147,10 +150,10 @@ execution_state=returned_saved、review_required=true，session 维持 ready。
 本仓库启动入口：
 
 ```powershell
-.\.venv\Scripts\python.exe -m cst_mcp --enable-sessions --session-root E:\Autocode\cst-automation\work\sessions
+.\.venv\Scripts\python.exe -m cst_mcp --enable-sessions --session-root (Join-Path (Get-Location).Path 'work/sessions')
 ```
 
-这会显式注册 7 个会话工具，不启动 CST。没有自动修改用户全局配置；未加载这些工具
+这会显式注册会话工具，不启动 CST。没有自动修改用户全局配置；未加载这些工具
 的对话可直接使用上述 CLI。所有工具显式携带 session_id 和 credential，不设置进程内
 “当前会话”。MCP 当前没有可信聊天身份输入时，服务只能验证绑定凭据，不能认证真实
 聊天归属；每个对话须保留自己的引用，新对话/分叉默认新建绑定。

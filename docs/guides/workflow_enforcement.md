@@ -20,7 +20,7 @@
    `verified_returned_saved`、`known_saved_geometry=true`、无监测失败或未决操作时，
    记录原回执、同一保存摘要、工作流代次和只读核验作为审阅证据；`ready` 不支持
    reconcile，不得人为变更状态。两种路径的详细共同条件见
-   [已审阅保存基线](../../skills/cst-simulation/SKILL.md#已审阅保存基线的接续)。
+   [已审阅保存基线](../../skills/cst-simulation/references/saved-baseline.md)。
    `depends_on` 只接受 succeeded，不能把原失败任务作为依赖；在审阅完备的条件下
    可不声明该失败任务，仍必须遵守当前绑定规格、版本和执行前原生检查。
    此路线不认证几何、外部依赖、网格或求解，现场不明或证据不足时不放行。
@@ -69,9 +69,11 @@ EM 参数、几何及 EM 配置变动在写入前清除旧 EM 放行证据。重
 旧证据，即使新求解失败也不能沿用上一轮。仅 HB 参数变化保留匹配 EM，但强制
 重新核对 HB 设置。失败写入仍按原会话规则保留不确定性，不自动回滚或重试。
 
-绑定后的 raw history 和非托管 Design Studio study 仍拒绝执行。CST 原生 EM 参数扫描可通过会话 `configure_sweep` 配置并运行；它保留每个原生 Run ID 与参数组合，可在求解完成后直接用 `Result.export_touchstone_sweep()` 导出逐点 SNP。纯 EM→SNP 的任务不需要逐点 `set_parameters`/`solve` 链或 HB 数值证据。参数刷新/扫描配置后的验证若仅有 CST INFO 消息且 Rebuild 正常返回，不把旧消息队列判为失败；WARNING、ERROR、未知消息和 Rebuild 失败仍按原回执处理。
+绑定工程可使用专用会话操作 `configure_sweep` 配置原生 EM 序列。提交和执行检查归属标记、保存摘要及工作流版本/代次；配置作为 EM 变更使旧证据失效。原生执行写入序列、进行常规模型重建与消息检查并保存。INFO-only 消息在正常重建返回时可通过；WARNING、ERROR、未知消息或重建失败按原回执审阅。绑定工程拒绝 raw history、`model_api` 中的扫参配置方法以及非托管电路 study。
 
-原生 EM 扫描的 Touchstone 导出只读取已保存结果，不配置或启动求解。导出记录 Run ID、实际参数组合、完整 S 矩阵、频率轴和文件摘要；它不认证网格收敛或物理质量。不要为该离线导出增加 HB 报告、工作流数值门槛或重复的求解前后审阅步骤。旧临时 EM/电路服务在构造 CST app 前拒绝已标记工程。
+配置、运行和导出是三个操作。当前发布版没有注册会话扫描启动操作，`solve` 只执行单次 EM。底层 `start_parameter_sweep()` 并非会话入口。后续运行须有用户授权和适用于该工程的原生执行途径；已有工作流不可绕过。核对实际原生运行记录和结果，正 Run ID 的存在、数量及其与预期参数组合的对应关系均须从已保存工程验证。
+
+已保存的扫描结果可在许可宿主用 `Result.export_touchstone_sweep()` 读取并导出。无需启动 DE 或重新求解。导出按实际正 Run ID、参数组合、完整 S 矩阵与频率轴写逐点 SNP 和文件摘要，并须对照预期工况检查完整性。纯 EM→SNP 无需引入 HB 证据门槛。求解收敛和物理质量须另据求解证据判断。旧临时 EM/电路服务在构造 CST app 前拒绝已标记工程。
 
 未绑定的原生会话可以直接提交单次 EM `solve`，不需要绑定规格；参数修改和
 电路求解仍按各自规则处理。已绑定工作流的工程仍执行其既有检查。插件更新不会热更新
@@ -88,4 +90,4 @@ SDK 返回失败时，普通失败回执仍不能放行。仅对已保存结果�
 
 ## EM-only contract (schema v2)
 
-For a reviewed standalone EM solve, bind `schema_version=2`, `mode="em_only"`, and exactly `parameters`, `initial_values`, `em_checks`, `evidence_rules`. Parameter rules must affect EM; all existing numeric, identity, digest, native-check, revision and invalidation protections remain. This contract rejects circuit solve/study and HB handoffs. Worker capability `parameter-em-only-v2` is required at execution; do not replace an active worker. A successful bind or offline test is not native solver evidence or convergence.
+Standalone EM on a reviewed, unbound project may use `setup(path)` and `app.run()` without a session or contract. For optional guarded execution, bind `schema_version=2`, `mode="em_only"`, and exactly `parameters`, `initial_values`, `em_checks`, `evidence_rules`. Parameter rules must affect EM; all existing numeric, identity, digest, native-check, revision and invalidation protections remain. This contract rejects circuit solve/study and HB handoffs. Worker capability `parameter-em-only-v2` is required at execution; do not replace an active worker. A successful bind or offline test is not native solver evidence or convergence.

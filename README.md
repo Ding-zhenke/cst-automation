@@ -51,7 +51,7 @@
 | MCP 集成 | 工程、求解、任务查询、CSV 分析、报告与工具扩展 | `cst_mcp` |
 | Codex skills | 建模、仿真、结果与故障诊断操作指引 | [skills 索引](skills/README.md) |
 
-仓库中的十一个 skill 也可打包为一个按需选择 skill 的 Codex 插件，原有 skill 文件保持不变。构建和使用方式见 [Codex 插件指南](docs/guides/codex-plugin.md)。
+仓库技能可打包为一个 Codex 插件，按当前任务加载入口与专项参考。构建和使用方式见 [Codex 插件指南](docs/guides/codex-plugin.md)。
 
 上述功能描述的是代码提供的接口范围；具体 CST 版本、求解器与真实工程的可用性仍需在目标环境验证。
 
@@ -212,7 +212,7 @@ cst-automation/
 ├── cst_solver/        # CST 工程、建模、仿真、结果与诊断
 ├── tpc_service/       # 通用任务服务及 backend
 ├── cst_mcp/           # MCP 适配与工具注册
-├── skills/            # 四类仓库内 Codex skills
+├── skills/            # 按任务选择的 Codex skills
 ├── docs/              # 安装、使用、接口、迁移与验证说明
 ├── tests/             # 仓库级测试；各包还包含自己的 tests
 ├── .github/workflows/ # Windows CI 测试与构建
@@ -253,7 +253,7 @@ cst-automation/
 
 ```powershell
 python -m pip install -e ".[dev,mcp]"
-python -m pytest -o addopts='' -m "not gui" -q
+python -m pytest -o addopts='' -m "not gui and not cst_live" -q
 python -m build --wheel --sdist
 ```
 

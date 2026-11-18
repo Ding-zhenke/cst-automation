@@ -3,102 +3,17 @@ name: cst-parameter-study
 description: Use when designing or configuring CST parameter sweeps, choosing linear or logarithmic ranges or discrete states, counting cases, or preparing an existing project for server scanning.
 ---
 
-**完整读取要求：** 必须读完本文件及当前操作要求的引用章节。只读前几十行、搜索摘要或工具输出截断都不算完成；连续补齐缺失内容后才能执行依赖的写入或求解。上下文压缩后若只剩摘要，先重新读取，不能靠用户提醒。
+遵守[完整阅读规则](../README.md#完整阅读规则)。
 
-# Parameter-study selection
+# CST 参数研究
 
-For already authorized per-point updates, use the [direct session example](../../docs/guides/reusable_operations.md#参数修改示例):
-`set_parameters` performs the owned update; inspect its exact receipt before the
-separately authorized solve. Reuse this route, not GUI parameter editing or an
-extra full Rebuild. Native sweep remains the preferred mechanism when applicable.
+确认工程、参数/公式与单位、独立轴、基线、预期工况及输出。实际操作使用[所属会话](../cst-sessions/SKILL.md)。原生扫描能表达所需轴、任务依赖和输出时优先使用。配置前必读[采样、参数绑定与结果验收](references/axes-and-acceptance.md)，清点范围、端点、零值、组合数、极值约束、替换范围及结果存储。
 
-Actual operations use [cst-sessions](../cst-sessions/SKILL.md). Check the target
-project, independent axes, parameter formulas/units, baseline, outputs and run
-authorization. Reuse the accepted project when topology is unchanged. A request
-to configure a server scan does not authorize starting the scan locally.
-
-Default to CST's native parameter sweep when it can express the requested axes,
-task dependencies and required outputs. Configure it once and run the native
-task under the existing authorization; avoid repeated Python parameter writes,
-updates and solves for every point, which add communication and write latency.
-Check the actual project, native task type, parameter binding and result storage
-first; configuration alone does not prove a sweep was executed or preserved.
-
-For an EM parameter sweep whose deliverable is one Touchstone file per point,
-configure and run the native sweep in the owning session, then call
-`Result.export_touchstone_sweep()` on the saved project. The exporter reads the
-native positive Run IDs and their parameter combinations and writes one full
-matrix `.sNp` plus manifest entry per point. Do not replace this short EM→SNP
-path with the parameter→EM→HB evidence workflow. INFO-only CST message queues do
-not block a parameter refresh or sweep configuration when Rebuild returned;
-WARNING, ERROR, unknown messages and a failed Rebuild remain blockers.
-
-Choose the appropriate mechanism:
-
-- Native EM sweep configuration: `setup.configure_sweep` or session operation
-  `configure_sweep`; editable in CST and no solve starts.
-- Serial EM points in one existing project only when native sweep cannot meet a
-  specific requirement (such as dependent per-point decisions, unsupported task
-  behavior or explicitly requested per-point control): session `set_parameters` refreshes
-  with `app.update()` and checks blocking messages; session `solve` then runs without a
-  second full rebuild. This is distinct from configuring a native sweep. A live
-  case retained two parameter states and all four S leaves using this SDK update
-  path; saving/reopening and general retention are not yet certified.
-- Coupled EM/circuit or pure-circuit study: first check the applicable native
-  Design Studio sweep and task chain. Use [cst-circuit](../cst-circuit/SKILL.md)
-  `run_parameter_study` when native operation cannot meet explicit per-case evidence,
-  dependency or control requirements. It saves and solves and is not a native sweep.
-- Existing case analysis: [cst-results](../cst-results/SKILL.md), retaining actual
-  run identity, units and complex data. Do not treat the current run as all cases.
-
-## Choose axes rather than defaulting to fixed points
-
-| Physical sampling need | Native specification |
+| 任务 | 支持的路径 |
 |---|---|
-| Geometry, bias or narrow-range search at equal differences | `{"mode":"linear", "start":lo, "stop":hi, "samples":count}` |
-| Positive conductivity/lifetime/loss across orders of magnitude | same descriptor with `mode="logarithmic"` |
-| Exact reference states, irregular values, zero, switches | explicit finite number list |
-
-These descriptors are values in a parameter-name mapping. They retain native
-linear/logarithmic mode via `AddParameter_Samples`, rather than expanding every
-range into arbitrary points. `samples` counts both endpoints, not intervals;
-logarithmic bounds must be positive. Zero plus a logarithmic range requires a
-separate zero-state sequence or an intentionally discrete list including zero.
-Do not silently drop zero or change its physical meaning.
-
-`configure_sweep(sequence_name,parameters,replace_all=False)` validates the whole
-mapping before a single history entry. `configure_discrete_sweep` is the legacy
-point-list-only interface. Low-level `add_sweep_parameter_samples` exposes a
-boolean logarithmic flag; prefer the complete mapping for reviewable studies.
-Avoid old `configure_parameter_sweep`: it mixes configuration and execution and
-uses legacy unsupported sequence commands. Run only through the explicit,
-reviewed execution path after the authorized scope is known.
-
-Axes in one sequence form a Cartesian product; separate sequences are independent
-experiments. Count the product per sequence and sum across sequences. This API
-does not promise zipped/simultaneous axes. Review combinations, baseline/reference
-states, geometry validity at extrema and intended outputs before submission.
-Current software bounds are 100 axes, 10000 points per axis and 1000000 cases per
-sequence; these are input limits, not an affordable compute budget. Use coarse
-then focused sampling when warranted; do not launch that extra work implicitly.
-
-Check that the swept parameter actually drives the model: material conductivity
-must reference the conductivity parameter, and geometry dimensions must retain
-the intended formulas. A parameter table entry alone does not establish binding.
-
-Choose mesh/frequency settings using
-[cst-mesh-frequency](../cst-mesh-frequency/SKILL.md). Separate frequency solves,
-mesh adaptation and parameter cases; estimate electrical size/cost first. Do not
-assume a mesh remains adequate after a geometry or material-state change.
-
-Check the current parameter names and dependencies, explicit sequence replacement,
-native ranges/counts/log flags and resulting total cases. `replace_all=True`
-deletes existing sequences; use only when replacement is intended. Corner checks
-reuse the project and restore baseline values. Retain a single final project,
-necessary paired data and modeling/configuration Python with clear server
-instructions. Unknown native readback stays unverified; offline tests, native
-configuration, completed runs and numerical convergence are separate evidence.
-When acceptance requires retained native history, check two different geometric parameter combinations
-in the same project: all four complex S leaves, each state's positive 3D Run ID
-and actual stored parameter combination, then save, close and reopen and repeat
-the reads. Keep exported complex data and logs; same-state reruns can overwrite an ID.
+| 准备服务器扫描 | 在指定工程用专用会话 `configure_sweep` 配置，核对角点、恢复基线并保存工程、必要配套数据和配置 Python。按[工程生命周期](../cst-sessions/references/project-lifecycle.md)交付。服务器准备授权仅含配置和交付。 |
+| 配置原生 EM 序列 | 底层 `app.configure_sweep` 写原生配置；专用会话操作另执行常规模型重建、消息检查和保存。变更前保存所需结果。正常返回的重建可通过 INFO-only 队列；WARNING、ERROR、未知消息或重建未正常完成，按原回执审阅。绑定工程使用专用操作，按[绑定检查](../../docs/guides/workflow_enforcement.md)处理失效；受保护工程禁止通过 raw history 或 `model_api` 扫参配置方法旁路。 |
+| 执行原生 EM 扫描 | 先确认独立的启动授权、具体原生任务及可用执行入口。当前发布会话没有注册扫描启动操作；底层有 `start_parameter_sweep()`，不等于会话已支持。普通 `solve` 调用单次 EM。需要在所属会话执行且缺少受支持入口时，说明缺口；保留工程绑定。按原生日志及实际结果判断执行状态。 |
+| 每点依赖上个结果、原生任务无法表达要求，或用户明确指定逐点控制 | 已绑定会话按[参数修改示例](../../docs/guides/reusable_operations.md#参数修改示例)执行 `set_parameters`，审阅回执后提交已授权的 `solve`。当前发布的 `app.update()` 用 `RebuildOnParametricChange(False, False)` 刷新，假返回值报错；`run_checked` 不附加一次重建。核查实际 worker 版本。一次工程观察保留过两组参数和四条 S 叶，其他工程及保存重开仍须核验。 |
+| 原生电路或场路研究 | 先核对 Design Studio 原生扫描及任务链。确有逐点证据、依赖或控制需求时，未绑定工程可按[电路研究入口](../cst-circuit/references/parameter-studies.md)使用底层 `app.circuit.run_parameter_study` 或允许的电路服务/MCP，它会保存和求解。当前原生会话的 `circuit(kind=study)` 在未绑定时要求规格，已绑定时拒绝非托管 study；不能据此声称存在同会话研究入口。 |
+| 已完成扫描的逐点 Touchstone 或已有结果分析 | 按[结果技能](../cst-results/SKILL.md)在许可宿主用 `Result.export_touchstone_sweep()` 读取保存的工程，无需启动 DE 或求解。按实际正 Run ID、存储参数组合和完整复数矩阵导出，对照预期组合逐一核验。配置不保证每个预期工况已有结果；同一参数状态重算可覆盖 ID。单纯导出无需额外 HB 证据。 |
