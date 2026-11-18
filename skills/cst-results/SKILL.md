@@ -1,6 +1,6 @@
 ---
 name: cst-results
-description: Read, export, and analyze CST result trees, fields, far fields, or S-parameter curves while preserving run identity and evidence boundaries.
+description: Configure CST built-in Result Templates by category and name, including S-Parameters → Touchstone Export, or read, export, and analyze saved CST results.
 ---
 
 读完本入口和当前操作要求的引用章节，按[完整阅读规则](../README.md#完整阅读规则)补读和恢复。
@@ -48,5 +48,6 @@ See [result APIs](../../docs/packages/cst_solver.md) and [Python examples](../..
 
 ## Export and history
 
+- To add a step to the project's **Result Templates** list, use `app.add_builtin_result_template(category, name, settings=...)`. Follow the [3D and Design Studio Touchstone Export examples](references/exports-and-history.md#install-touchstone-export-in-the-cst-project) for the settings, destination and save/reopen receipt.
 - To export a saved EM sweep, read [Touchstone export](references/exports-and-history.md#exporting-em-sweep-points-as-touchstone-files). Confirm the complete complex matrix, positive native Run ID and stored parameters, reference impedance and output identity for each case. An export reads existing results.
 - Before a parameter rerun or an EM/HB history comparison, read [parameter-study history](references/exports-and-history.md#parameter-study-history). Preserve complete complex data and logs before updates, and verify the requested parameter association and save/reopen persistence.

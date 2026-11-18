@@ -2,12 +2,54 @@
 
 ## Install Touchstone Export in the CST project
 
-Use the [built-in result-template API](../../../docs/PUBLIC_API.md#add-an-installed-cst-result-template)
-to append the installed S-Parameters → Touchstone Export step to an idle, saved
-project. Omit post_task for MWS. For DS, pass the destination Post task and the
-source S-Parameters TaskName, and schedule the Post task after the source.
-Check the new native file and its header after execution. The registration
-receipt covers saving and reopening. See the separate saved-sweep export below.
+Use the category and display name from CST's **Result Templates** library.
+In these examples, `app` owns the saved, idle project. Registration saves,
+closes and reopens that project. Reacquire any cached native handles from
+`app.cst_file` afterward.
+
+**3D (MWS).** With no `post_task`, the step is added to the project's
+Result Templates list. This example requests 37 complex samples in RI format
+at 50 Ω for export after a solver run.
+
+```python
+receipt = app.add_builtin_result_template(
+    "S-Parameters", "Touchstone Export",
+    settings={"NumberOfSamples": 37, "FormatG": "RI", "ReferenceImpedance": 50},
+)
+```
+
+`FormatG` accepts MA, RI or DB. Use `LimitFreqRange=True` with `FMin` and
+`FMax` to restrict the export band. For a second instance, supply a unique
+`result_name`; reusing the name raises an error.
+
+**Design Studio.** For an existing SP task named `StaticSP` in the sequence
+`SPAndExport`, create a sibling Post task and bind the template to the SP data.
+Use task paths relative to the native Tasks root.
+
+```python
+receipt = app.add_builtin_result_template(
+    "S-Parameters", "Touchstone Export",
+    post_task=r"SPAndExport\ExportPost", create_post_task=True,
+    settings={"TaskName": r"SPAndExport\StaticSP", "ReferenceImpedance": 50},
+)
+```
+
+Omit `create_post_task=True` when appending to an existing Post task. DS
+accepts `TaskName` and `ReferenceImpedance`. To export on each sequence
+update, check the native order is **StaticSP → ExportPost**. Running the Post
+task alone can export the source task's saved S-parameters.
+
+Check `registration_persistence_verified` and `reopen_verified` in the receipt.
+`template_execution_verified` is false at registration. When execution is
+requested, verify the newly written `.sNp` from CST against the intended
+source, frequency grid, port order, format and reference impedance.
+
+The tested template is the installed VBA `.rtp` in CST 2026.1 (20251022).
+For other templates, use their native setting keys and see the
+[API contract](../../../docs/PUBLIC_API.md#add-an-installed-cst-result-template)
+for tree references and dynamic result types. With a managed session, use
+the `add_builtin_result_template` circuit build operation or its opt-in MCP
+tool on a worker advertising `builtin-result-template-v1`.
 
 ## Exporting EM sweep points as Touchstone files
 

@@ -1,6 +1,6 @@
 {
   "name": "cst-automation",
-  "version": "0.3.113",
+  "version": "0.3.114",
   "description": "CST modeling, simulation, device characterization, circuits, figures, results, diagnostics, and in-situ validation through task-specific skills.",
   "author": {
     "name": "Ding-zhenke"
