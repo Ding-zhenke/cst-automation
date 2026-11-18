@@ -12,8 +12,9 @@ device dimensions, model parameters, port mappings or targets from another proje
 ## Microstrip diode replaced by an EM port
 
 For finite-width terminals, preview the two contact edges of each face port at
-both requested widths. Keep the RF feed cross-sections at their specified
-locations, with equal-width contacts on strip and ground. At the floating
+both requested widths. For board-edge excitation, place the RF feed planes at
+the substrate ends, with equal-width contacts on strip and ground. Mark the
+substrate ends and outer simulation boundaries separately. At the floating
 junction, pick the facing pad edges and identify the physical anode and cathode.
 Use the [microstrip contact example](../cst-modeling/references/model-operations.md#微带接触边)
 for the pick order. After approval, check the realized face widths, polarity
