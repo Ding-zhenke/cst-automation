@@ -14,7 +14,10 @@
 
 ## 直接使用：不需要修改全局 MCP 配置
 
-在本仓库 PowerShell 使用 `.venv\Scripts\python.exe`。首先为当前对话选择一个新的
+在本仓库 PowerShell 使用 `.venv\Scripts\python.exe`。本机 CST 需要访问宿主许可证。
+通过 Codex 命令工具提交真实 CST 操作或恢复原生 worker 时，首次及后续调用均指定
+`sandbox_permissions="require_escalated"`。仅登记恢复引用或读取已保存的回执可在沙箱内完成。
+首先为当前对话选择一个新的
 UUID 文件名，保存其绝对路径供本对话持续使用；不要每轮换文件，也不要所有对话共用
 一个 reference.json。下面的 conversation-a 只是示例，不是通用默认文件名。
 
@@ -154,10 +157,11 @@ execution_state=returned_saved、review_required=true，session 维持 ready。
 
 ## 启动权限与证据
 
-常驻 worker 使用固定解释器和固定目录。沙箱仍生效；若工具返回后进程被宿主回收，
-或缺少进程身份/SDK 启动权限，保留失败记录，在批准的执行环境启动同一入口。
-不尝试迁移到临时目录，不借其他 DE，不自动走 Explorer 或计划任务。已接受任务的
-worker 丢失时使用 resume 恢复；实际执行意图仍以持久队列为准。
+通过 MCP 执行原生操作时，使用在经批准的沙箱外宿主上运行的所属服务和 worker。
+worker 继承启动环境；固定解释器、工作目录和隐藏控制台都不会改变其许可证访问权限。
+已接受任务遇到启动失败或断线时，先保留诊断、检查原 job 和 worker 身份；确认 worker
+丢失后，在同一宿主使用原 root/reference 执行 `resume`。不得以换环境为由重交未决操作、
+借用其他 DE，或通过临时目录、Explorer、计划任务绕开审批。求解仍须在原工程授权范围内。
 
 `--backend fake` 仅用于离线演示；不构成原生读回或求解证据。2026-10-27 空 DE 实测
 覆盖双环境、跨客户端保留、worker 丢失重连原身份与独立关闭；未执行实际几何或求解。

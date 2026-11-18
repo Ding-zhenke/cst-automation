@@ -13,6 +13,29 @@ builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 
 
+def test_first_native_call_guidance_at_each_skill_entry():
+    """A skill can be selected directly, without first loading the sessions skill."""
+    routes = {
+        "cst-simulation": ("app.run()",),
+        "cst-sessions": ("worker", "resume"),
+        "cst-diagnostics": ("--probe",),
+        "cst-results": ("cst.results",),
+    }
+    for skill, native_operation in routes.items():
+        entry = ROOT / "skills" / skill / "SKILL.md"
+        paragraphs = entry.read_text(encoding="utf-8").split("\n\n")
+        guidance = next((p for p in paragraphs if all(word in p for word in native_operation)), "")
+        assert 'sandbox_permissions="require_escalated"' in guidance, skill
+        assert re.search(r"\bfirst\b|首次|首条", guidance, re.IGNORECASE), skill
+
+    # Keep ordinary installation discovery and exported data usable offline.
+    for skill, example in (("cst-diagnostics", "doctor --json`"), ("cst-results", "CSV")):
+        entry = ROOT / "skills" / skill / "SKILL.md"
+        prose = " ".join(entry.read_text(encoding="utf-8").split())
+        sentences = re.split(r"(?<=[.!?。])\s+", prose)
+        assert any(example in s and "sandbox" in s.lower() for s in sentences), skill
+
+
 def test_plugin_is_self_contained_and_preserves_skills(tmp_path):
     for directory in ("skills", "docs", "plugins"):
         shutil.copytree(ROOT / directory, tmp_path / directory)

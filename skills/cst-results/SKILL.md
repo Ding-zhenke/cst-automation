@@ -7,6 +7,12 @@ description: Read, export, and analyze CST result trees, fields, far fields, or 
 
 # CST results
 
+Read native CST results on the approved host from the first SDK import. For
+Codex command tools, set `sandbox_permissions="require_escalated"` on the first
+command using `cst.results` or `cst_solver.Result`, including noninteractive
+reads of saved or frozen projects. Parsing already exported CSV, JSON,
+Touchstone or text logs without the CST SDK can run in the sandbox.
+
 For low-quality mesh warnings, preserve the original bad-element files together
 with their mesh and material mapping before another pass replaces them. Read
 [warning snapshots and attribution](../../docs/guides/reusable_operations.md#告警网格快照与归因).
@@ -24,7 +30,7 @@ frozen before the next solve. A noninteractive refusal on the still-open origina
 project is not data loss or cache success; preserve it and do not switch to interactive.
 
 Online CST reads must use [the conversation's persistent session](../cst-sessions/SKILL.md).
-Offline Result file reads need no DE; still preserve the session's explicit saved project/run identity.
+Saved-project SDK reads can run on the host without a DE. Preserve the session's explicit saved project/run identity.
 
 Use the saved project and explicit run ID with `cst_solver.Result`/result helpers. Report which tree item and run were read, units and conversion convention, and any read errors. If a result is absent, return that failure rather than substituting an empty curve or an older run.
 

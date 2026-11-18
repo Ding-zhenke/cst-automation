@@ -7,6 +7,11 @@ description: Configure and run CST electromagnetic simulations on an existing, r
 
 # CST simulation
 
+本机真实 CST 操作从首次原生调用起就在可验证许可证的宿主环境执行。
+用 Codex 命令工具启动时，首条会导入 CST SDK、打开工程或启动原生 worker 的命令
+即指定 `sandbox_permissions="require_escalated"`。已有工程的单次
+`setup(project_path)`、`app.run()` 同样适用。启动求解仍需当前任务的授权。
+
 当用户明确要求本轮优先推进并豁免指定的非关键设置读回时，将这些字段及
 下发记录列为 `warning / 未独立读回`，继续已授权的 EM，不为补 getter、截图
 或重启 worker 延迟本轮。当前七管任务的明确豁免包括 Direct 选择、残差精度、

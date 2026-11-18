@@ -9,6 +9,11 @@ Python 包的导入不再加载 CST 接口，不修改 `sys.path`，也不向 st
 ```powershell
 $env:CST_INSTALL_PATH = 'C:\SOFTWARE\CST Studio Suite 2026'
 python -m cst_solver doctor
+```
+
+本机 Codex 中，上面的路径检查可在沙箱内执行。下面的 SDK 探测需要在能访问 CST 许可证的宿主执行，第一次命令调用即设置 `sandbox_permissions="require_escalated"`，并在该环境沿用同一解释器和安装配置。
+
+```powershell
 python -m cst_solver doctor --probe
 ```
 

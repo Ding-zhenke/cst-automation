@@ -4,6 +4,7 @@
 - 不依赖 TPC 或 em-enclosure；通用包不得 import `mesh_grid`、`topo_modeler`、`topo_templates`、`tpc_toolkit` 或 `em_enclosure`。
 - Python 导入名保留为 `cst_solver`、`tpc_service`、`cst_mcp`；共享数据 API 位于 `cst_automation`。
 - CST 自带的 `cst` 模块不作为 PyPI 依赖。常规导入不连接 CST；真实 SDK 只在执行 CST 操作时加载。
+- 本机 CST 许可证需要宿主环境。首次调用 CST SDK、探测许可证、启动或恢复原生 worker、连接 CST、打开工程、原生读结果或运行求解时，直接使用经批准的沙箱外宿主。通过 Codex 命令工具调用时，首次即设 `sandbox_permissions="require_escalated"`，包括单次 EM 的 `setup(path)` 和 `app.run()`。纯文件分析、普通日志、已导出 CSV 和 fake 测试可在沙箱内执行。工程修改和启动求解仍遵守各自的授权范围。
 - 变更跨包协议前先更新 `docs/PUBLIC_API.md`，保持 handler 和 MCP 扩展显式注册。
 - 执行本仓库任务前，先阅读 `skills/README.md`，再按任务读取对应的 `skills/<name>/SKILL.md`。技能统一保存在仓库根目录的 `skills/`，由本文件指引读取。
 - 用户禁止将技能头几十行或搜索命中当作完整阅读。所选 `SKILL.md` 必须读至末尾，并读完当前操作要求的引用章节；工具输出被截断时连续补读缺失部分，补齐前不得提交依赖该规则的模型写入或求解。上下文压缩后只有摘要而无完整规则时，先重新读取；不让用户提醒补读，不用“已读”标记或文件摘要冒充阅读完成。

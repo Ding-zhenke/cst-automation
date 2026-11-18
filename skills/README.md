@@ -1,5 +1,19 @@
 # Repository skills
 
+## CST execution on this Windows workstation
+
+Use the approved host outside the sandbox from the first native CST operation so
+CST can access its license. For a Codex shell command that imports the CST SDK
+(including `doctor --probe`), checks a license, starts or resumes a native worker,
+opens or connects to CST, reads results through the native SDK, or runs a solver,
+set `sandbox_permissions="require_escalated"` on the first call. This includes
+standalone EM via `setup(path)` and `app.run()`. An existing authorized host
+worker can perform the native operation in its owning session. Project changes
+and solver starts still require authorization for the engineering task.
+
+Use the normal sandbox for plain `doctor --json` without an SDK probe, source,
+logs, exported CSV/Touchstone files and fake tests that do not call CST.
+
 For repository work, run commands and background processes without showing a
 console window. On Windows use hidden process-launch options, such as
 `Start-Process -WindowStyle Hidden` or Python's `CREATE_NO_WINDOW`, as
