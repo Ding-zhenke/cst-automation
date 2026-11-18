@@ -5,11 +5,15 @@ description: Use when working with Keysight PathWave ADS RF circuits or physical
 
 # Keysight ADS Simulation
 
-On this user's Windows workstation, execute ADS native work outside the desktop
-sandbox: official Python imports, version/license probes, workspace operations,
-simulation, and official `.ds` reads all require that execution context. Follow
-the platform's approval mechanism; do not retry ADS in the restricted context.
-An initialization exception there (including `0xE06D7363` with an empty log or
+The desktop sandbox has no access to the ADS license on this Windows
+workstation. Run every native ADS operation on the approved host outside the
+sandbox from the first call. For Codex shell commands, set
+`sandbox_permissions="require_escalated"` on the initial invocation, including
+when using the ADS Python launcher. This applies to launching ADS or Data
+Display, importing ADS Python packages, probing versions or licenses, opening
+workspaces, reading `.ds` or `.dds` through ADS, and running the simulator.
+If host approval is unavailable, report the blocker and stop native work.
+An initialization exception from a sandboxed run (including `0xE06D7363` with an empty log or
 missing dataset) does not establish a circuit, model, licensing, or machine fault.
 Pure source and existing JSON/text inspection can remain in the restricted context.
 

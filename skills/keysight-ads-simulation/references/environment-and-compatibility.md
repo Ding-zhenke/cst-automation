@@ -6,6 +6,12 @@ The currently validated machine has ADS 2026 Update 1 at `D:\Program Files\Keysi
 
 ## Mandatory preflight
 
+The desktop sandbox cannot access the ADS license. Run this preflight on the
+approved host outside the sandbox from its first native call. For Codex shell
+commands, set `sandbox_permissions="require_escalated"` on the command that
+starts the probe or ADS Python launcher. File inspection that does not import
+or launch ADS can run in the sandbox.
+
 Perform these checks before creating or changing ADS content:
 
 1. Resolve the ADS root in this order: explicit user/CLI value, existing process `HPEESOF_DIR`, then a known local installation. Fail with a clear message if resolution is ambiguous.
@@ -42,7 +48,7 @@ Do not use `ads.exe -h` as an unattended health probe on this installation; it o
 - ADS 2026 uses PySide6 rather than PySide2. Update custom Qt imports and behavior accordingly.
 - Treat `keysight.ads.dds` as officially supported for ADS 2026 Update 1. Earlier 2026 documentation described portions as beta; apply a version guard before using it on older installations.
 - Do not make `dds.experimental` or another experimental API a required path.
-- Use `DDSFile.print_all_pages` or `print_pages_by_name`, selecting PDF or PNG by output extension. The older `*_to_pdf` methods are deprecated and scheduled for removal in ADS 2027.
+- Choose the DDS export method from the installed API. See [Data Display export](dataset-and-dds.md#create-a-data-display-file) for the stable methods and the API 630 PDF fallback.
 
 ## Application and automation modes
 
