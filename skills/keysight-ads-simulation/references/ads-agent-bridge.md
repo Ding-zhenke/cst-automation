@@ -9,6 +9,39 @@ ADS Agent Bridge is a separate third-party product, not part of the CST or Keysi
 3. The fix makes the unsupported workspace-tree popup optional. Design-window popup registration remains required. If either the tree callback or selection API is absent, report the tree surface unavailable; do not claim the tree context menu works. Preserve all other registered add-ons. Do not restart, close, or attach to another user's active ADS/CST process or alter a running solver.
 4. Verify with a new disposable empty workspace and separately identified ADS process, using `ads-agent launch`, `status`, and `bridge ping`/`bridge status`. If startup presents a product/license selection, inspect the actual options and use the user's known choice only when unambiguous; do not guess or change license configuration. A `workspace-ready` DE session, successful ping, and UI status `ready` establish loading, not successful diode simulation. Verify DDS independently when needed. Old windows started before repair may still have stale dialogs; a new process is needed to load new files.
 
-## Observed evidence and limits
+## API only access to an existing desktop session
+
+Install ADS Agent Bridge and its matching EDA Bridge Runtime together in an
+isolated environment. Use `ads-agent setup --ads-root <ADS-root> --non-interactive
+--skip-skill --no-background-docs` to register the vendor add-ons and retain the
+existing Codex skill. Preserve the same `ADS_AGENT_HOME` for setup and client
+calls. Use the approved licensed host for ADS operations.
+
+From the independent client, use `ads-agent addon status` to check DE and DDS
+registration and `ads-agent bridge sessions` to discover loaded endpoints. For
+a managed slot, use `ads-agent status --slot <slot>` and
+`ads-agent bridge runtime-snapshot --slot <slot> --profile de`. Match PID,
+workspace, and the qualified design or DDS document before an operation.
+Submit a versioned `native.execute` request using
+`ads-agent runtime execute --request request.json`. Read back the returned
+design/window identity, and verify save or DDS reopening separately. Keep
+upstream request schemas and capabilities matched to the installed release.
+
+Package installation, XML registration, a loaded endpoint in the target
+process, and a successful action are separate observations. An external DE
+import or a process found by PID does not attach the bridge. If the session
+list has no endpoint for the target and no supported external live loading
+path is available, report the missing endpoint. The registered add-on can
+load at the next normal launch. Preserve the running session. Use the official
+headless API for separately authorized tasks that do not require its window.
+
+On Windows with ADS 2026 base and DE API 630, both 0.2.0a2 packages installed
+and both add-on registrations read back as enabled. The already running DE
+and DDS had no published bridge endpoint. An external `keysight.ads.de.app`
+import failed on `WorkspaceItemType`. This probe ran outside the desktop
+process and cannot establish whether the embedded callback works. Apply a
+compatibility patch only after recording the corresponding embedded failure.
+
+## Prior native validation
 
 On Windows with ADS 2025 Update 2 and Bridge 0.2.0a2, an independent DE process initially failed with `AttributeError: Application has no attribute add_main_popup_callback`. After the local capability-gated patch, it opened an empty workspace, reported `workspace-ready`, returned a successful DE ping and UI `ready` with design-window available and workspace-tree unavailable. DDS separately returned a successful ping. The focused context UI tests passed. These are one-machine startup and connection observations; other machines, actual context capture, ADS HB results, and diode/EM convergence require separate validation. One upstream full-suite bootstrap test failed during output decoding in the local Windows environment; do not report the full suite as passing.

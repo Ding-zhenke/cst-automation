@@ -34,8 +34,11 @@ Do not hand-author workspace database files. A palette caption is not necessaril
 
 ## Open an editable schematic in desktop ADS
 
-Reuse the interactive ADS session that owns the intended workspace. Run this
-AEL example inside that session, replacing the library and cell with the
+Reuse the interactive ADS session that owns the intended workspace. For API
+only tasks, use the [ADS Agent Bridge](ads-agent-bridge.md) or an equivalent
+supported client to execute this AEL inside the identified desktop process.
+Console paste, simulated keys or clicks, and asking the user to enter commands
+are outside the API only workflow. Replace the library and cell with the
 qualified target. The native call brings an existing window forward or opens
 a new one and returns its handle.
 
