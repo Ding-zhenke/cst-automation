@@ -7,11 +7,14 @@ description: Manage independent persistent CST environments for separate convers
 
 # Persistent conversation sessions
 
-On this user's Windows workstation, actual CST SDK, native environment and solver
-work must run outside the desktop sandbox through the approved execution context.
-Use the owning session and the same identity and safety checks; this rule does not
-authorize a new solve, worker replacement, or an attach to another conversation.
-Offline source, JSON and test inspection can use the restricted context.
+On this Windows workstation, CST needs the licensed host **from the first native
+call**. For Codex shell commands set `sandbox_permissions="require_escalated"` on
+the first and each subsequent native command. This covers SDK imports (including
+`doctor --probe`), license checks, native worker launch/resume, creating or connecting to
+a DE, opening projects, native result reads and solver runs. With an existing
+host-backed session, reuse its owning worker. Host permission and authorization
+to solve are separate. Source, saved job JSON, exported CSV and fake tests can
+use the sandbox.
 
 Run session commands and background workers without a visible console window.
 On Windows use the applicable hidden launch options and retain logs and errors;
@@ -29,8 +32,8 @@ skills do not establish that the active worker loaded them.
 `passed=true` 或助手承诺代替；旧 worker 能力不符时等待安全升级，不重启正在求解的环境。
 
 For actual CST work in Codex conversations, use the persistent session entry point by default.
-Exception: a standalone EM run of an existing project can open it and call `app.run()`
-directly, without a session or workflow binding. Check the project and prior run state;
+Exception: a standalone EM run of an existing project can open it on the licensed host
+and call `app.run()` directly, without a session or workflow binding. Check the project and prior run state;
 use the native log and results to determine the outcome.
 Use [in-situ validation](../cst-in-situ-validation/SKILL.md) to validate and improve automation while carrying out the authorized engineering task.
 Read [the session guide](../../docs/guides/conversation_sessions.md). Do not change user-global MCP configuration.
@@ -58,8 +61,9 @@ scene makes the existing authorization insufficient.
   `work/sessions`, and a fresh UUID reference file in `work/conversations` for each new conversation.
 - Retain and report that reference path in the conversation so interrupted work can resume. Later
   turns reuse it. New chats/forks create new bindings unless the user explicitly asks to recover one.
-- Route every modeling, configuration, solve and online read through this session with an explicit
-  project_id. Never use connect_to_any, last-active-window routing, or standalone setup/close scripts.
+- For session-managed work, route modeling, configuration, solves and online reads through
+  the owning session with its explicit project_id. Never use connect_to_any, last-active-window
+  routing, or a standalone setup/close script to take over a session-managed project.
 - For a new device, default to create_project (an empty MWS/DS project), reusing reviewed modeling
   code rather than importing an old CST as a template. Use an existing project for requested
   continuation/recovery or required project content. Once bound, retain that project across stages,
@@ -165,8 +169,8 @@ scene makes the existing authorization insufficient.
   This includes `model.cst` copies not originally marked temporary; retain the DE and audit reference.
   Preserve unfinished/uncertain projects, formal deliverables, required dependencies, user-retained
   references and other tasks. Closing the whole DE still requires the user's request.
-- If sandbox launch/identity checks fail, preserve exact diagnostics and use the approved execution
-  context for this same fixed entry point; do not invent paths, attach targets or launch workarounds.
+- If a host launch or identity check fails, preserve its diagnostics and inspect the original
+  session and job before recovery. Do not invent paths, attach targets or launch workarounds.
 - Keep native/process/offline/geometry/solver evidence separate. Fake backend never certifies CST.
 - For existing EM parameter points, `set_parameters` uses the session-owned
   `app.update()` and message validation; `solve` does not add a full rebuild.

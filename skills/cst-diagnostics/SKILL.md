@@ -7,6 +7,14 @@ description: Diagnose CST installation, Python ABI, SDK import, solver stalls, d
 
 # CST diagnostics
 
+For installation discovery, `python -m cst_solver doctor --json` can run in the
+sandbox. For an SDK import check, run `python -m cst_solver doctor --json --probe`
+on the approved host on the first attempt. In Codex command tools, set
+`sandbox_permissions="require_escalated"` on that call and on commands that
+check the native license. Preserve the complete report. Assess installation
+discovery, Python ABI compatibility, SDK/DLL loading, license availability,
+project readback and solver execution separately.
+
 For routine run/stop checks, use the [reusable read-only workflow](../../docs/guides/reusable_operations.md)
 and existing job/native/dialog/log evidence before screenshots. Diagnosing status
 and answering a prompt are separate actions. The bounded UIA reader tries Raw View
@@ -19,8 +27,6 @@ prompt, including independent selection readback and retained original failure.
 Reuse it for matching authorized prompts; do not generalize to unknown Yes/No.
 Cache matrix integrity remains unverified: freeze the saved package before a new
 solve and read the copy noninteractively, never fallback to interactive on rejection.
-
-Start with `python -m cst_solver doctor --json` and preserve the complete diagnostic report. Separate installation discovery, Python ABI match, import/DLL load, project readback, and solver execution; evidence for one stage does not prove a later stage.
 
 For a stall, inspect the actual dialog title, body, buttons, process ID, and owning CST process before any response. Do not blindly dismiss prompts or rerun a write while the original SDK call may still be blocked. A timeout or a closed dialog is not success; state the observed status and next actionable step.
 
