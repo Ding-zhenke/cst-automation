@@ -35,12 +35,45 @@ path is available, report the missing endpoint. The registered add-on can
 load at the next normal launch. Preserve the running session. Use the official
 headless API for separately authorized tasks that do not require its window.
 
-On Windows with ADS 2026 base and DE API 630, both 0.2.0a2 packages installed
-and both add-on registrations read back as enabled. The already running DE
-and DDS had no published bridge endpoint. An external `keysight.ads.de.app`
-import failed on `WorkspaceItemType`. This probe ran outside the desktop
-process and cannot establish whether the embedded callback works. Apply a
-compatibility patch only after recording the corresponding embedded failure.
+### Start and verify a new Windows session without desktop input
+
+If the new process starts a product selector before publishing an endpoint,
+check for an existing user-selected product. For an authorized launch on the
+licensed host, use [the Windows launcher](../scripts/start_ads_bridge_workspace.ps1)
+with the configured `ADS_AGENT_HOME`:
+
+```powershell
+& .\scripts\start_ads_bridge_workspace.ps1 -AdsAgent $adsAgent -Workspace $workspace -AdsInstance $instanceId -Slot $slot
+& $adsAgent --pretty bridge sessions
+```
+
+The launcher sets Keysight's documented `ADS_PRODSEL_PREVIOUS` and
+`ADS_PRODSEL_AUTOSTART` only for the launch and reuses the saved product.
+Use a fresh slot and a disposable workspace for acceptance. A startup timeout
+with a selector present is not a diagnosis of a damaged add-on.
+
+For Bridge 0.2.0a2, the installed Python client's
+`ads_agent_bridge.bridge_client.request` can capture DE workspace context
+with `request("context_capture_workspace", {}, slot, "de")`. Use the returned
+context reference in the `native.execute` envelope. In live mode, verify the
+native PID and workspace before calling the schematic window API. Read
+`db_design_is_modified` and `db_is_design_read_only` from the exact design
+context, and record the latter as editability rather than ownership of all
+workspace locks. For DDS, the owning DE can call
+`de_open_datadisplay(absolute_path, False)`. Follow up in the matching DDS
+endpoint with `context_capture_dds_file` and the exact absolute `path`, then
+use live `ads.python.dds` observation to read the open document and its pages.
+
+On Windows with ADS 2026 base, DE API 630 and both bridge packages at
+0.2.0a2, this path reached ready DE and DDS endpoints after the new process
+used the saved startup product. An independent client opened the editable
+scratch schematic, verified its window identity, observed the modified flag
+after a native transaction and its reset after save, and independently read
+the saved instance from disk. The same client opened a scratch DDS through
+DE and read back its exact path and page in the matching DDS process. The
+embedded DE add-on loaded without a compatibility patch despite an external
+`keysight.ads.de.app` import failure. The preexisting DE and DDS processes did
+not publish endpoints and were left running.
 
 ## Prior native validation
 
