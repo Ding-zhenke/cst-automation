@@ -1,4 +1,5 @@
 """Persistent sessions: real files/processes, fake only at the CST boundary."""
+import os
 import time
 from pathlib import Path
 
@@ -47,6 +48,24 @@ def test_binding_is_durable_and_scoped(tmp_path):
     with pytest.raises(Exception, match='credential'):
         m.status(a['session_id'], b['credential'])
     assert not list(tmp_path.rglob('worker.log'))
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Windows session worker console')
+def test_session_worker_has_no_console_and_records_both_streams(tmp_path, monkeypatch):
+    # Probe inside the final interpreter, after the venv executable has forwarded the launch.
+    (tmp_path / 'sitecustomize.py').write_text(
+        "import ctypes, sys\n"
+        "print('worker-console', ctypes.windll.kernel32.GetConsoleWindow(), flush=True)\n"
+        "print('worker-stderr', file=sys.stderr, flush=True)\n",
+        encoding='utf-8')
+    monkeypatch.setenv('PYTHONPATH', str(tmp_path), prepend=os.pathsep)
+    m = manager(tmp_path)
+    ref = m.ensure('background', 'first')
+    job = m.close(ref['session_id'], ref['credential'], 'close')
+    assert wait_job(m, ref, job)['status'] == 'succeeded'
+    lines = (tmp_path / ref['session_id'] / 'worker.log').read_bytes().splitlines()
+    assert b'worker-console 0' in lines
+    assert b'worker-stderr' in lines
 
 
 def test_resume_status_does_not_hold_state_lock_during_history_read(tmp_path, monkeypatch):

@@ -16,10 +16,11 @@ host-backed session, reuse its owning worker. Host permission and authorization
 to solve are separate. Source, saved job JSON, exported CSV and fake tests can
 use the sandbox.
 
-Run session commands and background workers without a visible console window.
-On Windows use the applicable hidden launch options and retain logs and errors;
-show an interactive console only when the user explicitly requests one. This
-does not dismiss or conceal CST dialogs needed for diagnosis.
+On Windows start the first noninteractive session CLI or direct Python command
+with the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1).
+Retain logs, errors and the exit code; use the approved host for native work.
+Show an interactive console only when explicitly requested
+and keep CST diagnostic dialogs visible.
 
 Routine status, stop review, parameter updates and saved-baseline acceptance reuse
 the [existing operations and examples](../../docs/guides/reusable_operations.md).

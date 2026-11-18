@@ -259,8 +259,8 @@ class SessionManager:
                 state['worker_launch_intent'] = True
                 write(folder / 'session.json', state)
                 from cst_automation.process import hidden_console_flags
-                flags = hidden_console_flags((subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
-                                             if os.name == 'nt' else 0)
+                # A detached Windows venv launcher can give the real Python worker a new console.
+                flags = hidden_console_flags(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0)
                 source_root = Path(__file__).resolve().parents[2]
                 launch_env = os.environ.copy()
                 if native_handoff.get('mode') == 'preserve_native_de_v1':

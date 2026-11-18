@@ -21,6 +21,17 @@ Perform these checks before creating or changing ADS content:
    - simulator executable paths and license-related failures.
 5. Keep the preflight process short-lived. Importing DE and DDS checks out their corresponding licenses and holds them until the Python process exits.
 
+For an unattended Windows preflight, run the bundled wrapper in the approved
+host context. From this skill's directory, for example:
+
+```powershell
+& .\scripts\invoke_ads_python.ps1 -AdsRoot $adsRoot -Script .\scripts\ads_preflight.py
+```
+
+The wrapper sets `HPEESOF_DIR`, launches the selected ADS Python with its
+console hidden, and forwards its output and exit code. Other scripts can pass
+their arguments as a PowerShell array with `-ScriptArgs`.
+
 Do not use `ads.exe -h` as an unattended health probe on this installation; it opens a modal ADS Launcher usage dialog. Use the version APIs and filesystem checks instead.
 
 ## Python and wheel compatibility

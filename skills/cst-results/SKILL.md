@@ -12,6 +12,8 @@ Codex command tools, set `sandbox_permissions="require_escalated"` on the first
 command using `cst.results` or `cst_solver.Result`, including noninteractive
 reads of saved or frozen projects. Parsing already exported CSV, JSON,
 Touchstone or text logs without the CST SDK can run in the sandbox.
+For either path, use the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1)
+for noninteractive Windows Python commands.
 
 For low-quality mesh warnings, preserve the original bad-element files together
 with their mesh and material mapping before another pass replaces them. Read

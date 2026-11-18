@@ -68,7 +68,8 @@ try {
 
     $env:HPEESOF_DIR = $selected
     $pythonExe = Join-Path $selected 'tools\python\python.exe'
-    & $pythonExe $scriptPath @ScriptArgs
+    $launcher = Join-Path $PSScriptRoot 'invoke_hidden.ps1'
+    & $launcher -Executable $pythonExe -ArgumentList (@($scriptPath) + $ScriptArgs)
     exit $LASTEXITCODE
 }
 catch {
