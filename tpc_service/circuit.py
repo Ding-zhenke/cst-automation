@@ -50,6 +50,8 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
     allowed = {"build": {"configure_task_execution", "set_position", "disable_tasks", "configure", "configure_transient_task", "configure_steady_state_task", "configure_em_time_settings", "configure_task_ports", "configure_nonlinear_model", "stage_postprocessing_template", "register_postprocessing_template", "inspect", "read_results", "read_run_parameters", "read_sp_impedances", "package"},
                "solve": {"run_task", "run_network_transient"}, "study": {"parameter_sequence", "run_parameter_study"}}
 
+    allowed['build'].add('add_builtin_result_template')
+
     def handle(*, project, params, job, backend):
         app = None
         try:
@@ -201,6 +203,10 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             if getattr(backend, "dialog_monitoring", False):
                 from cst_solver.environment import environment_pid
                 backend.dialog_pid = environment_pid(getattr(app, "project", None))
+            if operation == 'add_builtin_result_template':
+                options = {key: value for key, value in params.items() if key not in ('operation', 'workflow')}
+                report = app.add_builtin_result_template(**options)
+                return ok_result(saved=True, result_summary=report, artifacts=[artifact(str(path), kind='project')])
             # EM configuration must also work on a plain 3D project without schematic access.
             if operation == 'read_run_parameters':
                 from cst_solver.circuit.native import read_project_run_parameters

@@ -670,6 +670,11 @@ class _IOMixin:
 # 后处理 (PostProcMixin)
 # ============================================================
 class _PostProcMixin:
+    def add_builtin_result_template(self, category: str, name: str, *, settings: dict,
+                                    result_name: Optional[str] = None, post_task: Optional[str] = None,
+                                    create_post_task: bool = False, result_type: Optional[str] = None,
+                                    evaluation_type: Optional[str] = None,
+                                    tree_references: Optional[dict] = None) -> dict: ...
     def calculate_q_factor(self, s_param_path: str = 'S-Parameters\\S1,1',
                            method: str = '3dB') -> None: ...
     def combine_results(self, operation: str, result_paths: List[str],

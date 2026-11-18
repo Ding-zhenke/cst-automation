@@ -14,6 +14,20 @@ class PostProcMixin:
     提供 1D/2D/3D 后处理、结果组合、Q 因子计算等功能
     """
 
+    def add_builtin_result_template(self, category, name, *, settings, result_name=None,
+                                    post_task=None, create_post_task=False, result_type=None,
+                                    evaluation_type=None, tree_references=None):
+        """Append an installed CST VBA result template to the idle, saved project."""
+        from pathlib import Path
+        from .builtin_templates import add_builtin_result_template, registration_lock
+        project = Path(self.cst_file.filename()).resolve()
+        if project.suffix.lower() != '.cst' or not project.is_file():
+            raise ValueError('Save the project before registering a result template')
+        with registration_lock(project):
+            return add_builtin_result_template(self, category, name, settings=settings,
+                result_name=result_name, post_task=post_task, create_post_task=create_post_task,
+                result_type=result_type, evaluation_type=evaluation_type, tree_references=tree_references)
+
     def calculate_q_factor(self, s_param_path='S-Parameters\\S1,1',
                            method='3dB'):
         """

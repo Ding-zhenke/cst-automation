@@ -1189,3 +1189,31 @@ CST 2026 Help 的 transient shooting 模式、steady state period detection/peri
 ## 2026-11-16: ACIS binary, symbolic wave-port ranges and coordinate RLC in an owned engineering model
 
 The owned fresh CST 2026 model imported an unchanged binary SAB via the existing SAT.Read route; free wave ports using parameterized_ranges=True and a coordinate LumpedElement rebuilt and saved with no reported messages. Independent width parameter changes were checked against native named-solid volumes and restored; Chinese descriptions were checked in the saved CST parameter metadata. This is configuration/rebuild/readback evidence, not modal impedance, mesh, EM or HB validation. Targeted regression: 28 passed. An earlier full suite had 2565 passed, 2 deselected and one failure, cst_solver/tests/test_guards.py::test_update_clears_dirty; it is not recorded as a green full suite. Parallel pre-existing working-tree changes were preserved; no combined commit or push was attempted.
+
+## 2026-11-18 Built-in Touchstone Export in MWS and Design Studio
+
+CST 2026.1 (20251022) registered the installed VBA template by category and name
+in two independent, initially unbound test fixtures. Both registrations used
+the Python API, saved, passed archive-content verification and reopened.
+
+- MWS enumerated the saved 1D template. One two-port solver run automatically
+  evaluated it and wrote 37 RI samples at 50 ohms, 0.1–5 GHz. Comparing all
+  four complex entries to linear interpolation of the 301-point native curves
+  gave a maximum absolute difference of 3.36e-9 or less. A separate manual
+  EvaluateResultTemplates VBA call had returned without producing a file.
+- The new DS Post task referenced the existing SP task. Running that Post task
+  produced 301 MA samples at 50 ohms, 0.1–3 GHz. The maximum absolute difference
+  across all four complex entries on the original grid was below 4.39e-9.
+  This execution consumed existing SP data. Scheduling future SP followed by
+  Post is a separate task-chain configuration.
+- An additional same-project acceptance used one native sequence update. The
+  DS log records the SP task followed by the Post task. The new two-port file
+  matched all four complex curves at 201 points within 8.28e-9 (absolute).
+  The EM log digest was unchanged during that trigger. This is evidence for
+  one parameter combination.
+
+Local receipts and native curve comparison are under
+`work/builtin-template-validation`. Both projects accepted a second named
+instance with different settings, retained the first instance's exact settings
+resource, and rejected a duplicate name. These native checks cover the shipped
+Touchstone Export VBA template on this build.

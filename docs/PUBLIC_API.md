@@ -1240,6 +1240,57 @@ ok/complete 不证明端口、频率或矩阵齐全。归一化元数据缺失�
 不能把 Adaptive Meshing 的 Pass 曲线名称混入普通频率曲线发现、批量读取或导出。
 原有通用 `read_1D` 仍按原始轴返回数据；它不将 Pass 曲线认证为频率曲线。
 
+### Add an installed CST result template
+
+On an idle, saved project owned by the caller, use the installed library's category
+and display name. The default destination is the MWS project's Result Templates list.
+
+```python
+app.add_builtin_result_template(
+    "S-Parameters", "Touchstone Export",
+    settings={"NumberOfSamples": 37, "FormatG": "RI", "ReferenceImpedance": 50},
+)
+```
+
+For a schematic, specify the destination Post-Processing task and the source
+S-Parameters task separately. This example creates a new task named ExportPost.
+Omit `create_post_task=True` to append to an existing Post task.
+
+```python
+app.add_builtin_result_template(
+    "S-Parameters", "Touchstone Export",
+    post_task="ExportPost", create_post_task=True,
+    settings={"TaskName": "SP", "ReferenceImpedance": 50},
+)
+```
+
+CST runs the 3D step after a solver run. In DS, run the Post task after the
+source SP task or include both in an ordered native sequence. Standalone Post
+can consume the SP task's saved curves. The native template chooses its output
+directory and filenames. In MWS, `FormatG` accepts MA/RI/DB or 0/1/2.
+`Renormalize`, `UseAR`, `LimitFreqRange`, `FMin`, and `FMax` follow the native
+template. DS exposes TaskName and ReferenceImpedance.
+
+The adapter supports CST 2026.1 (20251022), the installed VBA `.rtp` library
+and the v11 index / v3 settings format. It reads the template from the running
+CST installation, preserves existing steps, embeds its original VBA, saves,
+checks the archived resources, closes and reopens this project. Refresh any
+cached project handles. The report distinguishes persistence from execution.
+
+For other templates, `settings` accepts literal native script-setting keys;
+pass `tree_references={key: native_tree_path}` for native tree references.
+Supply `result_type` and `evaluation_type` when a template selects them
+dynamically. Supported evaluation layouts are legacy, single_run and all_runs.
+Templates whose Define dialog performs additional operations or computes settings
+require the caller to supply those values; execution has been verified for
+Touchstone Export. Use `result_name` to distinguish multiple instances.
+Duplicate names and unknown or ambiguous library entries are rejected.
+
+Service operation `circuit/build/add_builtin_result_template` and the opt-in
+MCP tool `add_builtin_result_template` accept the same arguments. The owning
+session worker advertises `builtin-result-template-v1` and refreshes its project
+handle after registration.
+
 ### `Result.export_touchstone_sweep`
 
 ```python

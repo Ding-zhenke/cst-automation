@@ -1,5 +1,14 @@
 # Export and retention of saved results
 
+## Install Touchstone Export in the CST project
+
+Use the [built-in result-template API](../../../docs/PUBLIC_API.md#add-an-installed-cst-result-template)
+to append the installed S-Parameters → Touchstone Export step to an idle, saved
+project. Omit post_task for MWS. For DS, pass the destination Post task and the
+source S-Parameters TaskName, and schedule the Post task after the source.
+Check the new native file and its header after execution. The registration
+receipt covers saving and reopening. See the separate saved-sweep export below.
+
 ## Exporting EM sweep points as Touchstone files
 
 For an already saved parameter sweep, use

@@ -23,6 +23,9 @@ def execute(runtime, job):
         if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'configure_task_execution'
                 and 'circuit-task-execution-v1' not in runtime.state().get('worker_capabilities', [])):
             raise ServiceError('workflow_worker_upgrade_required', 'Task execution settings require a compatible execution worker')
+        if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'add_builtin_result_template'
+                and runtime.backend == 'cst' and 'builtin-result-template-v1' not in runtime.state().get('worker_capabilities', [])):
+            raise ServiceError('workflow_worker_upgrade_required', 'Built-in result templates require a compatible execution worker')
         if operation == 'inspect' and 'discrete_port_ids' in params:
             from .inspection import validate_options
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
@@ -625,7 +628,7 @@ def circuit(runtime, app, record, params):
     if kind not in handlers:
         raise ServiceError('invalid_session_argument', 'Invalid circuit kind')
     result = handlers[kind](project=record, params=params['settings'], job={'kind': kind}, backend=None)
-    if params['settings'].get('operation') == 'register_postprocessing_template':
+    if params['settings'].get('operation') in ('register_postprocessing_template', 'add_builtin_result_template'):
         # The real facade reopens the same owned project. Never cache its closed
         # predecessor, including when the registration returned partial evidence.
         if app.cst_file is None:
