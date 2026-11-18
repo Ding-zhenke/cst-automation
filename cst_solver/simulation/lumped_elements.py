@@ -1,4 +1,4 @@
-"""Bounded point-based RLC lumped elements, separate from face elements."""
+"""Command builders for point and face RLC elements and native readback."""
 import math
 from cst_solver.expressions import validate_expression,validate_name
 
@@ -23,6 +23,24 @@ def point_lumped_command(name,*,r,l=0,c=0,p1,p2,folder=''):
     lines+=[' .SetType "RLCSerial"',f' .SetR "{r}"',f' .SetL "{l}"',f' .SetC "{c}"',
             ' .SetP1 False, '+', '.join(f'"{v}"' for v in p1),
             ' .SetP2 False, '+', '.join(f'"{v}"' for v in p2),' .Create','End With']
+    return '\n'.join(lines)
+
+
+def face_lumped_command(name, *, r=0, l=0, c=0, element_type='RLCSerial', p1, p2):
+    name = validate_name(name)
+    if element_type not in ('RLCSerial', 'RLCParallel'):
+        raise ValueError('Choose RLCSerial or RLCParallel')
+    lines = ['With LumpedFaceElement', ' .Reset', f' .SetName "{name}"',
+             f' .SetType "{element_type}"']
+    for prop, value in (('SetR', r), ('SetL', l), ('SetC', c)):
+        lines.append(f' .{prop} "{_expression(value)}"')
+    for prop, point in (('SetP1', p1), ('SetP2', p2)):
+        if not isinstance(point, (list, tuple)) or len(point) != 3:
+            raise ValueError('Each picked edge needs a three-coordinate reference')
+        coordinates = ', '.join(f'"{_expression(value)}"' for value in point)
+        lines.append(f' .{prop} True, {coordinates}')
+    lines.extend([' .SetMonitor True', ' .SetInvert False', ' .UseProjection False',
+                  ' .Create', 'End With'])
     return '\n'.join(lines)
 
 

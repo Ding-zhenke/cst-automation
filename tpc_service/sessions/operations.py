@@ -40,6 +40,10 @@ def execute(runtime, job):
         if operation == 'model_api':
             from .model_api import validate_calls, uses_hf_tet_order_controls, HF_TET_ORDER_CAPABILITY
             validate_calls(params['calls'])
+            from .model_api import FACE_LUMPED_CAPABILITY
+            if (any(c['method'] == 'create_lumped_face_element' for c in params['calls'])
+                    and FACE_LUMPED_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Picked lumped face elements require a compatible execution worker')
             from .model_api import PORT_IDENTITY_CAPABILITY
             if (any(c['method'] in ('delete_port', 'rename_port') for c in params['calls'])
                     and PORT_IDENTITY_CAPABILITY not in runtime.state().get('worker_capabilities', [])):

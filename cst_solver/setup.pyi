@@ -448,6 +448,10 @@ class _PortMixin:
                              label: str = '', folder: str = '') -> None: ...
     def lumped_element(self, id_val: Union[int, str],
                        r: Union[float, str]) -> None: ...
+    def create_lumped_face_element(self, name: str, *, r: Union[float, str] = 0,
+                                   l: Union[float, str] = 0, c: Union[float, str] = 0,
+                                   element_type: str = 'RLCSerial', p1: Sequence[Union[float, str]],
+                                   p2: Sequence[Union[float, str]]) -> None: ...
     def create_lumped_element(self, id_val: Union[int, str],
                               r: Union[float, str] = 0,
                               l: Union[float, str] = 0,

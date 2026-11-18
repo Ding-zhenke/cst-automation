@@ -289,6 +289,8 @@ def run(folder):
             state['worker_capabilities'].append('static-sp-self-em-exclusion-v1')
             state['worker_capabilities'].append('static-sp-guarded-run-v1')
             state['worker_capabilities'].append('point-lumped-element-v1')
+            from .model_api import FACE_LUMPED_CAPABILITY
+            state['worker_capabilities'].append(FACE_LUMPED_CAPABILITY)
             state['worker_capabilities'].append('initial-parameters-v1')
             state['worker_capabilities'].append('native-solver-status-v1')
             state['worker_capabilities'].append('native-static-sp-v3')

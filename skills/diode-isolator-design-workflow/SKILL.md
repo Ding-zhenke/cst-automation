@@ -9,6 +9,24 @@ Read this entire file and applicable referenced skills before dependent operatio
 Use the current project configuration and original conversation session; never infer
 device dimensions, model parameters, port mappings or targets from another project.
 
+## Microstrip diode replaced by an EM port
+
+For finite-width terminals, preview the two contact edges of each face port at
+both requested widths. Keep the RF feed cross-sections at their specified
+locations, with equal-width contacts on strip and ground. At the floating
+junction, pick the facing pad edges and identify the physical anode and cathode.
+Use the [microstrip contact example](../cst-modeling/references/model-operations.md#微带接触边)
+for the pick order. After approval, check the realized face widths, polarity
+and connectivity to the diode on the same project's schematic.
+
+To validate a width-triggered static Touchstone export, vary only the line width
+and hold the diode model and bias fixed. For each width, record the actual
+three-port EM run, two-port schematic SP run, and the file produced by the
+configured export task. Check both port order and reference impedance. Compare
+all four complex S-parameters on their frequency grid with that SP run, retain
+both files, and report the measured difference between widths. For CST-native
+export, record the task sequence and its actual trigger.
+
 The sequence is parameters → CST EM → CST Design Studio S-parameters with diodes,
 zero external DC and pump → ADS HB with separately specified bias and pump → joint
 analysis → next candidate. The SP task's measurement excitation remains enabled.

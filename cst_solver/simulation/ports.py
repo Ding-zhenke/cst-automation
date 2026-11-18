@@ -455,6 +455,14 @@ End With
         self.cst_file.model3d.add_to_history(
             f"Create lumped element: {id_val}", f1)
 
+    def create_lumped_face_element(self, name, *, r=0, l=0, c=0,
+                                   element_type='RLCSerial', p1, p2):
+        """Create an RLC face between two ordered edge picks, using reference points p1/p2."""
+        from .lumped_elements import face_lumped_command
+        code = face_lumped_command(name, r=r, l=l, c=c, element_type=element_type,
+                                   p1=p1, p2=p2)
+        self.cst_file.model3d.add_to_history('Define lumped face element: ' + name, code)
+
     def create_point_lumped_element(self, name, *, r, l=0, c=0, p1, p2, folder=''):
         """Create a named point-defined serial RLC element; no solve is started."""
         from .lumped_elements import point_lumped_command

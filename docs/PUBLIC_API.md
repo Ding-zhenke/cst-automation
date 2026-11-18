@@ -234,6 +234,18 @@ properties, ordered edge picks, and native verification of target and all other
 ports. It rebuilds geometry and invalidates prior EM evidence. No main-model
 conversion or numerical convergence is implied by this API coverage.
 
+## Picked lumped face element
+
+`setup.create_lumped_face_element(name, *, r=0, l=0, c=0, element_type='RLCSerial', p1, p2)`
+creates a monitored CST `LumpedFaceElement` between two ordered edge picks.
+Use `pick_clear` and two `pick_edge_at` calls on the intended solids before
+creation. For a contact inside a metal face, `set_edge` can define a reviewed
+contact segment. The two reference coordinates use picked=True. R is in Ω,
+L in H and C in F. The element accepts RLCSerial or RLCParallel and uses
+the picked order without inversion or projection. The explicit session
+`model_api` route requires `picked-lumped-face-element-v1`. For an EM port
+whose diode is connected on the schematic use the discrete face port above.
+
 ## Existing schematic net attachment (development)
 
 The bounded native adapter may attach an unconnected external-port endpoint to

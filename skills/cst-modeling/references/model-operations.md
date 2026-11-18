@@ -109,6 +109,35 @@ settings, expected_type=..., preserve_ports=...)`。必须给全部数值坐标�
 包围盒，create_field_monitor 则按类型和频率建监视器。监视器行与 F 求解器 Single/
 Automatic 采样行不同，不凭监视器行判断自适应频点是否已设置。
 
+## 微带接触边
+
+矩形接口在两块导体上各取一条平行直边，边长取实际接触宽度。在 CST 先清除拾取，
+依次拾取两条边，再从 Simulation → Sources and Loads 打开 Discrete Port 或
+Lumped Element，检查预览中的跨接面、方向和端接属性。在频域四面体求解中，
+离散面端口在整个面上激励和监测。其他求解器应核对对面端口的支持。
+
+微带沿 x、线宽沿 y、两侧金属上表面同高的串联断口可按以下顺序定义。
+这里选金属上棱作为接触面，传给 `pick_edge_at` 的坐标位于横向棱的中点。
+在预览中标明选择的高度、两侧接触长度和 A/K 映射。
+
+```python
+left = ["-gap/2", 0, "sub_h+metal_t"]
+right = ["gap/2", 0, "sub_h+metal_t"]
+app.pick_clear()
+app.pick_edge_at("strip_left", *left)
+app.pick_edge_at("strip_right", *right)
+app.create_discrete_face_port(50, 3, p1=left, p2=right)
+```
+
+若此处由 3D 直接加载串联 RLC，最后一行换成
+`app.create_lumped_face_element("Load", r=R, l=L, c=C, p1=left, p2=right)`，
+R、L、C 分别以 Ω、H、F 表示。端口替代再到原理图接回二极管时，断口只建面端口。
+
+外部微带离散馈电若位于金属面内部，在原馈电截面上以两次 `set_edge` 定义
+信号带和地平面上的等宽接触段，保留原信号与回流顺序。地侧只取对应投影宽度。
+变线宽、间隙或接触位置后，复查两边仍落在目标导体、跨接面宽度随参数变化、
+端口方向和原理图双端映射。指定阻抗和中心坐标读回只能验证相应属性。
+
 ## 离散端口原生只读
 
 0.3.66 的所属会话 `inspect` 支持以下 params，经现有

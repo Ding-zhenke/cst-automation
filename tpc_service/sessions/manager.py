@@ -158,7 +158,11 @@ class SessionManager:
                     and DISCRETE_READ_CAPABILITY not in state.get('worker_capabilities', [])):
                 raise ServiceError('workflow_worker_upgrade_required', 'Discrete-port inspection requires a compatible idle worker')
             from .model_api import settings_only, settings_capability
-            from .model_api import POINT_LUMPED_CAPABILITY
+            from .model_api import FACE_LUMPED_CAPABILITY, POINT_LUMPED_CAPABILITY
+            if (operation == 'model_api' and any(c['method'] == 'create_lumped_face_element' for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and FACE_LUMPED_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Picked lumped face elements require a compatible worker')
             from .model_api import PORT_IDENTITY_CAPABILITY
             if (operation == 'model_api' and any(c['method'] in ('delete_port', 'rename_port') for c in params['calls'])
                     and state.get('worker') and alive(state['worker'])
