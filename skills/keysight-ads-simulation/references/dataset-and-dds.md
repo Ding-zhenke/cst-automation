@@ -98,7 +98,25 @@ Importing `keysight.ads.dds` checks out and holds a Data Display license until t
 
 Some DDS PNG exports use transparent backgrounds. Image viewers that composite transparent backgrounds as black can make the area outside the page appear black; this is a rendering artifact and says nothing about the numerical data. Prefer the script-generated plot for numerical review, or export to PDF/use an explicit background when appearance matters.
 
-Saving a valid `.dds` file is not proof that its UI rendering is attractive, but UI rendering is not a default numerical acceptance gate. Use a visible Data Display window only when the user explicitly requests GUI/render verification or when page layout, fonts, clipping, colors, or interactive marker appearance is itself the requirement. Otherwise, programmatic reopen plus structural inspection and agreement with the `.ds` result completes the DDS gate, and the GUI check is not applicable.
+## Deliver a native Data Display window
+
+When the user asks for an ADS Data Display window, open the saved `.dds`
+in the visible ADS Data Display application from the intended workspace.
+Use the existing dataset for this check. Open the display directly when the
+results already exist. If a simulation is already authorized, the schematic's
+open-after-simulation setting can open the associated display.
+
+Confirm that the visible window shows the intended display, dataset and pages
+with populated traces. For two-port S-parameters, check that S21/S12 appear
+together on the transmission plot and S11/S22 appear together on the reflection
+plot. Leave the window open and provide the workspace and `.dds` path so the
+user can reopen it. Run PDF or PNG export only when separately requested.
+Programmatic reopen checks the saved file. If the visible window cannot be
+opened or inspected, report the specific blocker and mark the window delivery
+incomplete.
+
+For a headless deliverable, programmatic reopen, structural inspection and
+agreement with the `.ds` result complete the DDS check.
 
 ## Reopen and compare
 
