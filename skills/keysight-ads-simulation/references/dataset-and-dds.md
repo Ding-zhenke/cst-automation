@@ -57,11 +57,33 @@ Use the supported `keysight.ads.dds` API to create or modify `.dds` content:
 3. Add the analysis-appropriate plot and one or more traces.
 4. Add equations, text, labels, or a marker for the requested measurement, such as the requested mixer IF product, amplifier gain, filter response, switch state metric, or oscillator result.
 5. Save the `.dds` file to a new or explicitly authorized path.
-6. Export with `DDSFile.print_all_pages(...)` or `print_pages_by_name(...)`; choose PDF or PNG through the filename extension.
+6. If an export is requested, check the installed DDS API and prefer the stable
+   `DDSFile.print_all_pages(...)` or `print_pages_by_name(...)` when available.
+   Use the filename extension to select PDF or PNG on those interfaces.
 
 For ADS 2026 Update 1 automation, the `path` passed to `new_dds_file(dataset, path)` is an ADS workspace-style root and its default dataset directory resolves to `<path>/data`. When saving a new in-memory file, pass both `name` and the destination directory to `DDSFile.save(name=..., path=...)`; passing only `path` raises `No filename specified to save object`. If the DDS is saved outside its source workspace, ensure the destination has the expected `data` directory or use an absolute dataset reference.
 
-Avoid deprecated `print_all_pages_to_pdf` and `print_pages_by_name_to_pdf` in new automation. Do not use `dds.experimental` for a required workflow when the stable API provides the operation.
+Record the actual DE API and callable export method. ADS 2026 with DE API 630
+(observed with Python 3.13.2 and EDA Toolbox 1.2.4) lacks
+`DDSFile.print_all_pages`. For a full PDF export on that installation use the
+official `DDSFile.print_all_pages_to_pdf(...)` when callable. Deprecation in
+newer documentation does not remove the supported PDF route on API 630.
+Do not assume API 635 methods or signatures are present on API 630. Use the
+stable API where available.
+
+For a two-port schematic with a native S-parameter display deliverable:
+
+- Plot S21 and S12 together for transmission, and S11 and S22 together for
+  reflection. Bind each trace to the intended dataset and use the requested
+  units and representation.
+- Save the DDS in the workspace with the schematic's basename. Associate it
+  with the schematic using the official `db_set_datadisp_name` and
+  `db_set_opendds_option` APIs for the installed release. Save the schematic
+  settings and select the option that opens the existing display after simulation
+  so ADS uses the saved template.
+- Reopen the saved DDS programmatically and check the resolved dataset, page
+  names and both trace pairs. Record any separate verification of the
+  schematic association or of automatic opening after simulation.
 
 When making a portable display bundle, copy the source `.ds` into the display workspace `data` directory and verify its hash. Reopen the saved DDS with `open_dds_file(...)`, inspect the dataset binding, page names, trace expressions such as `dBm(IF_OUT)`, and marker names such as `m_if`, then compare the marker target with the independently parsed dataset.
 
