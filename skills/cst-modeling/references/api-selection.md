@@ -52,8 +52,15 @@ does not move a port automatically. Specify asymmetric boundaries by face.
 Use a reviewed `model_api` call batch with explicit project_id, stable stage_id,
 and the digest of the canonical calls. Calls have method/args/kwargs fields;
 inspect real signatures rather than guessing a common geometry schema.
-For methods with log_flag, retain the executing default (1). log_flag=0 only
-returns VBA text and creates nothing; session dispatch does not execute that text.
+Do not give every method the same `log_flag`: its meaning is API-specific.
+For geometry methods that use it to select execution versus returning VBA, keep
+`log_flag=1`; `0` only returns text that session dispatch does not execute.
+`para` is different: its default `log_flag=0` **writes the parameter table** without
+rebuilding. Initial session `model_api` parameter calls must keep `0`; using `1`
+rejects the batch before execution because the session manages stage rebuilds.
+For existing-model parameter changes use the owning session's `set_parameters`,
+which performs the supported parameter refresh; do not change the flag to force
+an extra full rebuild.
 
 1. If Python method and session route exist, call them.
 2. If only the route is missing, extend the static whitelist and signature

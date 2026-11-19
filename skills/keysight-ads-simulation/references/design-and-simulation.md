@@ -19,7 +19,7 @@ Use `keysight.ads.de` and `keysight.ads.de.db_uu` for deterministic design creat
 3. Create a new library with `de.create_new_library(...)` and add it to the workspace.
 4. Create the required schematic or layout design unit with `db_uu`.
 5. Add installed component definitions, wires, grounds, labels, ports, output names, sources, and the matching analysis controller.
-6. Set parameters explicitly. Before assignment, **check that the parameter exists** on the instantiated definition. After assignment, enumerate or read `instance.parameters` and verify the stored value, expression, and unit; repeat the check after save/reopen and against the generated netlist. Do not accept a Python assignment merely because it raised no exception.
+6. Set parameters explicitly. Before assignment, **check that the parameter exists** on the instantiated definition. After assignment, enumerate or read `instance.parameters` and verify the stored value, expression, and unit; verify after saving and against the generated netlist. When reopen validation is part of the authorized acceptance, repeat the parameter check after reopening; a routine `flow` does not add a reopen/rerun on its own. Do not accept a Python assignment merely because it raised no exception.
 7. Validate definition identity, pin count, numbered-terminal connectivity, reference impedance, source/controller consistency, and required DC return paths.
 8. Save the design, generate a netlist through the supported design API, and retain and inspect that exact netlist before simulation.
 
@@ -91,7 +91,27 @@ In EDA Toolbox 1.2.5, successful `run_netlist()` returns `None` because its inte
 
 `output_dir` becomes the simulator working directory only when `working_dir` is omitted. If `working_dir` is supplied, datasets and simulator-created `<dataset>_data` directories are emitted there. Set it to the dedicated run directory, or omit it, when isolation matters; do not point it at the workspace root and assume output placement follows `output_dir`.
 
+The bundled `run_circuit_simulation.py` fixes `working_dir` to its new output
+directory and does not forward `rel_data_dir`. Relative SNP, include and model
+references therefore cannot be assumed to resolve from the input netlist's
+directory or the workspace. Use this helper only after checking its actual run
+directory against every required reference. For an existing relative-path design
+that needs a separate data-search root, call the official `run_netlist` interface
+with explicit supported search-path settings and an isolated output directory;
+do not silently move the working directory back to a source workspace or copy
+models merely to hide a missing reference. Retain the source netlist and log.
+
 `CircuitSimulator.run(...)` and `run_netlist(...)` are blocking. Process completion alone is not a solver pass: require log classification and the intended current-run dataset block, axes, signals, and finite values.
+
+The bundled runner's `status="ok"` means invocation, log checks and dataset
+inventory completed. It does not establish the requested numerical solver gate:
+an inventory may succeed using finite independent-axis values while every output
+is NaN, and without `--block` another block can succeed while the required one
+fails. Before accepting the result, select the intended block and dependent
+variable with `analyze_dataset`, check all requested values and the complete
+expected axes/point counts, and retain that separate numerical verdict. Supplying
+`--block` alone does not perform those signal checks. See
+[dataset acceptance](dataset-and-dds.md#read-and-validate-ads-datasets).
 
 Direct `hpeesofsim` is a fallback when EDA Toolbox cannot perform a documented requirement or when reproducing a low-level simulator issue. Its documented form is:
 

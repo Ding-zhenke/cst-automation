@@ -81,8 +81,13 @@ GHz/mm，色散频率参数应按它转换，不能直接按当前工程单位�
 `set_background` 的材料名只对支持的背景映射有效；背景不是任意 Material 指派，
 未知介质须按 API 给 epsilon/mu，边界 open 不等于背景材料 Open。
 
-`create_waveguide_port_free` 用显式空间范围，常规 `create_waveguide_port` 依赖面/范围
-设置。`create_discrete_port` 依赖端点及电压方向；`create_lumped_element` 表示电路
+`create_waveguide_port_free` 用显式空间范围。范围引用工程参数或公式时，必须显式给
+`parameterized_ranges=True`，例如 `xrange=("L/2", "L/2"), yrange=("-Pw", "Pw"),
+zrange=("-t", "h+Ph")`，并先定义这些参数。默认 False 保留旧 VBA 范围写法，单把
+Python 数值换成字符串不能保证 CST 历史保存参数依赖。核对生成命令中符号范围为带引号
+的 CST 表达式，再按原生读回和已授权参数变化检查端口是否跟随；命令文本本身不证明
+实际端口正确。常规 `create_waveguide_port` 依赖面/范围设置。
+`create_discrete_port` 依赖端点及电压方向；`create_lumped_element` 表示电路
 负载，不是传播模式端口。Floquet/cable、源和场源也有已有 API，但仅在需求匹配、
 当前版本支持、会话路由明确时使用；不为补能力列表给普通两端口器件添加无关激励。
 
