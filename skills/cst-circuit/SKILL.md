@@ -15,7 +15,7 @@ description: Use for CST Design Studio schematics, EM port links, network or tra
 
 ## 配置、运行和读取
 
-1. 在当前工程核对单位、元件类型、引脚、原生位置、端口、已有网络及依赖，明确 network 或 transient_cosim。使用[原理图配置指南](../../docs/guides/circuit_cosimulation.md#用户审批后的原理图操作)中的 schema、预览和增量写入方式。几何或端口改变须以实际坐标预览并等候审阅。重名、部分写入或断线保留已完成阶段、消息与回执，先核对现场。
+1. 在当前工程核对单位、元件类型、引脚、原生位置、端口、已有网络及依赖，明确 network 或 transient_cosim。使用[原理图配置指南](../../docs/guides/circuit_cosimulation.md#用户审批后的原理图操作)中的 schema、预览和增量写入方式。新建、补充或整理电路时，必读[紧凑布局与整图可读性](../../docs/guides/circuit_cosimulation.md#紧凑布局与整图可读性)：默认让相连模块靠近、支路贴近对应引脚，按符号与标签大小留间距；常见器件电路应在常用窗口和正常阅读缩放下看到全貌及可读标注，不能靠极度缩小视图交付。几何或端口改变须以实际坐标预览并等候审阅。重名、部分写入或断线保留已完成阶段、消息与回执，先核对现场。
 2. 对受管的参数→EM→HB 链，按[工作流契约](../../docs/guides/workflow_enforcement.md)绑定规格。服务在提交与执行时核对当前成功 EM 回执、已接受的数值报告和原生设置。调用方仍须分析原始数据，检查专业条件。多轮任务先恢复[要求与证据清单](../cst-sessions/references/workflow-checkpoint.md)，核对源/负载、矩阵、扫描轴和模板输入，在依赖阶段提交前运行清单检查。
 3. 在已保存的工作副本调用指定的 `run_checked`，提供真实任务、模式、结果树路径与整数 run_id，常规新运行用 `reuse="never"`。用 `inspect_dependencies` 核对依赖路径和摘要。从 schematic 域用 `CircuitResult` 列举路径及 run 身份，再读复数曲线、单位、参数和来源。保留实际项目、日志与未验证项；配置、保存读回、重开、求解和数值充分性分别记录。
 4. **启动 CST HB 或父扫描前**完整阅读[HB 放行与首错停止](references/hb-and-postprocessing.md#hb-运行前的放行门槛)。逐块核对 DC 至全部保留混频的实际数据覆盖；拓扑或 EM 输入改变后先验证双向代表工况的工作点、实际入射、匹配与谱线。首个初始化或数值失败即停止后续组，缺有效输入的下游模板跳过。停止或中断后按[3D 与 DS 的空闲边界](../../docs/guides/solver_stop_scope.md)查目标序列及回执。
