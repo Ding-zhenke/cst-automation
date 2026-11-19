@@ -59,9 +59,17 @@ get_face_id_from_point/get_picked_count 和 pick_face_auto 有原生 Pick 接口
 颜色及支持的色散系数。kappa 是电导率；颜色只影响显示。该接口材料单位固定为
 GHz/mm，色散频率参数应按它转换，不能直接按当前工程单位代入。
 
-库材料使用 new_material/create_material 或显式 load_material_from_file；文件读取
-必须在已授权路径内，并核对实际材料来源。不要把未找到材料静默替换为真空。全张量
-接口另核对 epsilon/mu 的实虚部、坐标轴、损耗约定和求解器兼容性。
+`new_material` / `create_material` 只支持三个固定预设：`Copper (annealed)`、
+`Silicon (lossy)`、`Quartz (Fused) (lossy)`，不是任意材料库名称的加载器。
+未知名称会记录 `material_not_preset`，默认仍返回 `None` 而不创建材料；正常创建也返回
+`None`，因此不能按返回值判断成功。自定义 `Copper` / `Quartz` 等名称用
+`create_material_custom` 给明确物性，或按实际来源导入，不能传给预设接口后直接建实体。
+
+库文件用 `load_material_from_file`；`list_library_materials` 只列安装材料库，不列当前
+工程已定义材料。文件读取必须在已授权路径内，核对来源、实际导入名称和返回的失败状态。
+这些入口并非都已在会话 `model_api` 白名单中；先按[API 路由规则](api-selection.md#session-routing-and-fallback)
+检查当前运行库，缺路由时补显式路由，不另连工程。不要把未找到材料静默替换为真空。
+全张量接口另核对 epsilon/mu 的实虚部、坐标轴、损耗约定和求解器兼容性。
 
 `change_material` 改实体赋值；`change_material_color` 改显示；`change_component`
 改分组。扫描电导率前必须检查材料 Kappa 引用扫描参数（例如符号 sigma），只创建
