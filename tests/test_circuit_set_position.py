@@ -10,6 +10,12 @@ class Obj:
     def GetPositionY(self): return self.xy[1]
     def Position(self,x,y): self.calls.append((x,y)); self.xy=[51000,52000]
 
+class NativeFrameObj(Obj):
+    """Matches CST evidence: Position(x,y) reads back as (x-50000,y-50000)."""
+    def Position(self,x,y):
+        self.calls.append((x,y))
+        self.xy=[float(x)-50000, float(y)-50000]
+
 @pytest.mark.parametrize('kind', ['Block','ExternalPort'])
 def test_move_reads_actual_grid_position(kind):
     obj=Obj(); api=CircuitAPI(None,adapter=SimpleNamespace(select=lambda k,n: obj))
@@ -17,6 +23,15 @@ def test_move_reads_actual_grid_position(kind):
     assert obj.calls == [('51001','52001')]
     assert result['before']==[50000,50000] and result['readback']==[51000,52000]
     assert result['requested']==[51001,52001]
+
+@pytest.mark.parametrize('kind', ['Block','ExternalPort'])
+def test_native_coordinates_are_translated_and_verified(kind):
+    obj=NativeFrameObj(); api=CircuitAPI(None,adapter=SimpleNamespace(select=lambda k,n: obj))
+    result=api.set_position(kind,'existing',[-225,575],coordinate_space='native')
+    assert obj.calls == [('49775','50575')]
+    assert result['setter_position'] == [49775,50575]
+    assert result['readback'] == [-225.0,575.0]
+    assert result['native_position_readback'] is True
 
 @pytest.mark.parametrize('position', [[0,1], [1,100000], [True,1], [float('nan'),1]])
 def test_invalid_position_never_touches_adapter(position):

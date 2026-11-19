@@ -408,6 +408,36 @@ class NativeAdapter:
 
     def apply(self, spec):
         s = self.schematic
+        position_readback = []
+        from cst_automation.circuit_coordinates import native_position_to_cst
+
+        def write_position(obj, entry, kind):
+            if 'native_position' in entry:
+                requested = entry['native_position']
+                setter_position = native_position_to_cst(requested)
+                coordinate_space = 'native'
+            elif 'position' in entry:
+                requested = entry['position']
+                setter_position = requested  # Retain the original setter-coordinate contract.
+                coordinate_space = 'cst'
+            else:
+                return
+            obj.Position(*(str(value) for value in setter_position))
+            # CST's getter is the authoritative native schematic coordinate.
+            try:
+                actual = [obj.GetPositionX(), obj.GetPositionY()]
+                readback_status = 'native_getter'
+            except Exception as exc:
+                actual = None
+                readback_status = f'unavailable:{type(exc).__name__}'
+            position_readback.append({'kind': kind, 'name': entry['name'],
+                                      'coordinate_space': coordinate_space,
+                                      'requested': list(requested), 'setter_position': list(setter_position),
+                                      'readback': actual, 'readback_status': readback_status,
+                                      'position_matches_request': coordinate_space == 'native' and actual is not None and
+                                          all(abs(float(a) - float(b)) < 1e-9
+                                              for a, b in zip(actual, requested))})
+
         for dimension, unit in spec["units"].items():
             s.Units.SetUnit(dimension, unit)
         for name, number in spec["resolved_si"]["parameters"].items():
@@ -421,8 +451,7 @@ class NativeAdapter:
             obj.Reset()
             obj.Type(native_block_type(block["type"]))
             obj.Name(block["name"])
-            if "position" in block:
-                obj.Position(*block["position"])
+            write_position(obj, block, 'Block')
             if "rotation" in block:
                 obj.Rotate(block["rotation"])
             if "file" in block:
@@ -439,8 +468,7 @@ class NativeAdapter:
             obj = s.ExternalPort
             obj.Reset()
             obj.Name(port["name"])
-            if "position" in port:
-                obj.Position(*port["position"])
+            write_position(obj, port, 'ExternalPort')
             if "label" in port:
                 obj.SetLabel(port["label"])
             obj.Create()
@@ -464,6 +492,7 @@ class NativeAdapter:
                 obj.SetProperty(key, str(value))
             for port_name, excitation in task.get("excitations", {}).items():
                 obj.SetPortSignal(port_name, excitation["type"], [str(v) for v in excitation["values"]])
+        return position_readback
 
     def update_task(self, name):
         from pathlib import Path

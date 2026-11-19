@@ -23,9 +23,15 @@ DIODE_PARAMETERS = {
 
 def nonlinear_model_settings(settings):
     require(isinstance(settings, dict), 'Nonlinear model settings must be a mapping')
+    native_position = settings.get('native_position')
+    if native_position is not None:
+        require(isinstance(native_position, list) and len(native_position) == 2 and
+                all(type(value) in (int, float) and math.isfinite(value) and -50000 < value < 50000
+                    for value in native_position),
+                'native_position must contain two finite coordinates strictly within +/-50000')
     kind = settings.get('kind')
     if kind == 'berkeley_diode':
-        require(not set(settings) - {'kind', 'parameters'}, 'Unknown diode settings')
+        require(not set(settings) - {'kind', 'parameters', 'native_position'}, 'Unknown diode settings')
         params = settings.get('parameters', {})
         require(isinstance(params, dict) and not set(params) - set(DIODE_PARAMETERS), 'Unknown diode parameters')
         props, units = {'Model Type': 2}, {}
@@ -39,9 +45,12 @@ def nonlinear_model_settings(settings):
                 require(value > 0 if strict else value >= 0, 'Diode parameter out of range')
                 number, unit = value, '1'
             props[native], units[native] = number, unit
-        return {'kind': kind, 'type': 'CircuitSemi\\Diode', 'properties': props, 'property_units': units, 'files': []}
+        result = {'kind': kind, 'type': 'CircuitSemi\\Diode', 'properties': props, 'property_units': units, 'files': []}
+        if native_position is not None:
+            result['native_position'] = native_position
+        return result
     require(kind == 'spice', 'Model kind must be berkeley_diode/spice')
-    require(not set(settings) - {'kind', 'file', 'model', 'dialect'}, 'Unknown SPICE settings')
+    require(not set(settings) - {'kind', 'file', 'model', 'dialect', 'native_position'}, 'Unknown SPICE settings')
     model = configuration_name(settings.get('model'))
     require(not any(c.isspace() for c in model), 'SPICE subcircuit name cannot contain whitespace')
     dialect = settings.get('dialect')
@@ -50,6 +59,9 @@ def nonlinear_model_settings(settings):
     from .spice_identity import source_contract
     contract = source_contract(source['path'], model)
     require(contract['snapshot']['sha256'] == source['sha256'], 'SPICE source changed during preparation')
-    return {'kind': kind, 'type': 'SPICEImport', 'file': source['path'], 'spice_model': model,
+    result = {'kind': kind, 'type': 'SPICEImport', 'file': source['path'], 'spice_model': model,
             'spice_filter': dialect, 'properties': {}, 'property_units': {}, 'files': [source],
             'source_contract': contract}
+    if native_position is not None:
+        result['native_position'] = native_position
+    return result

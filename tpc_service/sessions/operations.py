@@ -20,6 +20,23 @@ def execute(runtime, job):
         if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'set_position'
                 and 'circuit-position-v1' not in runtime.state().get('worker_capabilities', [])):
             raise ServiceError('workflow_worker_upgrade_required', 'Position update requires a compatible execution worker')
+        circuit_settings = params.get('settings', {}) if operation == 'circuit' else {}
+        circuit_spec = circuit_settings.get('spec', {}) if circuit_settings.get('operation') == 'configure' else {}
+        native_position_requested = (
+            (circuit_settings.get('operation') == 'set_position' and
+             circuit_settings.get('coordinate_space') == 'native') or
+            (circuit_settings.get('operation') == 'configure_nonlinear_model' and
+             'native_position' in circuit_settings.get('settings', {})) or
+            (circuit_settings.get('operation') == 'configure' and any(
+                'native_position' in row for group in ('blocks', 'external_ports')
+                for row in circuit_spec.get(group, []) if isinstance(row, dict))) or
+            (operation == 'configure_exploratory_linear_sp' and any(
+                'native_position' in row for row in params.get('ports', []) if isinstance(row, dict)))
+        )
+        if (native_position_requested and runtime.backend == 'cst'
+                and 'circuit-native-position-v1' not in runtime.state().get('worker_capabilities', [])):
+            raise ServiceError('workflow_worker_upgrade_required',
+                               'Native schematic coordinates require a compatible execution worker')
         if (operation == 'circuit' and params.get('settings', {}).get('operation') == 'configure_task_execution'
                 and 'circuit-task-execution-v1' not in runtime.state().get('worker_capabilities', [])):
             raise ServiceError('workflow_worker_upgrade_required', 'Task execution settings require a compatible execution worker')

@@ -178,11 +178,19 @@ def validate_circuit_spec(spec, *, existing=None, defer_references=False):
             _require(not any(key[1] == name for key in existing_components), f"Existing name conflict: {name}")
             names.add(name)
             components[(kind, name)] = obj
+            _require(not ("position" in obj and "native_position" in obj),
+                     "Specify either legacy setter-frame position or native_position, not both")
             if "position" in obj:
                 pos = obj["position"]
                 _require(isinstance(pos, list) and len(pos) == 2 and all(type(v) is int and 0 <= v <= 100000 for v in pos), "Position must be two layout-grid integers")
+            if "native_position" in obj:
+                import math
+                pos = obj["native_position"]
+                _require(isinstance(pos, list) and len(pos) == 2 and
+                         all(type(v) in (int, float) and math.isfinite(v) and -50000 < v < 50000 for v in pos),
+                         "native_position must contain two finite coordinates strictly within +/-50000")
     for block in data["blocks"]:
-        _require(not set(block) - {"name", "type", "properties", "property_units", "position", "rotation", "file", "spice_model"}, "Unknown block fields")
+        _require(not set(block) - {"name", "type", "properties", "property_units", "position", "native_position", "rotation", "file", "spice_model"}, "Unknown block fields")
         _require(block.get("type") in BLOCK_TYPES, f"Unsupported block type: {block.get('type')}")
         if "rotation" in block:
             _require(type(block["rotation"]) is int and block["rotation"] % 90 == 0, "Block rotation must be a multiple of 90 degrees")

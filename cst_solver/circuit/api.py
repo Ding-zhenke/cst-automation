@@ -71,36 +71,46 @@ class CircuitAPI:
         data = validate_circuit_spec(data, existing=before)
         self._spec = None
         try:
-            self.adapter.apply(data)
+            position_readback = self.adapter.apply(data)
             after = self.inspect()
         except Exception as exc:
             raise CircuitError("circuit_build_partial", f"Circuit write/readback failed: {exc}", stage="apply", spec_digest=spec_digest(data)) from exc
         self._spec = data
         return {"applied": True, "spec_digest": spec_digest(data), "readback": after,
+                "position_readback": position_readback,
                 "readback_verified": False, "solver_verified": False, "evidence": "configuration_readback_not_live_acceptance"}
 
-    def set_position(self, kind, name, position):
+    def set_position(self, kind, name, position, *, coordinate_space='cst'):
         """Move one existing schematic object; return native grid-snapped position."""
         import math
+        if coordinate_space not in ('cst', 'native'):
+            raise CircuitError('circuit_spec_invalid', "coordinate_space must be 'cst' or 'native'")
         if (kind not in ('Block', 'ExternalPort') or not isinstance(name, str)
                 or not name.strip() or any(c in name for c in "\r\n\x00")
                 or not isinstance(position, (list, tuple)) or len(position) != 2
-                or any(type(v) not in (int, float) or not math.isfinite(v)
-                       or not 0 < v < 100000 for v in position)):
-            raise CircuitError('circuit_spec_invalid', 'Existing object and two bounded coordinates required')
+                or any(type(v) not in (int, float) or not math.isfinite(v) for v in position)
+                or (coordinate_space == 'cst' and any(not 0 < v < 100000 for v in position))
+                or (coordinate_space == 'native' and any(not -50000 < v < 50000 for v in position))):
+            raise CircuitError('circuit_spec_invalid', 'Existing object and two coordinates in the selected coordinate space required')
         obj = self.adapter.select(kind, name)
         if not obj.DoesExist():
             raise CircuitError('circuit_topology_invalid', 'Schematic object does not exist', kind=kind, name=name)
         before = [obj.GetPositionX(), obj.GetPositionY()]
         self._spec = None
         try:
-            obj.Position(*(str(v) for v in position))
+            if coordinate_space == 'native':
+                from cst_automation.circuit_coordinates import native_position_to_cst
+                setter_position = native_position_to_cst(position)
+            else:
+                setter_position = list(position)
+            obj.Position(*(str(v) for v in setter_position))
             after = [obj.GetPositionX(), obj.GetPositionY()]
         except Exception as exc:
             raise CircuitError('circuit_build_partial', 'Position write or readback failed',
                                stage='set_position', kind=kind, name=name,
                                requested=list(position), before=before) from exc
-        return {'kind': kind, 'name': name, 'requested': list(position), 'before': before,
+        return {'kind': kind, 'name': name, 'requested': list(position), 'coordinate_space': coordinate_space,
+                'setter_position': list(setter_position), 'before': before,
                 'readback': after, 'native_position_readback': True, 'solver_verified': False}
 
     def set_properties(self, block_name, properties, *, units):

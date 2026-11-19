@@ -1041,7 +1041,7 @@ session circuit 使用同一登记 project_id/规范路径；外部正式工程�
 - `configure_transient_task` 的 `integration` 增加 `stepping=automatic/adaptive/fixed`、`method=adams/gear`、整数 `order=1..4`、带 value/unit 的 `minimum_time_step`。省略项保持原设置；仅提供 time_step 时兼容原行为，选择 fixed。automatic 与显式时间步冲突；minimum_time_step 仅用于 adaptive，且不大于最大 time_step。算法、阶数及时间步是请求配置，真实联合时钟仍由实际运行证据判定。
 - `CircuitAPI.configure_task_ports(task_name, ports)` 配置已有 transient 任务的外部端口。ports 为非空映射，键为实际 ExternalPort 名称。每项 `source_type=voltage/current/none`；激励端口要求 `signal`，支持 `type=sine`（带单位 amplitude/frequency，可选 offset/delay）或 `type=import`（file、布尔 periodic，默认 False）。Voltage 可提供 resistance 数量；Current 暂不提供内阻配置。none 要求 `impedance={real: 电阻数量, imag: 可选电阻数量}`，并清除旧激励。全部输入和文件在第一次写入前检查；名称不存在、任务类型错误时不写入。
 - Import 文件使用两列 CSV：SI 秒及 V/A，至少两个有限实数点，时间非负且严格递增。不在接口中隐式缩放文件。原生 Import periodic 使用小写字符串。返回文件绝对路径和配置时 SHA-256，不声称后续依赖搬运或求解身份已验证。Sine 的单位转换到已有工程单位，保留全局单位。
-- `CircuitAPI.configure_nonlinear_model(block_name, settings, *, create=False)` 配置已有兼容类型块；create=True 仅创建新名称。`kind=berkeley_diode` 使用 `parameters` 中的常用 SPICE 名称 IS/N/RS/CJO/TT/BV/IBV/VJ/M/XTI/AREA。IS/RS/CJO/TT/BV/IBV/VJ 为带 value/unit 的数量，其余为无量纲数值；未提供参数沿用模型自身值，不注入样例默认值。新建模型先选原生 enum 2，再写参数；已有块须能读回为兼容 Berkeley 模型，仅改提供的参数，避免重新选择 Model Type 重置其余值。最后读回值和单位；身份继续由原生参数模式标注，不伪造枚举 getter。
+- `CircuitAPI.configure_nonlinear_model(block_name, settings, *, create=False)` 配置已有兼容类型块；create=True 仅创建新名称。Diode 或 SPICE `settings` 可选 `native_position: [x, y]` 显式设置原生原理图坐标，并读回实际位置；省略时保留 CST 自身默认位置。`kind=berkeley_diode` 使用 `parameters` 中的常用 SPICE 名称 IS/N/RS/CJO/TT/BV/IBV/VJ/M/XTI/AREA。IS/RS/CJO/TT/BV/IBV/VJ 为带 value/unit 的数量，其余为无量纲数值；未提供参数沿用模型自身值，不注入样例默认值。新建模型先选原生 enum 2，再写参数；已有块须能读回为兼容 Berkeley 模型，仅改提供的参数，避免重新选择 Model Type 重置其余值。最后读回值和单位；身份继续由原生参数模式标注，不伪造枚举 getter。
 - `kind=spice` 要求 file、model，dialect 可选 AUTOMATIC/SPICE3/PSPICE/HSPICE。只提供文件型子电路配置，不自动生成器件模型或猜测引脚；改变模型可能改变引脚，返回前后 pins 供调用方重查连接。文件需存在且可读，返回配置时摘要和原生 file/model/filter/属性；模型名差异不做去前缀等宽松归一化。新增纯数据规范化入口位于 `cst_automation.circuit_models`、`circuit_ports`，不加载 CST。
 - 上述新方法返回 requested、readback、readback_verified=False、solver_verified=False，不能完整查询的信号参数/阻抗保留 unknown。原生部分写入或读回不一致为 `circuit_build_partial`，保留请求、阶段和失败现场，不自动重试/回滚。Python 调用后显式 save。
 - service 新增 `build / configure_task_ports`（task_name/ports）及 `build / configure_nonlinear_model`（block_name/settings/create）；文件输入受 service workdir 约束，在打开 CST 前检查。均在唯一 worker 配置并保存，失败沿用部分工程及审计机制。对应显式 MCP 工具 `configure_circuit_task_ports`、`configure_circuit_nonlinear_model`，电路工具增至十个。原有求解入口及证据判据不变。
@@ -2021,19 +2021,32 @@ before impedances expressed in ohms are written.
 
 ### Existing schematic object position
 
-`app.circuit.set_position(kind, name, position)` changes one existing `Block` or
-`ExternalPort`; position is two finite numeric coordinates strictly between 0
-and 100000. It checks existence, reads native position before and after, and
-returns requested and actual coordinates separately because CST can snap to grid.
-It does not save, solve, create objects or certify engineering acceptance. A
-failed write/readback may leave a partial change. The caller owns session fences,
-idle review, saving, and any required visual review.
+New circuit specs may place Blocks and ExternalPorts with `native_position`, a
+pair of finite native schematic coordinates strictly inside +/-50000. The
+adapter translates these to CST's setter frame by adding 50000 to each axis and
+returns requested coordinates, actual setter arguments, and native getter
+readback. The legacy `position` property remains a direct CST setter-frame write
+for compatibility; it must not be used for newly planned schematic layout.
+
+`app.circuit.set_position(kind, name, position, *, coordinate_space="cst")`
+changes one existing `Block` or `ExternalPort`. The default `cst` mode retains
+the original setter-frame behavior and its finite coordinate range strictly
+between 0 and 100000. Use `coordinate_space="native"` for signed native
+schematic coordinates strictly inside +/-50000; it applies the same +50000
+conversion as `native_position`. It checks existence, reads native position
+before and after, and returns requested coordinates, setter arguments and actual
+coordinates separately because CST can snap to grid. It does not save, solve,
+create objects or certify engineering acceptance. A failed write/readback may
+leave a partial change. The caller owns session fences, idle review, saving, and
+any required visual review.
 
 The service `circuit/build/set_position` and MCP `set_circuit_position` expose
 the same operation and save the project; managed session fences still apply.
 
 Owned sessions require an already running worker advertising
-`circuit-position-v1`; an older worker is rejected without replacement.
+`circuit-position-v1` for the legacy move route. Native coordinate writes also
+require `circuit-native-position-v1`; an older worker is rejected without
+replacement before changing the project.
 
 ### Existing circuit task parallelization and result options
 

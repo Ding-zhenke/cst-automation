@@ -207,12 +207,14 @@ def validate_prepare_spec(spec):
     if not isinstance(rows, list) or len(rows) != 2:
         raise ValueError('Exactly two RF measurement ports required')
     for row in rows:
-        if not isinstance(row, dict) or set(row) != {'name', 'position', 'net_name', 'expected_members', 'probe_endpoint'}:
+        common = {'name', 'net_name', 'expected_members', 'probe_endpoint'}
+        if (not isinstance(row, dict) or
+                set(row) not in (common | {'position'}, common | {'native_position'})):
             raise ValueError('Exact RF port and probe mapping required')
         if _endpoint(row['probe_endpoint'])[0] != 'probe':
             raise ValueError('Each RF replacement requires a probe endpoint')
     validate_setup({'project_id': 'p', 'network_job_id': 'n', 'task': spec['task'],
-                    'ports': [{k: row[k] for k in ('name', 'position', 'net_name', 'expected_members')} for row in rows]})
+                    'ports': [{k: row[k] for k in ('name', 'native_position' if 'native_position' in row else 'position', 'net_name', 'expected_members')} for row in rows]})
     control = spec['control']
     keys = {'network_pin', 'probe', 'source', 'bias', 'ground', 'resistance_ohms'}
     if (not isinstance(control, dict) or set(control) != keys or type(control['network_pin']) is not int
@@ -325,8 +327,28 @@ def prepare_static_sp(adapter, spec, *, before_write=None):
                 report['changes'].append({'source': name, 'property': field, 'value': '0'})
         for row in rows:
             obj = adapter.schematic.ExternalPort
-            obj.Reset(); obj.Name(row['name']); obj.Position(*row['position']); obj.Create()
             obj.Reset(); obj.Name(row['name'])
+            if 'native_position' in row:
+                from cst_automation.circuit_coordinates import native_position_to_cst
+                write_position = native_position_to_cst(row['native_position'])
+            else:
+                write_position = row['position']
+            obj.Position(*write_position); obj.Create()
+            obj.Reset(); obj.Name(row['name'])
+            try:
+                actual_position = [obj.GetPositionX(), obj.GetPositionY()]
+                position_status = 'native_getter'
+            except Exception as exc:
+                actual_position = None
+                position_status = f'unavailable:{type(exc).__name__}'
+            report.setdefault('position_readback', []).append({
+                'name': row['name'],
+                'coordinate_space': 'native' if 'native_position' in row else 'cst',
+                'requested': list(row.get('native_position', row.get('position'))),
+                'setter_position': list(write_position), 'readback': actual_position,
+                'readback_status': position_status,
+                'position_matches_request': 'native_position' in row and actual_position is not None and
+                    all(abs(float(a) - float(b)) < 1e-9 for a, b in zip(actual_position, row['native_position']))})
             if int(obj.GetNumberOfPorts()) != 1:
                 raise ValueError('New measurement port must have one endpoint')
             report['changes'].append(replace_probe_with_measurement_port(adapter, row['net_name'], row['probe_endpoint'],

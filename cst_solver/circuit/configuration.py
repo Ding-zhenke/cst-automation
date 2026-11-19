@@ -95,12 +95,34 @@ def configure_nonlinear_model(adapter, name, settings, *, create=False):
         # compatible model and update only the requested parameters in-place.
         adapter.diode_readback(name)
     actual = None
+    position_readback = None
     try:
         if create:
             obj.Type(settings['type']); obj.Name(name)
             if settings['kind'] == 'spice':
                 obj.SetFile(settings['file'])
+            if 'native_position' in settings:
+                from cst_automation.circuit_coordinates import native_position_to_cst
+                setter_position = native_position_to_cst(settings['native_position'])
+                obj.Position(*(str(value) for value in setter_position))
             obj.Create()
+        elif 'native_position' in settings:
+            from cst_automation.circuit_coordinates import native_position_to_cst
+            setter_position = native_position_to_cst(settings['native_position'])
+            obj.Position(*(str(value) for value in setter_position))
+        if 'native_position' in settings:
+            try:
+                position_actual = [obj.GetPositionX(), obj.GetPositionY()]
+                position_status = 'native_getter'
+            except Exception as exc:
+                position_actual = None
+                position_status = f'unavailable:{type(exc).__name__}'
+            position_readback = {'coordinate_space': 'native', 'requested': list(settings['native_position']),
+                                 'setter_position': list(setter_position), 'readback': position_actual,
+                                 'readback_status': position_status,
+                                 'position_matches_request': position_actual is not None and
+                                     all(abs(float(a) - float(b)) < 1e-9
+                                         for a, b in zip(position_actual, settings['native_position']))}
         if settings['kind'] == 'berkeley_diode':
             props = {k: v for k, v in settings['properties'].items() if create or k != 'Model Type'}
             adapter.properties(name, props, settings['property_units'])
@@ -138,5 +160,6 @@ def configure_nonlinear_model(adapter, name, settings, *, create=False):
         raise CircuitError('circuit_build_partial', f'Model configuration write/readback failed: {exc}',
                            stage='configure_nonlinear_model', block_name=name, requested=settings, readback=actual) from exc
     return {'block_name': name, 'created': create, 'requested': settings, 'readback': actual,
+            'position_readback': position_readback,
             'pins_before': before_pins, 'pins_after': after_pins, 'pins_changed': before_pins != after_pins,
             'files': settings['files'], 'readback_verified': False, 'solver_verified': False}

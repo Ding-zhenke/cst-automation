@@ -29,13 +29,17 @@ def validate_setup(p):
         raise ValueError('Explicit external ports and impedances required')
     names, nets = set(), set()
     for row in ports:
-        if not isinstance(row, dict) or set(row) != {'name', 'position', 'net_name', 'expected_members'}:
+        base_fields = {'name', 'net_name', 'expected_members'}
+        if (not isinstance(row, dict) or
+                set(row) not in (base_fields | {'position'}, base_fields | {'native_position'})):
             raise ValueError('Exact port fields required')
-        name, net, pos, members = row['name'], row['net_name'], row['position'], row['expected_members']
+        position_key = 'native_position' if 'native_position' in row else 'position'
+        name, net, pos, members = row['name'], row['net_name'], row[position_key], row['expected_members']
         if (not isinstance(name, str) or not name.strip() or name in names or any(c in name for c in '\r\n\x00')
                 or not isinstance(net, str) or not net.strip() or net in nets or any(c in net for c in '\r\n\x00')
                 or not isinstance(pos, list) or len(pos) != 2
                 or any(type(v) not in (int, float) or not math.isfinite(v) for v in pos)
+                or (position_key == 'native_position' and any(not -50000 < v < 50000 for v in pos))
                 or not isinstance(members, list) or not members):
             raise ValueError('Invalid port, position, net or expected membership')
         for member in members:
@@ -223,11 +227,30 @@ def execute_setup(runtime, job, app):
     w = project['workflow']; w.update(sp_setup=None, network_required=True, network_update=None, evidence=None)
     w['hb_generation'] += 1
     runtime.update(projects=state['projects'])
+    position_readbacks = []
     try:
         for row in p['ports']:
             port = schematic.ExternalPort; port.Reset(); port.Name(row['name'])
-            port.Position(*row['position']); port.Create()
+            if 'native_position' in row:
+                from cst_automation.circuit_coordinates import native_position_to_cst
+                write_position = native_position_to_cst(row['native_position'])
+            else:
+                write_position = row['position']
+            port.Position(*write_position); port.Create()
             port.Reset(); port.Name(row['name'])
+            try:
+                actual_position = [port.GetPositionX(), port.GetPositionY()]
+                position_status = 'native_getter'
+            except Exception as exc:
+                actual_position = None
+                position_status = f'unavailable:{type(exc).__name__}'
+            position_readbacks.append({'name': row['name'],
+                'coordinate_space': 'native' if 'native_position' in row else 'cst',
+                'requested': list(row.get('native_position', row.get('position'))),
+                'setter_position': list(write_position), 'readback': actual_position,
+                'readback_status': position_status,
+                'position_matches_request': 'native_position' in row and actual_position is not None and
+                    all(abs(float(a) - float(b)) < 1e-9 for a, b in zip(actual_position, row['native_position']))})
             if int(port.GetNumberOfPorts()) != 1:
                 raise ValueError('New external port does not expose one endpoint')
             attach_external_port_to_net(schematic.Net, row['net_name'],
@@ -260,6 +283,7 @@ def execute_setup(runtime, job, app):
                      'task_report': task_report}
     runtime.update(projects=state['projects'])
     return {'saved': True, 'saved_digest': saved['saved_digest'], 'task_report': task_report,
+            'position_readback': position_readbacks,
             'solver_verified': False, 'formal_hb_gate_satisfied': False}
 
 

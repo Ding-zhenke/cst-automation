@@ -120,11 +120,14 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
             if operation == 'set_position':
                 import math
                 kind, name, position = params.get('kind'), params.get('name'), params.get('position')
+                coordinate_space = params.get('coordinate_space', 'cst')
                 if (kind not in ('Block', 'ExternalPort') or not isinstance(name, str) or not name.strip()
                         or any(c in name for c in '\r\n\x00') or not isinstance(position, (list, tuple))
-                        or len(position) != 2 or any(type(v) not in (int, float) or not math.isfinite(v)
-                        or not 0 < v < 100000 for v in position)):
-                    raise CircuitError('circuit_spec_invalid', 'Existing object and two bounded coordinates required')
+                        or len(position) != 2 or coordinate_space not in ('cst', 'native')
+                        or any(type(v) not in (int, float) or not math.isfinite(v) for v in position)
+                        or (coordinate_space == 'cst' and any(not 0 < v < 100000 for v in position))
+                        or (coordinate_space == 'native' and any(not -50000 < v < 50000 for v in position))):
+                    raise CircuitError('circuit_spec_invalid', 'Existing object and two coordinates in the selected coordinate space required')
             if operation == 'configure_task_execution':
                 from cst_solver.circuit.task_execution import normalize
                 normalize(params.get('task_name'), params.get('expected_type'), params.get('parallelization'), params.get('result_options'))
@@ -237,7 +240,11 @@ def register_circuit_handlers(service, *, replace=False, app_factory=None, autho
                     if operation == 'configure_task_execution':
                         report = api.configure_task_execution(params['task_name'], params['expected_type'], parallelization=params.get('parallelization'), result_options=params.get('result_options'))
                     elif operation == 'set_position':
-                        report = api.set_position(params['kind'], params['name'], params['position'])
+                        if params.get('coordinate_space') == 'native':
+                            report = api.set_position(params['kind'], params['name'], params['position'],
+                                                      coordinate_space='native')
+                        else:
+                            report = api.set_position(params['kind'], params['name'], params['position'])
                     elif operation == 'disable_tasks':
                         report = api.disable_tasks(params['tasks'], confirm_idle=params['confirm_idle'], review_note=params['review_note'])
                     elif operation == 'configure_em_time_settings':

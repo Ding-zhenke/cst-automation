@@ -28,6 +28,16 @@ def test_rejects_nonfinite_position_or_invalid_net_members():
     with pytest.raises(ValueError): validate_setup(data)
 
 
+def test_native_position_mode_validates_signed_getter_coordinates():
+    data = valid()
+    for row, xy in zip(data['ports'], ([175, 300], [-225, 575])):
+        del row['position']
+        row['native_position'] = xy
+    validate_setup(data)
+    data['ports'][0]['native_position'][0] = 50000
+    with pytest.raises(ValueError): validate_setup(data)
+
+
 def test_solve_requires_results_scoped_to_requested_task():
     p = {'project_id': 'p', 'network_job_id': 'net', 'setup_job_id': 'setup',
          'task_name': 'SP', 'expected_results': [{'tree_path': 'Tasks\\OTHER\\S-Parameters\\S1,1', 'run_id': 0}]}
@@ -64,6 +74,9 @@ def test_setup_does_not_replace_existing_port(tmp_path, monkeypatch):
 def test_setup_saves_bound_task_and_keeps_hb_closed(tmp_path, monkeypatch):
     from types import SimpleNamespace
     data = valid()
+    for row, xy in zip(data['ports'], ([175, 300], [-225, 575])):
+        del row['position']
+        row['native_position'] = xy
     project = {'project_id': 'p', 'path': str(tmp_path/'a.cst'),
                'workflow': {'em_generation': 2, 'hb_generation': 1, 'evidence': {'old': True}}}
     class Runtime:
@@ -78,13 +91,18 @@ def test_setup_saves_bound_task_and_keeps_hb_closed(tmp_path, monkeypatch):
         def GetNextPortName(self): return next(self.names, '')
         def Reset(self): pass
         def Name(self, name): self.name = name
-        def Position(self, *args): pass
+        def Position(self, *args):
+            position_calls.append(args)
+            self.xy = [float(args[0]) - 50000, float(args[1]) - 50000]
         def Create(self): pass
         def GetNumberOfPorts(self): return 1
+        def GetPositionX(self): return self.xy[0]
+        def GetPositionY(self): return self.xy[1]
     class Task:
         def Reset(self): pass
         def Name(self, name): pass
         def DoesExist(self): return False
+    position_calls = []
     schematic = SimpleNamespace(ExternalPort=Ports(), SimulationTask=Task(), Net=object())
     app = SimpleNamespace(circuit=SimpleNamespace(adapter=SimpleNamespace(schematic=schematic)))
     before = {'blocks': [], 'probes': [], 'units': {}, 'parameters': {}, 'unknown': [],
@@ -100,6 +118,9 @@ def test_setup_saves_bound_task_and_keeps_hb_closed(tmp_path, monkeypatch):
     monkeypatch.setattr('cst_solver.circuit.adapter.attach_external_port_to_net', lambda *a: None)
     monkeypatch.setattr('cst_solver.circuit.linear_sp.configure_linear_sp_task', lambda *a, **k: {'properties_readback': {}})
     result = execute_setup(Runtime(), {'job_id': 'setup', 'params': data}, app)
+    assert position_calls == [(50175, 50300), (49775, 50575)]
+    assert [row['readback'] for row in result['position_readback']] == [[175.0, 300.0], [-225.0, 575.0]]
+    assert all(row['position_matches_request'] for row in result['position_readback'])
     assert result['saved'] is True
     assert project['workflow']['sp_setup']['task_name'] == 'SP'
     assert project['workflow']['network_required'] is True and project['workflow']['evidence'] is None
