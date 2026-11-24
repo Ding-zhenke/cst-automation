@@ -80,6 +80,8 @@ def validate_port_assignments(
         errors.append("created Momentum port names are not unique")
     if set(actual_by_name) != {str(item["name"]) for item in planned}:
         errors.append("created Momentum port name set differs from the run plan")
+    elif [item["name"] for item in planned] != [item.get("name") for item in actual]:
+        errors.append("created Momentum port order differs from the run plan")
     for plan in planned:
         name = str(plan["name"])
         item = actual_by_name.get(name)

@@ -28,6 +28,13 @@ Before editing, define the workspace, library/cell/view, substrate, layer-purpos
 
 For every executed stage, write or retain status evidence containing source workspace/view, ADS version, invoked interface, output paths, warnings, validation errors, and a verdict. File existence alone is not a pass. A single-run hash may establish provenance in flow; only release compares it with a separately generated output.
 
+## Synchronize the circuit candidate before layout EM
+
+1. Identify the source workspace, cell and parameter set (for example, the user's current SP optimum). Read its saved variables, instance bindings, units and generated netlist. Use these values for schematic-driven layout or the project's parameterized layout builder.
+2. Open the saved ADS layout and measure the resulting geometry. Compare every changed physical dimension with its corresponding database feature, including the accumulated pitch of repeated cells, tap position, stub length from its specified reference edge, bends, tapers, pad outlines and returns where applicable. Record expected and measured values, units and the database grid or agreed tolerance. Inspect conductor continuity, intended gaps and physical pins across cell boundaries. A fixed polygon in a parameterized builder needs the same comparison. If a dimension is stale or unrepresented, identify the feature and resynchronize it before submitting EM for that candidate.
+3. Mark the passive-metal boundary and map circuit terminal number, layout pin, EM port index, positive/negative reference and impedance. At an active device, expose the correct pad terminals and reconnect its nonlinear model in the circuit bench. Check the extent of any imported SNP block so the same metal or diode is represented once.
+4. Use the [RFPro/Momentum workflow](#run-rfpromomentum) and `scripts/run_momentum.py` with the bound layout, substrate, ordered ports, mesh and requested frequency plan. Its `--configure-only` option validates a plan offline. For a requested solve, run on the licensed host, retain the current analysis log and SIO or converted dataset, then check port order, frequency coverage and finite complex S-parameters. For circuit/EM co-simulation, bind that result to the passive block and verify the SP/HB bench uses it with the same port map.
+
 ## Create and inspect a physical layout
 
 Use `keysight.ads.de`, `db_uu`, and the technology APIs. Do not hand-edit OpenAccess files.

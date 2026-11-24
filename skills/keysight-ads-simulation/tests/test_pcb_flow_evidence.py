@@ -280,6 +280,22 @@ class MomentumEvidenceContract(unittest.TestCase):
         bad = [dict(actual[0], plus_pins=["WRONG"])]
         self.assertTrue(momentum.validate_port_assignments(planned, bad))
 
+    def test_port_order_must_match_the_circuit_interface(self) -> None:
+        momentum = load_script("run_momentum.py")
+        planned = [
+            dict(name=name, plus_pin=name, minus_pin="GND",
+                 reference_impedance_ohm=50, feed_type="SMD")
+            for name in ("RF_IN", "RF_OUT")
+        ]
+        actual = [
+            dict(name=port["name"], plus_pins=[port["plus_pin"]], minus_pins=["GND"],
+                 reference_impedance_ohm=50, feed_type="SMD")
+            for port in planned
+        ]
+        self.assertEqual([], momentum.validate_port_assignments(planned, actual))
+        errors = momentum.validate_port_assignments(planned, list(reversed(actual)))
+        self.assertTrue(any("port order" in error for error in errors))
+
     def test_smd_and_closed_loop_feed_types_are_semantically_equivalent(self) -> None:
         momentum = load_script("run_momentum.py")
         planned = [

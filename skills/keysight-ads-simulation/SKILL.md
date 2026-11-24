@@ -1,6 +1,6 @@
 ---
 name: keysight-ads-simulation
-description: Use when working with Keysight PathWave ADS RF circuits or physical designs, including mixer, amplifier, oscillator, filter, RF switch, schematic, PCB layout, LineCalc transmission-line synthesis, Momentum or RFPro EM, DRC, Gerber, Drill, CAM round trips, .ds datasets, .dds displays, netlists, simulation logs, licenses, reproducibility checks, or ADS application-mode failures such as fopen(NULL), a Get Started modal, or exit hangs.
+description: Build and review editable hierarchical RF schematics, circuit testbenches and synchronized physical layouts in Keysight PathWave ADS. Use for mixer, amplifier, oscillator, filter or switch simulation, optimization, LineCalc, layout EM with RFPro/Momentum, .ds datasets and .dds displays, DRC, Gerber/Drill, CAM round trips, or ADS diagnostics including fopen(NULL), a Get Started modal and exit hangs.
 ---
 
 # Keysight ADS Simulation
@@ -34,6 +34,12 @@ Use the ADS **official Python API** as the primary control surface and the `.ds`
 
 Protect user work: inventory the requested root first, create unique workspace and run-output paths, and **never overwrite** an existing workspace, dataset, display, netlist, log, layout, or fabrication export unless the user explicitly authorizes that exact replacement.
 
+## Build an editable ADS project
+
+For a multi-block circuit, follow the [hierarchical schematic and placement guide](references/hierarchical-schematic.md) from reusable cells and symbols through the assembled device to its testbenches. Apply the placement and parameter-display checks inside each child as well as on the top sheet.
+
+For a project with layout simulation, continue from the selected circuit dimensions through [layout synchronization and Momentum](references/layout-em-and-fabrication.md#synchronize-the-circuit-candidate-before-layout-em). Deliver the physical view, its port map and the requested EM result. For a setup-only request, deliver the configuration and identify the pending solve. A presentation-only edit ends with the saved schematic and its netlist comparison.
+
 ## HB RF-frequency sweeps
 
 Prefer ADS native HB sweeps: one simulator invocation per fixed pump/bias/state
@@ -65,7 +71,7 @@ Build, solver, and performance are independent gates. A valid schematic or layou
 
 ## Execute the common RF workflow
 
-1. Resolve scope, validation level, inputs, and a new output root. Record the intended circuit family, analysis, model/PDK dependencies, frequencies or sweep axes, terminations, requested outputs, and any explicit acceptance limits.
+1. Resolve scope, validation level, inputs, and a new output root. For a physical design, follow the layout and EM stages above. The steps below cover the circuit testbench. Record the intended circuit family, analysis, model/PDK dependencies, frequencies or sweep axes, terminations, requested outputs, and any explicit acceptance limits.
 2. Run capability-scoped preflight. Set `HPEESOF_DIR` before ADS imports, choose the ADS-bundled interpreter or a compatible environment, and record ADS, DE API, Python, simulator, import, and license evidence.
 3. Build through `keysight.ads.de` and `db_uu`. Save the design, verify instance definitions and `instance.parameters`, generate the netlist, and inspect component models, values, pins, connectivity, ports, sources, and controller settings.
 4. Prefer `keysight.edatoolbox.ads.CircuitSimulator.run_netlist` with a dedicated output directory. Retain the exact netlist and combined log, and classify the actual process result; direct `hpeesofsim` is a documented fallback or diagnostic route. Before using the bundled runner, read its [working-directory and inventory limits](references/design-and-simulation.md#run-and-preserve-solver-evidence); its `ok` status does not replace the numerical checks in step 5.
