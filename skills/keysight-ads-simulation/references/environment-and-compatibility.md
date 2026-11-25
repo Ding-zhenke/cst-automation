@@ -28,7 +28,8 @@ Perform these checks before creating or changing ADS content:
 5. Keep the preflight process short-lived. Importing DE and DDS checks out their corresponding licenses and holds them until the Python process exits.
 
 For an unattended Windows preflight, run the bundled wrapper in the approved
-host context. From this skill's directory, for example:
+host context. The example uses the shared [ADS Python launcher](../scripts/invoke_ads_python.ps1)
+with the `keysight-ads-simulation` directory as its working directory:
 
 ```powershell
 & .\scripts\invoke_ads_python.ps1 -AdsRoot $adsRoot -Script .\scripts\ads_preflight.py
@@ -73,4 +74,4 @@ Do not use `ads.exe -h` as an unattended health probe on this installation; it o
 - `de.create_workspace(path)` requires a path that does not already exist.
 - `de.open_workspace(path, force=True)` can close the current workspace and discard unsaved changes. Do not use `force=True` without explicit authorization and a confirmed save state.
 - Opening a workspace changes the process current directory. Preserve the original directory and restore it when the automation finishes.
-- Generate unique workspace and run-output paths by default. Inspect before writing, and refuse an existing path rather than cleaning or replacing it.
+- Inspect the destination first. Use unique paths for new workspaces, datasets, displays, netlists, logs and fabrication exports. Edit the identified cell or artifact when requested. Obtain explicit authorization before replacing an existing deliverable.

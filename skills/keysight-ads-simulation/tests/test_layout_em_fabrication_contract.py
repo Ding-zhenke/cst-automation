@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-SKILL_TEXT = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+SKILL_TEXT = (SKILL_ROOT.parent / "keysight-ads-layout" / "SKILL.md").read_text(encoding="utf-8")
 OFFICIAL_INDEX = (SKILL_ROOT / "references" / "official-doc-index.md").read_text(
     encoding="utf-8"
 )

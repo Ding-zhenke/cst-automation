@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-SKILL = SKILL_ROOT / "SKILL.md"
+SKILL = SKILL_ROOT.parent / "keysight-ads-layout" / "SKILL.md"
 REFERENCE = SKILL_ROOT / "references" / "layout-em-and-fabrication.md"
 SCRIPTS = SKILL_ROOT / "scripts"
 

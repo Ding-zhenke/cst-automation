@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-SKILL = SKILL_ROOT / "SKILL.md"
+SKILL_INDEX = SKILL_ROOT.parent / "README.md"
 TROUBLESHOOTING = SKILL_ROOT / "references" / "troubleshooting.md"
 VERIFIER = SKILL_ROOT / "scripts" / "verify_dve_drc.py"
 
@@ -21,10 +21,10 @@ def load_verifier():
 
 
 class AdsApplicationDiscoveryContract(unittest.TestCase):
-    def test_skill_description_covers_observed_application_mode_failures(self) -> None:
-        frontmatter = SKILL.read_text(encoding="utf-8").split("---", 2)[1]
+    def test_index_routes_observed_application_mode_failures(self) -> None:
+        route = next(line for line in SKILL_INDEX.read_text(encoding="utf-8").splitlines() if "references/troubleshooting.md)" in line)
         for term in ("fopen(NULL)", "Get Started", "exit hangs"):
-            self.assertIn(term, frontmatter)
+            self.assertIn(term, route)
 
     def test_troubleshooting_records_observed_gui_lifecycle_boundaries(self) -> None:
         text = TROUBLESHOOTING.read_text(encoding="utf-8")

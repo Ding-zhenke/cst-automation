@@ -64,8 +64,8 @@ class SkillStructureTests(unittest.TestCase):
             "official Python API",
             "flow",
             "release",
-            "never overwrite",
-            "GUI check is not applicable",
+            "workspace-safety",
+            "keysight-ads-results/SKILL.md",
             "linear-rf-workflows.md",
             "nonlinear-rf-workflows.md",
         ):
@@ -76,7 +76,7 @@ class SkillStructureTests(unittest.TestCase):
         text = (SKILL_ROOT / "agents" / "openai.yaml").read_text(encoding="utf-8")
         self.assertIn('display_name: "Keysight ADS Simulation"', text)
         self.assertIn(
-            'short_description: "Automate RF circuits, layouts, EM, and fabrication in ADS"',
+            'short_description: "Configure and verify ADS circuit analyses and sweeps"',
             text,
         )
         self.assertIn("$keysight-ads-simulation", text)

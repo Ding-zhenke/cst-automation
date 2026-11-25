@@ -30,7 +30,11 @@ exit $LASTEXITCODE
 | 绑定、恢复、交接或清理工程 | [持久会话](cst-sessions/SKILL.md) | 未知写入先查原任务、状态、回执；发生弹窗或停滞再读诊断。 |
 | SDK、许可证、阻塞或弹窗 | [诊断](cst-diagnostics/SKILL.md) | 按实际窗口类型和进程归属选择恢复流程。 |
 | Design Studio 原理图、静态 SP、场路协同、原生 HB | [场路联合](cst-circuit/SKILL.md) | HB 验证默认 ADS；只有用户明确要求启动 CST HB 才提交。 |
-| ADS 电路、HB、数据集、显示、版图或制造输出 | [Keysight ADS](keysight-ads-simulation/SKILL.md) | 按仿真类型和交付物选择参考页。 |
+| 创建、打开或编辑 ADS 原理图，把静态参数复制到 HB 供手调 | [ADS 原理图](keysight-ads-schematic/SKILL.md) | 核对目标 cell、保存值和网表。要求打开窗口时追加桌面 API 章节。 |
+| 配置或运行 ADS DC、SP、HB、原生扫频或优化 | [ADS 电路仿真](keysight-ads-simulation/SKILL.md) | 仅配置时止于控制器和网表核对；运行时核对本次日志、数据集及完整扫描轴。 |
+| 读取已有 ADS `.ds`、提取曲线、生成或打开 `.dds` | [ADS 结果与显示](keysight-ads-results/SKILL.md) | 读数止于已保存的数据；要求原生显示窗口时追加窗口核验。 |
+| ADS LineCalc、物理版图、Momentum/RFPro、DRC、Gerber/Drill | [ADS 版图与制造](keysight-ads-layout/SKILL.md) | 按尺寸、版图、EM 配置或求解、制造文件选择相应章节。 |
+| ADS 启动异常、许可错误、`fopen(NULL)`、Get Started 弹窗或 exit hangs | [ADS 故障诊断](keysight-ads-simulation/references/troubleshooting.md) | 按现象读取对应诊断章节；使用 Agent Bridge 时查[桥接说明](keysight-ads-simulation/references/ads-agent-bridge.md)。 |
 | 二极管建模、接口、极性、偏置 | [二极管加载](cst-diode-loading/SKILL.md) | 做性能评估时追加表征。 |
 | 工况、指标、逐管电压或性能结论 | [器件表征](cst-device-characterization/SKILL.md) | 二极管评估交付实际 VAK(t)、相应指标和来源。 |
 | 几何预览与科研图 | [绘图](cst-figures/SKILL.md) | 使用实际参数和结果；输出图片本身不授权工程变更。 |

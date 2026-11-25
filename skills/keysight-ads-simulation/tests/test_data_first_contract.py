@@ -3,7 +3,7 @@ import unittest
 
 
 SKILL_DIR = Path(__file__).resolve().parents[1]
-SKILL_TEXT = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+SKILL_TEXT = (SKILL_DIR.parent / "keysight-ads-results" / "SKILL.md").read_text(encoding="utf-8")
 DATA_TEXT = (SKILL_DIR / "references" / "dataset-and-dds.md").read_text(
     encoding="utf-8"
 )

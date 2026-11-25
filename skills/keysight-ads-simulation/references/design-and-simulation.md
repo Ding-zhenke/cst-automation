@@ -14,6 +14,8 @@ The default `flow` requires the applicable build and solver gates and reports ca
 
 Use `keysight.ads.de` and `keysight.ads.de.db_uu` for deterministic design creation. Follow the installed `ex_create_sim_and_plot.py`, `ex_lpf.py`, and analysis-specific official examples rather than inventing component identifiers or parameter names.
 
+For an existing editable design, open the identified workspace and cell and start at the applicable edit or readback step. For a new design:
+
 1. Resolve a new workspace path and verify it does not exist.
 2. Call `de.create_workspace(...)`.
 3. Create a new library with `de.create_new_library(...)` and add it to the workspace.

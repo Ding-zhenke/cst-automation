@@ -16,7 +16,7 @@ Use the native `keysight.ads.dataset` API for ADS `.ds` files. Open through `dat
 
 An ADS dataset contains named `VariableBlock` objects with ordered independent and dependent variables. Convert a block with `VariableBlock.to_dataframe()` when pandas operations are useful. Dots in a block name such as `Optim1.SP1.SP` do not establish an actual nested hierarchy; enumerate the dataset and select the exact block.
 
-For every simulation:
+For an existing dataset, perform steps 1–4 and calculate the requested quantity in step 5. Use an acceptance tolerance when one was specified. Include step 6 when verifying a solver run.
 
 1. Confirm the expected dataset path and successful open.
 2. Enumerate block names, variables, independent axes, units when available, row counts, and value types.
@@ -71,7 +71,7 @@ newer documentation does not remove the supported PDF route on API 630.
 Do not assume API 635 methods or signatures are present on API 630. Use the
 stable API where available.
 
-For a two-port schematic with a native S-parameter display deliverable:
+For a display of a saved dataset, bind only the requested traces (for example S21). A standalone display can reference the dataset directly. Apply the following paired-plot convention for a full two-port overview, and the schematic association step when a linked schematic display is requested:
 
 - Plot S21 and S12 together for transmission, and S11 and S22 together for
   reflection. Bind each trace to the intended dataset and use the requested
@@ -107,7 +107,7 @@ results already exist. If a simulation is already authorized, the schematic's
 open-after-simulation setting can open the associated display.
 
 Confirm that the visible window shows the intended display, dataset and pages
-with populated traces. For two-port S-parameters, check that S21/S12 appear
+with the requested populated traces. For a full two-port overview, check that S21/S12 appear
 together on the transmission plot and S11/S22 appear together on the reflection
 plot. Leave the window open and provide the workspace and `.dds` path so the
 user can reopen it. Run PDF or PNG export only when separately requested.
@@ -120,11 +120,14 @@ agreement with the `.ds` result complete the DDS check.
 
 ## Reopen and compare
 
-After closing and reopening the workspace and display:
+For a saved display, reopen the DDS file, reacquire its objects, and verify:
 
 - ensure the `.dds` file still resolves the intended dataset or the deliberately selected rerun dataset;
 - ensure pages, traces, equations, and markers reload;
-- confirm the target data point agrees with the separately analyzed Dataset value within tolerance;
+- confirm the target data point agrees with the separately analyzed Dataset value within tolerance.
+
+For a requested workspace reopen and simulation reproducibility check, additionally:
+
 - keep the baseline and rerun datasets separate so stale-data binding is detectable;
 - regenerate the netlist, compare its hash with the baseline, and record any intentional difference;
 - compare key metrics and warning classes through scripts, not screenshots.

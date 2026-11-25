@@ -1,6 +1,6 @@
 # 整库规则迁移对照表
 
-本表供仓库维护者查找原规则。工作时从[任务索引](../skills/README.md)进入，索引列出 14 个技能和各自的触发条件。仓库边界见[项目约定](../AGENTS.md)。[本次验证记录](validation/rule-routing.md)列出验收条件与结果。
+本表供仓库维护者查找原规则。工作时从[任务索引](../skills/README.md)进入，索引按交付物列出当前技能和各自的触发条件。仓库边界见[项目约定](../AGENTS.md)。[本次验证记录](validation/rule-routing.md)列出验收条件与结果。
 
 盘点基线包含 118 个受版本管理的 Markdown 文件。根目录 4 个，文档目录 73 个（含 44 份指南、15 份历史计划和设计），技能目录 39 个（1 份索引、14 个技能入口、24 份参考），另有插件说明和实机测试说明各 1 个。另核对了规则涉及的运行库实现、CI 测试选择、构建脚本与清单。
 
@@ -15,7 +15,7 @@
 | 参数研究入口把配置、执行、导出写成连续动作 | [参数研究](../skills/cst-parameter-study/SKILL.md)、[结果导出和历史](../skills/cst-results/references/exports-and-history.md) | 服务器交接只配置、核对并保存。另行请求执行时核实执行入口；导出已有数据需核验运行身份、端口与矩阵完整性。 |
 | 场路长入口中的静态 SP、HB、模板和取消流程 | [场路入口](../skills/cst-circuit/SKILL.md)、[探索性静态 SP](../skills/cst-circuit/references/exploratory-static-sp.md)、[HB 与后处理](../skills/cst-circuit/references/hb-and-postprocessing.md)、[场路指南](guides/circuit_cosimulation.md) | 按任务选择静态或大信号步骤。区分模板配置、保存重开与实际执行。首错停止、工程和任务身份、明确 CST HB 启动授权继续生效。 |
 | 二极管接口、器件性能和隔离器示例交叉重复 | [二极管加载](../skills/cst-diode-loading/SKILL.md)、[器件表征](../skills/cst-device-characterization/SKILL.md)、[隔离器交接](../skills/diode-isolator-design-workflow/references/engineering-handoffs.md) | 加载时核对实体、引脚、极性；评估时查实际逐管 VAK(t)。EM→同工程静态 SP→SNP→ADS HB 按要求绑定来源、方向、模型及偏置。 |
-| ADS 原生运行、无界面验收与图形交付 | [ADS](../skills/keysight-ads-simulation/SKILL.md) | 原生操作走许可宿主并后台启动。无界面任务按数据验证；用户要求的 ADS 原生显示按交付项单独检查。 |
+| ADS 原生运行、无界面验收与图形交付 | [原理图](../skills/keysight-ads-schematic/SKILL.md)、[电路仿真](../skills/keysight-ads-simulation/SKILL.md)、[数据与显示](../skills/keysight-ads-results/SKILL.md)、[版图与制造](../skills/keysight-ads-layout/SKILL.md) | 原生操作走许可宿主并后台启动。无界面任务按数据验证；用户要求的 ADS 原生显示按交付项单独检查。 |
 | 原生读结果、CSV 绘图、求解或现场验收混用 | [结果读取](../skills/cst-results/SKILL.md)、[绘图](../skills/cst-figures/SKILL.md)、[现场验证](../skills/cst-in-situ-validation/SKILL.md) | 导出文件、原生只读、几何检查和实际求解分别记录。已有结果分析仅使用所需读取路径；图像和离线测试各保留其证据等级。 |
 | 诊断入口堆叠不同类型的故障 | [诊断](../skills/cst-diagnostics/SKILL.md)、[窗口处理](guides/cst_dialogs.md)、[停止作用域](guides/solver_stop_scope.md) | 有阻塞才读对应处置。读实际标题、正文、按钮与所属进程，检查求解状态，不因超时或窗口消失推断成功。 |
 | 历史设计、计划中的批准语和旧数量 | [历史计划](superpowers/plans/)、[历史设计](superpowers/specs/)、[验证台账](VALIDATION.md) | 保留当时决策、来源和证据；每个历史计划或设计入口标出适用日期。新工程的启动、改写、例外按当次授权判定。 |

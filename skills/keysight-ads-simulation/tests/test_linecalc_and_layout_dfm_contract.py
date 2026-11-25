@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
-SKILL = SKILL_ROOT / "SKILL.md"
+SKILL = SKILL_ROOT.parent / "keysight-ads-layout" / "SKILL.md"
 REFERENCE = SKILL_ROOT / "references" / "layout-em-and-fabrication.md"
 OFFICIAL_INDEX = SKILL_ROOT / "references" / "official-doc-index.md"
 LINECALC_SCRIPT = SKILL_ROOT / "scripts" / "run_linecalc.py"
