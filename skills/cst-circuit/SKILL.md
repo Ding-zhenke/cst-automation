@@ -28,7 +28,7 @@ description: Use for CST Design Studio schematics, EM port links, network or tra
 | 新建或补连原理图、移动块、链接 EM、设置 transient 源与模型、EM 时间步或周期稳态 shooting | [场路接口指南](../../docs/guides/circuit_cosimulation.md)，到对应操作章节核对 API、读回和编辑范围。 |
 | 已保存 EM 与 abort 矛盾、MOR/DC 文件块或内嵌网络交接 | [资格核验、完整矩阵及端口映射](../../docs/guides/saved_em_qualification.md)。分别核对原失败回执、实际低频样本、显式物理端口顺序与原生阻抗。 |
 | 使用明确指定的未收敛 EM 做探索性静态 SP | [静态 SP 专用范围和失败接续](references/exploratory-static-sp.md)。 |
-| 在 DS 的 Post 任务中添加 CST 自带模板，例如让静态 SP 完成后自动导出 Touchstone | 用 `app.add_builtin_result_template` 设置目标 `post_task` 和源 SP 的 `settings["TaskName"]`。见[调用示例与 SP → Post 顺序](../cst-results/references/exports-and-history.md#install-touchstone-export-in-the-cst-project)。 |
+| 在 DS 的 Post 任务中添加 CST 自带模板，例如静态 SP 完成后自动导出 Touchstone | 按[结果模板配置](../cst-result-templates/SKILL.md)选 Design Studio 分支，核对源 SP、目标 Post 与序列顺序。 |
 | 禁用已有 HB 父/子任务 | [受管禁用](../../docs/guides/disable_native_tasks.md)。初检所有目标，依次从子到父写入各步读回，仅保存配置。 |
 | 配置原生 HB 扫频与方向、绑定自动后处理、更新已有模板 | [原生 HB 扫描与后处理](../../docs/guides/native_hb_postprocessing.md)及[自动刷新与保留历史](../../docs/guides/hb_parametric_storage_and_length_results.md)。核对父子绑定、源表达式、HB→Post 顺序和实际 Run ID，替换序列须确认范围。交付自动出图时，按[工程模板适配](references/hb-and-postprocessing.md#模板适配当前工程)分别验证配置、保存关闭重开的归档持久性及授权后的实际回调。 |
 | 原生 Update 异常或 Post 回调定位错误 | [异常与运行身份](../../docs/guides/circuit_update_and_result_identity.md)，固定正 ID 的参数需查[工程绑定查询](../../docs/guides/project_bound_run_parameter_bridge.md)。 |

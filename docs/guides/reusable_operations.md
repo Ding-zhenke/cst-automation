@@ -91,6 +91,8 @@ changed = manager.submit(session_id, credential, parameter_request_id,
 
 ## 冻结读取及有效网格输入
 
+### 从冻结副本读曲线
+
 冻结包包含 .cst、必要同名结果目录、完整日志、历史、端口映射和参数；记录每个文件
 的 SHA256、源 job、输入摘要和原错误。源文件正在变化或被锁定就报告归档未完成，
 不能复制一部分后称已冻结。缓存选项确认后，若需要验证原矩阵，应在新求解之前
@@ -98,6 +100,20 @@ changed = manager.submit(session_id, credential, parameter_request_id,
 拒绝；保留该失败，不为了读成功回退 interactive。读取冻结文件使用官方 ProjectFile 的
 `allow_interactive=False`，不回退到活动 DE 或旧 Run ID。保留全部请求的复数元素、
 频率/方向和单位；三点诊断、单自适应轮数据和正式宽带资格分别标记。
+
+例如，读取 3D 工程的 S21 时，用冻结归档中的工程路径、结果树路径和已核实的 Run ID。这里的 `tree_path` 为该工程中 S2,1 叶的完整路径。
+
+```python
+from cst.results import ProjectFile
+
+project = ProjectFile(str(frozen_path), allow_interactive=False)
+item = project.get_3d().get_result_item(tree_path, run_id)
+frequency, s21 = item.get_xdata(), item.get_ydata()
+```
+
+核对频轴与复数样本数、单位和请求范围，随结果保留工程、叶路径与 Run ID。
+
+### 读取冻结包中的网格输入
 
 ```python
 from cst_solver.mesh_input import read_saved_options

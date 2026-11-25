@@ -1,53 +1,18 @@
 ---
 name: cst-results
-description: Configure CST built-in Result Templates by category and name, including S-Parameters → Touchstone Export, or read, export, and analyze saved CST results.
+description: Read and analyze exported files or saved CST results. Use for existing curves, result-tree data, or per-Run-ID Touchstone files from a completed EM parameter sweep.
 ---
 
-读完本入口和当前操作要求的引用章节，按[完整阅读规则](../README.md#完整阅读规则)补读和恢复。
+# Read or export existing CST results
 
-# CST results
+Select the source and requested output. For exported CSV, JSON, Touchstone or text logs, read the file in the sandbox. Preserve the recorded axes, units, port order and case identity.
 
-Read native CST results on the approved host from the first SDK import. For
-Codex command tools, set `sandbox_permissions="require_escalated"` on the first
-command using `cst.results` or `cst_solver.Result`, including noninteractive
-reads of saved or frozen projects. Parsing already exported CSV, JSON,
-Touchstone or text logs without the CST SDK can run in the sandbox.
-For either path, use the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1)
-for noninteractive Windows Python commands.
+For native data, use the licensed host from the first `cst.results` or `cst_solver.Result` import with `sandbox_permissions="require_escalated"`. Run unattended Windows Python through the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1) for both native and file-only work.
 
-For low-quality mesh warnings, preserve the original bad-element files together
-with their mesh and material mapping before another pass replaces them. Read
-[warning snapshots and attribution](../../docs/guides/reusable_operations.md#告警网格快照与归因).
-Only assign materials/locations after independently matching native IDs and
-reconstructed quality; a final mesh cannot silently replace the warning's mesh.
-Keep capture stability, mapping validity and solver/convergence claims separate.
+- **Read a saved result.** Select the project, result domain, tree item and explicit Run ID. Report the requested values, units, conversion and source. If the item is missing, report its path and Run ID. A saved project can be read without starting a Design Environment. Use the [owning session](../cst-sessions/SKILL.md) for a live project read.
+- **Export a saved EM sweep.** Follow [per-Run-ID Touchstone export](references/exports-and-history.md#exporting-em-sweep-points-as-touchstone-files). Match the manifest to the requested parameter combinations and deliver the files with their port map, reference impedance and frequency unit.
+- **Measure bands or resonances.** Use the shared `cst_automation.curves` rules for contiguous bands and sampled resonances. Report derived measurements with the source curves.
 
-For immutable diagnostics, read the [freeze/read contract](../../docs/guides/reusable_operations.md#冻结读取及有效网格输入).
-Use official `cst.results.ProjectFile(frozen_path, allow_interactive=False)` on the
-verified frozen package; current `cst_solver.Result` defaults to interactive reads.
-Do not fallback to the live DE, alias 0 or an old positive ID on failure. Preserve
-all requested matrix elements and axes. A short diagnostic never qualifies full EM.
-After a cache-choice dialog, verify retained matrices from a complete saved copy
-frozen before the next solve. A noninteractive refusal on the still-open original
-project is not data loss or cache success; preserve it and do not switch to interactive.
+For a frozen project or a cache-retention check, follow the [noninteractive frozen-package read procedure](../../docs/guides/reusable_operations.md#从冻结副本读曲线). Before a parameter rerun or a history comparison, read [parameter-study history](references/exports-and-history.md#parameter-study-history). For bad-element attribution, use the [warning snapshot and native ID checks](../../docs/guides/reusable_operations.md#告警网格快照与归因).
 
-Online CST reads must use [the conversation's persistent session](../cst-sessions/SKILL.md).
-Saved-project SDK reads can run on the host without a DE. Preserve the session's explicit saved project/run identity.
-
-Use the saved project and explicit run ID with `cst_solver.Result`/result helpers. Report which tree item and run were read, units and conversion convention, and any read errors. If a result is absent, return that failure rather than substituting an empty curve or an older run.
-
-A positive native run ID can identify a parameter state and be reused or overwritten
-when that state is solved again, including mesh reruns. An explicit ID selects data;
-it does not freeze an execution. Before a rerun, preserve required complete complex
-results, native logs and parameters with project/result content hashes in the task's
-existing archive. Keep execution identity separate from the native parameter-state ID.
-
-The shared `cst_automation.curves` module defines the only contiguous-band and sampled-resonance rules; use it rather than writing a second threshold implementation. Result extraction proves data was read, not that a solve was run in this session or that a device meets a performance claim. Preserve solver output, readback, and interpretation as separate evidence.
-
-See [result APIs](../../docs/packages/cst_solver.md) and [Python examples](../../docs/guides/python-usage.md).
-
-## Export and history
-
-- To add a step to the project's **Result Templates** list, use `app.add_builtin_result_template(category, name, settings=...)`. Follow the [3D and Design Studio Touchstone Export examples](references/exports-and-history.md#install-touchstone-export-in-the-cst-project) for the settings, destination and save/reopen receipt.
-- To export a saved EM sweep, read [Touchstone export](references/exports-and-history.md#exporting-em-sweep-points-as-touchstone-files). Confirm the complete complex matrix, positive native Run ID and stored parameters, reference impedance and output identity for each case. An export reads existing results.
-- Before a parameter rerun or an EM/HB history comparison, read [parameter-study history](references/exports-and-history.md#parameter-study-history). Preserve complete complex data and logs before updates, and verify the requested parameter association and save/reopen persistence.
+For an automatic export step in the project, use [CST result templates](../cst-result-templates/SKILL.md). For reader interfaces, consult the matching [result API](../../docs/packages/cst_solver.md) or [Python example](../../docs/guides/python-usage.md).

@@ -21,8 +21,9 @@ exit $LASTEXITCODE
 
 | 当前请求 | 首选技能 | 何时追加 |
 |---|---|---|
-| 读取已导出 CSV 或 CST 原生结果、导出已保存扫参矩阵 | [结果读取](cst-results/SKILL.md) | 绘图追加绘图技能；在线读取追加所属会话。读取请求不授权重算。 |
-| 按分类和名称添加 CST 自带结果模板，例如 S-Parameters → Touchstone Export | [结果模板用法](cst-results/references/exports-and-history.md#install-touchstone-export-in-the-cst-project)和[结果技能](cst-results/SKILL.md) | 3D 选工程级模板；Design Studio 指定源 SP 和目标 Post 任务。 |
+| 读取已导出 CSV、Touchstone 或工程里的已有曲线 | [结果读取](cst-results/SKILL.md) | 从已有数据得到请求的数值或曲线；读取活动工程时追加所属会话。 |
+| 把已保存的 EM 扫参逐点导出为 Touchstone | [结果导出](cst-results/SKILL.md) | 交付各正 Run ID 的文件和参数清单，核对端口、频率轴及复数矩阵。 |
+| 给 3D 工程或 Design Studio Post 任务添加内置 Result Template，例如自动 Touchstone Export | [结果模板配置](cst-result-templates/SKILL.md) | 按目标选 3D 或 DS 设置；仅配置时止于模板保存重开的回执。 |
 | 单次运行已有、已审阅的 EM 工程 | [EM 仿真](cst-simulation/SKILL.md) | 可直接在宿主运行 `setup(path)`、`app.run()`。已有绑定或在途工作按原身份处理。 |
 | 配置服务器扫描或选择逐点控制 | [参数研究](cst-parameter-study/SKILL.md) | 准备服务器任务只配置、核对并保存。启动与结果导出有各自入口。 |
 | 建模、改几何、材料、端口 | [建模](cst-modeling/SKILL.md) | 实际写入用所属会话；真实参数预览经审阅后再分阶段构建。 |
