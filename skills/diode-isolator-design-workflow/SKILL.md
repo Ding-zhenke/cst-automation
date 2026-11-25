@@ -54,3 +54,23 @@ Report raw complex data, units and input identities separately from numerical
 quality and performance conclusions. Preserve failures and independent mesh,
 residual, sampling, DC-fit and HB-truncation evidence. Bounds on diagnosis and
 resource use come from the project; do not silently relax acceptance thresholds.
+
+## Shared SNP input for ADS circuits and scans
+
+When multiple ADS circuits or scans use the same CST-exported Touchstone network,
+reference one canonical SNP file instead of copying a duplicate into each circuit
+or scan workspace. Set its path once in the authoritative schematic/source
+configuration and in any build or generation scripts; generated netlists must
+inherit that setting (for example, their `File=` reference). Editing only an
+already-generated netlist is not sufficient because regeneration can restore
+per-workspace copies.
+
+Prefer a project-relative reference resolved from a single shared project location
+so the project remains movable. Before running a circuit or scan, verify that the
+resolved path exists, is readable, and identifies the intended Touchstone file;
+verify the schematic/source configuration, generated script output, and generated
+netlist all resolve to that same canonical file. If the project is moved, repeat
+the path-resolution check before reuse. Keep existing duplicate files in place
+during migration; do not delete them as part of changing references. Archive or
+record the canonical file's identity (including a content hash when practical) with
+results so reused data can be traced to the exact network.

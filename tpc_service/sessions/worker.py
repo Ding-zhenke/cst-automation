@@ -260,8 +260,13 @@ def run(folder):
             from .native_handoff import CAPABILITY as HANDOFF_CAPABILITY
             from .linear_sp import NETWORK_CAPABILITY as EXPLORATORY_SP_NETWORK_CAPABILITY, SP_CAPABILITY
             from .model_api import HF_TET_ORDER_CAPABILITY
+            from . import model_api as optional_model_api
             state['worker_capabilities'] = [EXPLORATORY_CAPABILITY, BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
             from .model_api import PORT_IDENTITY_CAPABILITY
+            for attr in ('TD_MESH_MINIMUM_STEP_CAPABILITY', 'TD_EM_SETTINGS_CAPABILITY', 'SAT_IMPORT_CAPABILITY', 'FEM_SETTINGS_CAPABILITY', 'FEM_DISCRETE_CAPABILITY'):
+                capability = getattr(optional_model_api, attr, None)
+                if capability is not None:
+                    state['worker_capabilities'].append(capability)
             state['worker_capabilities'].append(EM_ONLY_CAPABILITY)
             state['worker_capabilities'].append(PORT_IDENTITY_CAPABILITY)
             state['worker_capabilities'].append(HANDOFF_CAPABILITY)

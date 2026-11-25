@@ -179,8 +179,33 @@ class SessionManager:
                     and state.get('worker') and alive(state['worker'])
                     and DISCRETE_READ_CAPABILITY not in state.get('worker_capabilities', [])):
                 raise ServiceError('workflow_worker_upgrade_required', 'Discrete-port inspection requires a compatible idle worker')
-            from .model_api import settings_only, settings_capability
-            from .model_api import FACE_LUMPED_CAPABILITY, POINT_LUMPED_CAPABILITY
+            from .model_api import (settings_only, settings_capability,
+                                    FEM_SETTINGS_CAPABILITY, FEM_DISCRETE_CAPABILITY,
+                                    uses_fem_discrete)
+            if (operation == 'model_api' and uses_fem_discrete(params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and FEM_DISCRETE_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Discrete FEM sweep requires a compatible worker')
+            if (operation == 'model_api' and settings_only(params['calls'])
+                    and any(c['method'] == 'configure_fem_solver' for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and FEM_SETTINGS_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'FEM settings require a compatible worker')
+            from .model_api import (FACE_LUMPED_CAPABILITY, POINT_LUMPED_CAPABILITY,
+                                    SAT_IMPORT_CAPABILITY, TD_EM_SETTINGS_CAPABILITY,
+                                    TD_EM_SETTINGS_METHODS, TD_MESH_MINIMUM_STEP_CAPABILITY)
+            if (operation == 'model_api' and any(c['method'] == 'set_mesh_auto' for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and TD_MESH_MINIMUM_STEP_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Mesh auto settings require the corrected worker')
+            if (operation == 'model_api' and any(c['method'] in TD_EM_SETTINGS_METHODS for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and TD_EM_SETTINGS_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Time-domain settings require a compatible worker')
+            if (operation == 'model_api' and any(c['method'] == 'import_sat' for c in params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and SAT_IMPORT_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'SAT import requires a compatible worker')
             if (operation == 'model_api' and any(c['method'] == 'create_lumped_face_element' for c in params['calls'])
                     and state.get('worker') and alive(state['worker'])
                     and FACE_LUMPED_CAPABILITY not in state.get('worker_capabilities', [])):

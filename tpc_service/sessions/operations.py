@@ -64,6 +64,27 @@ def execute(runtime, job):
             if (any(c['method'] == 'create_lumped_face_element' for c in params['calls'])
                     and FACE_LUMPED_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
                 raise ServiceError('workflow_worker_upgrade_required', 'Picked lumped face elements require a compatible execution worker')
+            from .model_api import (settings_only, FEM_SETTINGS_CAPABILITY,
+                                    FEM_DISCRETE_CAPABILITY, uses_fem_discrete)
+            if (uses_fem_discrete(params['calls'])
+                    and FEM_DISCRETE_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Discrete FEM sweep requires a compatible execution worker')
+            if (settings_only(params['calls'])
+                    and any(c['method'] == 'configure_fem_solver' for c in params['calls'])
+                    and FEM_SETTINGS_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'FEM settings require a compatible execution worker')
+            from .model_api import (PORT_IDENTITY_CAPABILITY, SAT_IMPORT_CAPABILITY,
+                                    TD_EM_SETTINGS_CAPABILITY, TD_EM_SETTINGS_METHODS,
+                                    TD_MESH_MINIMUM_STEP_CAPABILITY)
+            if (any(c['method'] == 'set_mesh_auto' for c in params['calls'])
+                    and TD_MESH_MINIMUM_STEP_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Mesh auto settings require the corrected worker')
+            if (any(c['method'] in TD_EM_SETTINGS_METHODS for c in params['calls'])
+                    and TD_EM_SETTINGS_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'Time-domain settings require a compatible execution worker')
+            if (any(c['method'] == 'import_sat' for c in params['calls'])
+                    and SAT_IMPORT_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'SAT import requires a compatible execution worker')
             from .model_api import PORT_IDENTITY_CAPABILITY
             if (any(c['method'] in ('delete_port', 'rename_port') for c in params['calls'])
                     and PORT_IDENTITY_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
@@ -484,15 +505,15 @@ def _execute_operation(runtime, job):
         from .model_api import dispatch, validate_calls
         validate_calls(params['calls'])
         for call in params['calls']:
-            if call['method'] == 'import_step':
+            if call['method'] in ('import_step', 'import_sat'):
                 from inspect import signature
                 from cst_solver import setup as CstSetup
-                bound = signature(CstSetup.import_step).bind(None, *call.get('args', []), **call.get('kwargs', {}))
+                bound = signature(getattr(CstSetup, call['method'])).bind(None, *call.get('args', []), **call.get('kwargs', {}))
                 source = Path(bound.arguments['filename']).resolve(strict=True)
                 project = runtime.state()['projects'][params['project_id']]
                 parent = Path(project['path']).resolve().parent
                 if source.parent != parent:
-                    raise ServiceError('invalid_session_argument', 'STEP source must be in the registered project directory')
+                    raise ServiceError('invalid_session_argument', 'Import source must be in the registered project directory')
         if runtime.backend == 'fake':
             app.cst_file.setdefault('api_calls', []).extend(params['calls'])
             api_result = {'python_api_calls':len(params['calls']), 'native_executed':False}

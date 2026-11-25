@@ -138,23 +138,20 @@ def actual_lf_samples(log, p):
 
 
 def write_touchstone(path, f, s, reference):
-    """Exclusive file creation, v1 full RI; two-port ordering is column-major."""
-    n = s.shape[1]
-    with Path(path).open('x', encoding='utf-8', newline='\n') as stream:
-        stream.write(f'# Hz S RI R {reference:.17g}\n')
-        for frequency, row in zip(f, s):
-            entries = row.T.ravel() if n == 2 else row.ravel()
-            stream.write(' '.join([format(frequency, '.17g')] +
-                         [format(v, '.17g') for z in entries for v in (z.real, z.imag)]) + '\n')
+    """Exclusive file creation in Touchstone v1 full RI format."""
+    from .touchstone import write_touchstone as write_full_matrix
+    return write_full_matrix(path, f, s, reference, frequency_unit='Hz')
 
 
 def read_touchstone(path, n, reference):
     lines = Path(path).read_text(encoding='utf-8-sig').splitlines()
     if not lines or lines[0].split() != ['#', 'Hz', 'S', 'RI', 'R', format(reference, '.17g')]:
         raise ValueError('Unexpected generated Touchstone header')
-    rows = np.asarray([[float(v) for v in line.split()] for line in lines[1:]])
-    if rows.ndim != 2 or rows.shape[1] != 1 + 2*n*n or not np.isfinite(rows).all():
+    values = np.asarray([float(v) for line in lines[1:] for v in line.split()])
+    width = 1 + 2*n*n
+    if not values.size or values.size % width or not np.isfinite(values).all():
         raise ValueError('Incomplete generated Touchstone')
+    rows = values.reshape(-1, width)
     s = (rows[:, 1::2] + 1j*rows[:, 2::2]).reshape(-1, n, n)
     if n == 2: s = s.transpose(0, 2, 1)
     return rows[:, 0], s

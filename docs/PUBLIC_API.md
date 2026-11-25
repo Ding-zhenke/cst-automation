@@ -1,5 +1,23 @@
 # cst-automation 与领域包的公共接口
 
+## Session model API: solver and import settings
+
+The bounded `model_api` session operation accepts `configure_fem_solver` with
+`sweep_method` set to `General purpose` or `Discrete samples only`. A call batch
+containing only solver-setting methods is recorded and saved without rebuilding
+or solving. Discrete FEM sweeps require a worker advertising
+`fem-discrete-sweep-v1`; settings-only FEM calls require
+`fem-settings-no-rebuild-v1`. Older workers are rejected before enqueue or
+project access.
+
+The same operation exposes typed time-domain controls and `import_sat` for
+existing absolute `.sat` or `.sab` files located beside the registered project.
+Time-domain controls require `td-em-settings-v1`; `set_mesh_auto` also requires
+`td-mesh-minimum-step-v1`; SAT imports require `sat-import-v1`. Calls validate
+their arguments and compatible worker capability before project mutation. These
+capability checks describe software compatibility only; they do not certify
+native CST readback or solver results.
+
 `native-static-sp-v3` 在 v2 串联源控制链之外，支持显式 `resistor_to_ground` 控制链：审阅指定宿主端口、双端电阻、接地块和各端口索引，检查原生完整网表、电阻单位及 50 Ω 阻值，不添加 DC 或泵源。该能力需要兼容的所属 worker；本轮仅离线验证，不代表七管实机 SP 已运行。
 
 
