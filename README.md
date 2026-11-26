@@ -187,22 +187,23 @@ finally:
 
 ## MCP 与 AI 工作流
 
-安装 MCP extra 后，由支持 stdio 的 MCP 客户端启动：
+Codex 插件提供[按任务选择的技能](skills/README.md)。MCP 则让客户端发现工具、提交操作，并凭任务 ID 读取回执。安装 `.[mcp]` 后，基础服务的启动命令为 `python -m cst_mcp`。需要持久会话和电路工具时，在受信任项目的 `.codex/config.toml` 中加入以下配置，将示例仓库路径替换为本机绝对路径。
 
-```powershell
-python -m cst_mcp
+```toml
+[mcp_servers.cst_automation]
+command = 'C:\repos\cst-automation\.venv\Scripts\python.exe'
+cwd = 'C:\repos\cst-automation'
+args = ['-m', 'cst_mcp', '--enable-sessions', '--session-root', 'C:\repos\cst-automation\work\sessions', '--enable-circuit', '--workdir', 'C:\repos\cst-automation\work\mcp']
 ```
 
-客户端配置时，将 command 指向独立环境中的 Python，将 args 设为 `["-m", "cst_mcp"]`。这是一项由宿主客户端启动的协议服务，具体配置格式以客户端为准。
+在项目目录运行 `codex mcp get cst_automation --json` 可检查配置。在新会话中调用 `get_capabilities` 可验证服务响应。[插件安装](docs/guides/codex-plugin.md) · [MCP 使用指南](docs/guides/mcp-usage.md)
 
-| 环境变量 | 用途 |
-| --- | --- |
-| `CST_AUTOMATION_WORKDIR` | 设置可写的任务与产物目录 |
-| `CST_AUTOMATION_BACKEND=fake` | 使用离线模拟 backend 调试工具流程 |
+| Touchstone 请求 | 技能与执行入口 | 验收依据 |
+| --- | --- | --- |
+| 把已完成的扫参逐点导出 | [结果读取](skills/cst-results/SKILL.md) → Python `Result.export_touchstone_sweep` | 各 Run ID 的 S 参数文件和参数清单 |
+| 给 3D 工程添加自动导出步骤 | [结果模板](skills/cst-result-templates/SKILL.md) → 所属会话提交 `add_builtin_result_template` 操作 | 工程保存、重开后的模板注册回执 |
 
-写操作通过 `RunService` 执行；标准输出专供 MCP 协议，诊断写入标准错误或产物。领域工具通过 `cst_mcp.register_tool(...)` 显式注册。服务不会安装或改写用户全局 MCP 配置。详见[MCP 使用指南](docs/guides/mcp-usage.md)。
-
-使用 Codex 处理本仓库任务时，先阅读 [AGENTS.md](AGENTS.md) 和 [skills 索引](skills/README.md)，再按任务选择建模、仿真、结果或诊断 skill。
+2026-11-26 本机验证中，启用上述两项扩展后，stdio 握手发现 46 个工具，`get_capabilities` 调用成功。两个独立 Codex 会话在离线测试中选对了上表的入口和参数。此次测试覆盖调用准备，真实工程导出与模板写入需查对应工程回执。样例 CSV 测试还发现一项故障：`analyze_s_parameters` 和 `export_report` 因缺少 `_pick_column` 返回 `tool_failed`。
 
 ## 项目结构
 

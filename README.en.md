@@ -185,22 +185,23 @@ The real backend supports solving existing projects; domain-specific `build` and
 
 ## MCP and AI workflows
 
-After installing the MCP extra, use a client with stdio support to launch:
+The Codex plugin provides [task-specific skills](skills/README.md). The MCP server exposes tools for submitting operations and reading job receipts. Install `.[mcp]` and use `python -m cst_mcp` for the base server. To enable persistent sessions and circuit tools, add the following to a trusted project's `.codex/config.toml`, replacing the example repository path with your absolute path.
 
-```powershell
-python -m cst_mcp
+```toml
+[mcp_servers.cst_automation]
+command = 'C:\repos\cst-automation\.venv\Scripts\python.exe'
+cwd = 'C:\repos\cst-automation'
+args = ['-m', 'cst_mcp', '--enable-sessions', '--session-root', 'C:\repos\cst-automation\work\sessions', '--enable-circuit', '--workdir', 'C:\repos\cst-automation\work\mcp']
 ```
 
-In the client configuration, point command to the isolated environment's Python executable and set args to `["-m", "cst_mcp"]`. The host client launches this protocol service; the exact configuration format depends on that client.
+From the project directory, run `codex mcp get cst_automation --json` to inspect the configuration. Call `get_capabilities` in a new session to check the connection. [Plugin installation](docs/guides/codex-plugin.md) · [MCP guide](docs/guides/mcp-usage.md)
 
-| Environment variable | Purpose |
-| --- | --- |
-| `CST_AUTOMATION_WORKDIR` | Set a writable job and artifact directory |
-| `CST_AUTOMATION_BACKEND=fake` | Debug offline tool workflows with the simulated backend |
+| Touchstone request | Skill and execution path | Evidence of completion |
+| --- | --- | --- |
+| Export each point of a completed sweep | [Results](skills/cst-results/SKILL.md) → Python `Result.export_touchstone_sweep` | S-parameter files and a parameter manifest keyed by Run ID |
+| Add an automatic export step to a 3D project | [Result templates](skills/cst-result-templates/SKILL.md) → submit an `add_builtin_result_template` operation through the owning session | Receipt confirming template registration after save and reopen |
 
-Write tools go through `RunService`. Standard output is reserved for MCP protocol frames; diagnostics go to standard error or artifacts. Register domain tools explicitly with `cst_mcp.register_tool(...)`. The server does not install or rewrite global MCP client settings. See the [MCP guide](docs/guides/mcp-usage.md).
-
-When using Codex in this repository, read [AGENTS.md](AGENTS.md) and the [skills index](skills/README.md), then select the modeling, simulation, results, or diagnostics skill relevant to the task.
+On 2026-11-26, a local stdio client discovered 46 tools with both extensions enabled and successfully called `get_capabilities`. Two independent Codex sessions selected the expected routes and arguments in offline Touchstone trials. These trials checked call preparation. Actual export and template registration require project receipts. A sample CSV exposed a shared failure in `analyze_s_parameters` and `export_report`: both returned `tool_failed` because `_pick_column` was missing.
 
 ## Repository layout
 
