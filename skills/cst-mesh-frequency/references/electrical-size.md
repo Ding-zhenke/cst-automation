@@ -1,5 +1,7 @@
 # 电尺寸、成本和代表频点
 
+## 通用电尺寸与成本估算
+
 Estimate each overall dimension and relevant propagation length in wavelengths
 over the band. Start with lambda0=c/f and material wavelength lambda0/n using
 the applicable dispersive material or mode index. Record which index is known
@@ -12,10 +14,12 @@ anticipated global/local mesh density. Use prior cells/DOF and memory/timing if
 available; otherwise label the cost estimate provisional. There is no universal
 size threshold that makes a mesh adequate or automatic adaptation affordable.
 
-The following Automatic/Single-row choices apply to frequency-domain mesh
-adaptation, not transient FIT. The wavelength, local-feature and cost estimates
-above apply to both; retain a previously accepted mesh for comparable work.
+Retain a previously accepted mesh for comparable work. A new geometry or
+field-localizing material state can change its suitability.
 
+## 频域 Automatic 与 Single 自适应
+
+Choose adaptation rows for the frequency-domain solver from the estimated cost:
 - Electrically large or expensive geometry: usually keep the **Adapt. checkbox
   on the Automatic row off**, and select a few Single rows for adaptation.
   Two or three points covering band edges and a representative interior mode
@@ -23,12 +27,12 @@ above apply to both; retain a previously accepted mesh for comparable work.
   port cutoffs and field localization; do not certify a band from a fixed trio.
 - Electrically small, affordable geometry: Automatic-row adaptation can be
   appropriate. Explain the electrical-size/cost reason and bound the pass budget.
-- Preserve a justified accepted mesh when continuing comparable work. A new
-  geometry or field-localizing material state can invalidate its suitability.
 
 Explain the estimate, chosen adaptation frequencies/mode and expected cost
 before settings are applied. A choice of a few points is conditional, not a ban
 on automatic adaptation and not permission to weaken convergence targets.
+
+## 非线性负载与整机成本
 
 For nonlinear downstream use, the highest retained mixing frequency is a data
 coverage requirement, not automatically a mesh-adaptation frequency. Before

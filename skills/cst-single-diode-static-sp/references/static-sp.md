@@ -14,7 +14,7 @@ representation exactly once.
 
 ## Self-MWS wiring and SP setup
 
-Use one parameterized `.cst` for the 3D model and Design Studio schematic. During model setup, inspect the same project's automatic self-MWS schematic
+Use one parameterized `.cst` for the 3D model and Design Studio schematic. Follow [Design Studio schematic editing](../../cst-schematic/SKILL.md) for diode placement, EM port mapping and wiring. During model setup, inspect the same project's automatic self-MWS schematic
 block and map actual pins to all three EM ports. For a floating series
 junction, enable **Show Port References** before wiring. The native
 `Block.SetDifferentialPorts(True)` setter exposes the second terminal;

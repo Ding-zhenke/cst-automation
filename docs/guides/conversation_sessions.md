@@ -1,7 +1,7 @@
 # 多对话 CST 持久会话
 
 工程复用、临时标签关闭和最小交付遵循
-[工程生命周期](../../skills/cst-sessions/references/project-lifecycle.md)。
+[工程复用](../../skills/cst-sessions/references/project-lifecycle.md)和[工程交付与清理](../../skills/cst-project-lifecycle/SKILL.md)。
 `close_project` 只保存并关闭一个登记标签，正式 DE 保留；临时工程关闭后转入
 `retired_projects` 审计记录。建模完成且正式工程及配套数据核验完整后，关闭、退休并
 删除本任务的过程工程（包括未标记 temporary 的 model.cst），保留正式交付、未完成任务

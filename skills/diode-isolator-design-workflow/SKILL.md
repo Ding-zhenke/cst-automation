@@ -5,9 +5,7 @@ description: Coordinate diode isolator iterations across CST EM, same-project ze
 
 # Diode isolator design workflow
 
-Read this entire entry and the sections required by the chosen stage. Follow the [complete reading rule](../README.md#完整阅读规则) after truncation or context loss.
-Use the current project configuration and original conversation session; never infer
-device dimensions, model parameters, port mappings or targets from another project.
+Identify the current candidate and the last completed stage in its [owning session](../cst-sessions/SKILL.md). Use that project's geometry, materials, diode model, port map, operating conditions and targets. Follow the [complete reading rule](../README.md#完整阅读规则) for the authorized stage.
 
 ## Single-diode microstrip and static Touchstone export
 
@@ -15,26 +13,15 @@ For a single loaded diode and its static S2P deliverable, use [single-diode stat
 
 ## Isolator workflow with pumped HB
 
-The sequence is parameters → CST EM → CST Design Studio S-parameters with diodes,
-zero external DC and pump → ADS HB with separately specified bias and pump → joint
-analysis → next candidate. The SP task's measurement excitation remains enabled.
-Do not substitute 3D EM S-parameters, offline linear predictions or a pump-off
-biased result for native zero-bias circuit SP.
+| Stage | Evidence to carry forward |
+|---|---|
+| Current candidate | Record its identifier, exact parameters and topology in the original project. For unchanged topology, retain the CST project, path and window across candidates. |
+| CST EM | Bind the native run and its [complex S-matrix](../cst-results/SKILL.md) to that candidate. Check the port map, frequency coverage and applicable EM acceptance criteria before handing off the matrix. |
+| Zero-bias CST circuit SP | Run the [same-project Design Studio SP](../cst-circuit/SKILL.md) with the diodes connected, zero external DC and pump, and measurement excitation enabled. Carry forward the native task, run identity and loaded complex S-parameters. |
+| Pumped ADS HB | Use the matching EM network and the specified RF, bias and pump in [ADS HB](../keysight-ads-simulation/SKILL.md). Keep the dataset and solver log with the actual source settings, directions and frequency grid. |
+| Joint analysis and next candidate | Compare the matching circuit SP and HB data against the project criteria. Record the observed limitation, which candidate inputs will change, and the next affected stage. |
 
-For unchanged topology reuse the same CST project, path and window across candidates;
-archive per-candidate inputs, matrices, raw outputs, logs and plots outside the
-project without routinely copying the entire project. Verify actual native history
-association and retention; a positive run ID alone is not persistence evidence.
-
-Run noninteractive helpers, test processes and background solvers without opening
-a console window. On Windows use `cst_automation.process.hidden_console_flags`
-with existing process flags; keep pipes, logs, process groups and lifecycle rules.
-An already detached worker must not combine `DETACHED_PROCESS` and
-`CREATE_NO_WINDOW`. Interactive user tools and CST windows retain their own UI.
-
-Use [sessions](../cst-sessions/SKILL.md), [circuit](../cst-circuit/SKILL.md),
-[results](../cst-results/SKILL.md), and [ADS](../keysight-ads-simulation/SKILL.md)
-for their actual stages and existing enforced gates. Bind results to the exact
+Archive per-candidate inputs, matrices, raw outputs, logs and plots outside the shared project. Verify the saved native run–parameter association and result retention before reusing an earlier case. Bind results to the exact
 geometry, materials, ports, model, source conditions and EM input. A changed ADS
 bias or pump alone does not invalidate matching EM or zero-bias SP. Keep zero-bias
 SP and HB source settings distinct. Never claim a configured task was executed.
@@ -51,24 +38,12 @@ SP and HB source settings distinct. Never claim a configured task was executed.
 
 ## Which handoff to use
 
-- When several ADS circuits or scans share one SNP, read [shared network input](references/engineering-handoffs.md#shared-snp-input-for-ads-circuits-and-scans) before changing source configuration or running a generated netlist.
 - For static SP preparation, reviewed recovery or measurement ports, read [static SP routes](references/engineering-handoffs.md#static-sp-routes) and the [integration contract](../../docs/guides/diode_workflow_integration.md). Verify the actual terminations and EM identity. Keep exploratory and formal acceptance separate.
 - For a requested diode performance evaluation, deliver actual VAK(t) with the matching metrics and source data under [device characterization](../cst-device-characterization/SKILL.md).
+- When resuming a scan, inspect the original session and job first. Reuse a point only after checking the actual case, solver status and saved data. Leave active or unresolved submissions with their original job. For a scan driver, use the [resumption and journal checks](references/engineering-handoffs.md#scan-resumption-and-project-journals).
+- To implement a new noninteractive Windows launcher, read the [background process settings](references/engineering-handoffs.md#windows-background-processes). For engineering work, use the standard [hidden launcher](../README.md#执行环境).
 
-For resumption inspect original CST job and session first; unknown or active jobs
-must not be resubmitted. `cst_automation.workflow_resume.missing_cases` is only an
-offline candidate list: verify actual artifact bytes, case identity, solver status
-and validity before reusing or submitting any ADS point. This helper is not a
-runner, state store, qualification gate or evidence of complete numerical results.
-Project adapters may use the separate `cst_automation.design_state.DesignState`
-SQLite journal to reserve requests and retain immutable attempts. Read the
-[integration contract](../../docs/guides/diode_workflow_integration.md); its
-caller assertions do not replace native receipts, archive checks or solver gates.
-
-Report raw complex data, units and input identities separately from numerical
-quality and performance conclusions. Preserve failures and independent mesh,
-residual, sampling, DC-fit and HB-truncation evidence. Bounds on diagnosis and
-resource use come from the project; do not silently relax acceptance thresholds.
+Report raw complex data, units and input identities alongside the relevant mesh, residual, frequency sampling, DC-fit and HB-truncation evidence. Preserve failures and the project's resource limits and acceptance thresholds.
 
 ## Shared SNP input for ADS circuits and scans
 

@@ -24,6 +24,16 @@ during migration; do not delete them as part of changing references. Archive or
 record the canonical file's identity (including a content hash when practical) with
 results so reused data can be traced to the exact network.
 
+## Scan resumption and project journals
+
+First inspect the original session and job. If the job is active or its write outcome is unknown, continue tracking that identity. For an interrupted ADS scan, `cst_automation.workflow_resume.missing_cases` lists offline candidates for review. Check each point's actual artifact bytes, input identity, solver status and numerical validity before reuse or submission.
+
+For adapters that reserve requests or retain immutable attempts, `cst_automation.design_state.DesignState` supplies a project-owned SQLite journal. Follow the [integration contract](../../../docs/guides/diode_workflow_integration.md) for reservation and case identity. The caller supplies the journal's assertions. Use native receipts, archived data and solver acceptance checks to establish each stage's outcome.
+
+## Windows background processes
+
+For unattended helpers, tests and solver child processes, use `cst_automation.process.hidden_console_flags` with the existing process flags. Preserve pipes, logs, process groups and lifecycle handling. An already detached worker retains `DETACHED_PROCESS` and omits `CREATE_NO_WINDOW`. Interactive user tools and CST diagnostic windows keep their own UI.
+
 ## Static SP routes
 
 The ordinary exploratory SP setup still rejects unsupported native sample-count

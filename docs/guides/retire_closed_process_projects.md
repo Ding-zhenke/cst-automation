@@ -16,13 +16,13 @@ close_project 默认关闭 working 工程后保留登记；temporary 原规则�
 
 ## 明确请求
 
-沿原恢复引用，在同一会话提交 operation=close_project；params 为：
+沿原恢复引用，在同一会话用新的 request_id 提交退休操作 `close_project`。从该项目登记的 `saved_digest` 取保存摘要，与磁盘文件核对，原关闭 job 提供保存和标签关闭的回执。提交参数如下。
 
 ```json
 {
   "project_id": "process-model",
   "retire": true,
-  "expected_digest": "填写原关闭回执及磁盘一致的64位小写SHA256",
+  "expected_digest": "填写与磁盘一致的项目登记摘要（64位小写SHA256）",
   "confirm_idle": true,
   "review_note": "正式交付及依赖已经独立核对，此过程副本不再使用；现场空闲且标签关闭"
 }

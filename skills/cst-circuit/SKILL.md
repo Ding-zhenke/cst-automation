@@ -1,23 +1,23 @@
 ---
 name: cst-circuit
-description: Use for CST Design Studio schematics, EM port links, network or transient field-circuit co-simulation, circuit results, built-in result templates on Post tasks, or their service and MCP interfaces.
+description: Configure or run CST Design Studio circuit analysis tasks, including existing static SP, network or transient field-circuit co-simulation, and native HB cross-checks.
 ---
 
-# CST 场路联合
+# CST 电路任务与场路联合
 
 完整阅读本入口及当前操作要求的引用章节，按[完整阅读规则](../README.md#完整阅读规则)补读和恢复。
 
 ## 选择任务
 
-- **原理图、网络和瞬态联合**使用 `app.circuit`。仅修改三维集总元件时转[建模](../cst-modeling/SKILL.md)或[EM 仿真](../cst-simulation/SKILL.md)。操作已有 CST 工程从[所属会话](../cst-sessions/SKILL.md)进入；本机首次原生调用即用经批准的宿主，通过[后台启动器](../keysight-ads-simulation/scripts/invoke_hidden.ps1)启动非交互 Python。原生 API、必要时有官方依据的 VBA 用于设置和提交，缺少能力时记录具体缺项，禁止借 Computer Use 配置、运行或绕过门槛。真实弹窗按[诊断](../cst-diagnostics/SKILL.md)检查归属、标题、正文和按钮。
+- **配置或运行已有电路任务**时，先确定工程、任务名、分析模式与交付物。实际操作使用[所属会话](../cst-sessions/SKILL.md)和[许可宿主、后台启动器](../README.md#执行环境)。通过受支持的原生 API 设置与提交；必要的原生命令依官方文档核实。缺少接口时记录具体缺项，真实阻塞弹窗按[诊断](../cst-diagnostics/SKILL.md)处理。若交付物是原理图、元件位置、引脚或连线，直接使用 [Design Studio 原理图](../cst-schematic/SKILL.md)。
 - **常规 HB 验证和扫频默认用 [ADS](../keysight-ads-simulation/SKILL.md)**。从已验收的 CST EM 导出 Touchstone，保持端口、参考阻抗、偏置、泵浦和探测条件一致；双音有限功率和泵浦小信号分别报告。按[ADS 双音 HB 参考](references/ads-hb.md)处理版本、谱线和日志。
 - **CST Design Studio HB 用于交叉核对或定位差异，须用户明确要求启动 CST HB 后才提交。** 只读已有结果、配置和保存 HB 扫描均在相应授权内完成。只配置时不为验收运行 EM、DC、网格、HB、扫描或 Post 模板。
 
 ## 配置、运行和读取
 
-1. 在当前工程核对单位、元件类型、引脚、原生位置、端口、已有网络及依赖，明确 network 或 transient_cosim。使用[原理图配置指南](../../docs/guides/circuit_cosimulation.md#用户审批后的原理图操作)中的 schema、预览和增量写入方式。新建、补充或整理电路时，必读[紧凑布局与整图可读性](../../docs/guides/circuit_cosimulation.md#紧凑布局与整图可读性)：新 Block/ExternalPort 一律用 `native_position`，移动已有对象时用 `set_position(..., coordinate_space="native")`；旧 `position` 是 CST setter 坐标，不能再用于按图纸坐标排版。默认让相连模块靠近、支路贴近对应引脚，按符号与标签大小留间距；常见器件电路应在常用窗口和正常阅读缩放下看到全貌及可读标注，不能靠极度缩小视图交付。几何或端口改变须以实际坐标预览并等候审阅。重名、部分写入或断线保留已完成阶段、消息与回执，先核对现场。
+1. 核对指定任务所用的电路、端口、源、负载、频率或时间范围与 EM 依赖。只配置时保存并读回请求的设置；要求运行时核对适用于该任务和当前绑定的执行入口。
 2. 对受管的参数→EM→HB 链，按[工作流契约](../../docs/guides/workflow_enforcement.md)绑定规格。服务在提交与执行时核对当前成功 EM 回执、已接受的数值报告和原生设置。调用方仍须分析原始数据，检查专业条件。多轮任务先恢复[要求与证据清单](../cst-sessions/references/workflow-checkpoint.md)，核对源/负载、矩阵、扫描轴和模板输入，在依赖阶段提交前运行清单检查。
-3. 在已保存的工作副本调用指定的 `run_checked`，提供真实任务、模式、结果树路径与整数 run_id，常规新运行用 `reuse="never"`。用 `inspect_dependencies` 核对依赖路径和摘要。从 schematic 域用 `CircuitResult` 列举路径及 run 身份，再读复数曲线、单位、参数和来源。保留实际项目、日志与未验证项；配置、保存读回、重开、求解和数值充分性分别记录。
+3. 对使用 `run_checked` 的任务，提交真实任务名、模式、结果树路径与整数 run_id，常规新运行用 `reuse="never"`。对已绑定的静态 SP，使用与实际拓扑和源条件相符的受管入口；带指定 50 Ω 控制链的零偏流程按[静态 SP 执行契约](../../docs/guides/diode_workflow_integration.md#native-zero-bias-sp-gap)核实适用性。用 `inspect_dependencies` 核对依赖路径及摘要，并按任务日志和 schematic 域的 `CircuitResult` 验证本次运行及实际结果。
 4. **启动 CST HB 或父扫描前**完整阅读[HB 放行与首错停止](references/hb-and-postprocessing.md#hb-运行前的放行门槛)。逐块核对 DC 至全部保留混频的实际数据覆盖；拓扑或 EM 输入改变后先验证双向代表工况的工作点、实际入射、匹配与谱线。首个初始化或数值失败即停止后续组，缺有效输入的下游模板跳过。停止或中断后按[3D 与 DS 的空闲边界](../../docs/guides/solver_stop_scope.md)查目标序列及回执。
 5. **评估二极管**时，与 S 参数及性能指标一并交付各管实际 A−K 总电压 VAK(t)、工况与来源。分量、相位、公共源时钟、自动出图及缺项按[逐管电压交付](../cst-device-characterization/references/signals-and-evidence.md#逐管电压交付)核对；当次明确缩小范围按其要求。只分析已有数据时不额外求解。
 
@@ -25,7 +25,7 @@ description: Use for CST Design Studio schematics, EM port links, network or tra
 
 | 操作 | 在该操作前阅读 |
 |---|---|
-| 新建或补连原理图、移动块、链接 EM、设置 transient 源与模型、EM 时间步或周期稳态 shooting | [场路接口指南](../../docs/guides/circuit_cosimulation.md)，到对应操作章节核对 API、读回和编辑范围。 |
+| 设置瞬态激励、积分时间、EM 时间步或周期稳态 shooting | 按当前任务读[时间与输出采样](../../docs/guides/circuit_cosimulation.md#实际积分时间与输出采样)、[端口激励](../../docs/guides/circuit_cosimulation.md#端口激励源阻抗和无源负载)、[EM 时间步](../../docs/guides/circuit_cosimulation.md#em-时间步与每步输出配置)或[周期稳态配置](../../docs/guides/circuit_cosimulation.md#周期稳态射击法配置)。 |
 | 已保存 EM 与 abort 矛盾、MOR/DC 文件块或内嵌网络交接 | [资格核验、完整矩阵及端口映射](../../docs/guides/saved_em_qualification.md)。分别核对原失败回执、实际低频样本、显式物理端口顺序与原生阻抗。 |
 | 使用明确指定的未收敛 EM 做探索性静态 SP | [静态 SP 专用范围和失败接续](references/exploratory-static-sp.md)。 |
 | 在 DS 的 Post 任务中添加 CST 自带模板，例如静态 SP 完成后自动导出 Touchstone | 按[结果模板配置](../cst-result-templates/SKILL.md)选 Design Studio 分支，核对源 SP、目标 Post 与序列顺序。 |
