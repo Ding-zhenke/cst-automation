@@ -10,7 +10,7 @@ description: Use when choosing or changing CST electromagnetic mesh density, loc
 Use [cst-sessions](../cst-sessions/SKILL.md) for actual project operations and
 [cst-simulation](../cst-simulation/SKILL.md) for solving. For server preparation,
 configure without local solving. Read actual geometry, units, materials, band, solver and
-available frequency-table rows before choosing settings; inherited automatic
+applicable controls before choosing settings; inherited automatic
 settings alone are not a mesh plan.
 
 If the user explicitly waives a named noncritical settings readback for the current
@@ -20,7 +20,9 @@ or worker upgrade. This does not verify the settings, the eventual frequency
 coverage, or mesh convergence, and does not waive project identity, unresolved
 mutations or any other explicitly required check.
 
-先按模型、材料或模式中的波长和局部特征估算网格成本。电尺寸大或求解成本高时，通常关闭 Automatic 行的 Adapt，初选两个或三个有物理代表性的 Single 点，再据截止、谐振或色散调整。电尺寸小且成本可承受时可采用有 pass 预算的 Automatic 自适应。
+先按模型、材料或模式中的波长和局部特征估算网格成本。下述 Automatic/Single 频率表与 HF Tet 控制仅用于对应的频域求解器；时域 FIT 任务不加载这些分支，按六面体网格密度、局部尺寸及实际单元数核验设置，用网格加密与时域终止条件检查结果稳定性。
+
+频域自适应：电尺寸大或求解成本高时，通常关闭 Automatic 行的 Adapt，初选两个或三个有物理代表性的 Single 点，再据截止、谐振或色散调整。电尺寸小且成本可承受时可采用有 pass 预算的 Automatic 自适应。
 
 | 当前操作 | 必读引用 |
 |---|---|

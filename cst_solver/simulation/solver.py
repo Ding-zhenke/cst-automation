@@ -216,14 +216,16 @@ End With"""
             raise RuntimeError('CST parameter-only history update failed')
         get_guard_state(self).mark_rebuilt()
 
-    def configure_fem_solver(self, accuracy='1e-6', mesh_adaption=True):
+    def configure_fem_solver(self, accuracy='1e-6', mesh_adaption=True, sweep_method='General purpose'):
         """Configure CST general purpose tetrahedral F solver; never run it."""
         from cst_solver.expressions import check_vba_text
         if not check_vba_text(str(accuracy)).ok or type(mesh_adaption) is not bool:
             raise ValueError('Explicit accuracy and boolean mesh_adaption required')
+        if sweep_method not in ('General purpose', 'Discrete samples only'):
+            raise ValueError('Unsupported FEM sweep method')
         flag = 'True' if mesh_adaption else 'False'
         code = ('ChangeSolverType "HF Frequency Domain"\nWith FDSolver\n'
-                ' .SetMethod "Tetrahedral", "General purpose"\n'
+                f' .SetMethod "Tetrahedral", "{sweep_method}"\n'
                 f' .AccuracyTet "{accuracy}"\n .Stimulation "All", "All"\n'
                 f' .MeshAdaptionTet "{flag}"\n .SweepConsiderAll "True"\nEnd With')
         self.cst_file.model3d.add_to_history('General purpose FEM solver', code)

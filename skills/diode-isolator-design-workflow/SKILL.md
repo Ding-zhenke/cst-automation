@@ -59,3 +59,7 @@ Report raw complex data, units and input identities separately from numerical
 quality and performance conclusions. Preserve failures and independent mesh,
 residual, sampling, DC-fit and HB-truncation evidence. Bounds on diagnosis and
 resource use come from the project; do not silently relax acceptance thresholds.
+
+## Shared SNP input for ADS circuits and scans
+
+When several ADS circuits share one EM network, follow the [shared SNP source, netlist and archive checks](references/engineering-handoffs.md#shared-snp-input-for-ads-circuits-and-scans).

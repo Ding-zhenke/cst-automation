@@ -30,15 +30,15 @@ API。不得用自拼原生命令代替已有 API 来完成整台设备。若已
 
 ## 设置与验收
 
-求解前读取 [cst-mesh-frequency](../cst-mesh-frequency/SKILL.md)：先估计材料/模式内的
-电尺寸和网格成本，再决定 Automatic 行是否参与自适应。大模型通常只选少数 Single
-点迭代，小且可负担的模型可用 Automatic 自适应；不能一刀切或只沿用默认 automation。
-扫描使用 [cst-parameter-study](../cst-parameter-study/SKILL.md)，明确线性/对数/离散、
-工况数、几何约束和网格有效范围。真正求解交给 [cst-simulation](../cst-simulation/SKILL.md)。
+选择或改变网格、频带、自适应策略时读取 [cst-mesh-frequency](../cst-mesh-frequency/SKILL.md)，
+只选当前求解器对应章节。配置扫描时使用 [cst-parameter-study](../cst-parameter-study/SKILL.md)；
+实际求解时使用 [cst-simulation](../cst-simulation/SKILL.md)。仅建模或沿用已审阅设置时不预加载这些流程。
 
 每个依赖阶段保留稳定 stage_id/request_id，重建、读实际消息，再用 inspect 核对参数、
 实体、材料、体积和关键点；端口/设置使用相应真实读回能力。缺读回就保留未验证，不
-用 history 调用成功代替。超时查原任务与现场，不复制/重放未知阶段。探测输出在 Python
+用 history 调用成功代替。是否补界面检查取决于该字段是否影响当前判断或属于明确交付项；
+不为消除所有 unverified 标记逐项截图。关键材料、激励或设置存在矛盾时须查清后再依赖它。
+超时查原任务与现场，不复制/重放未知阶段。探测输出在 Python
 写报告，不污染模型回放历史；弹窗按实际标题、正文、按钮和进程归属诊断。
 
 历史错误优先按 [cst-diagnostics](../cst-diagnostics/SKILL.md) 通过任务回执、异常、

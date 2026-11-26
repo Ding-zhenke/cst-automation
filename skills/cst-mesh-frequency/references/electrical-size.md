@@ -12,6 +12,10 @@ anticipated global/local mesh density. Use prior cells/DOF and memory/timing if
 available; otherwise label the cost estimate provisional. There is no universal
 size threshold that makes a mesh adequate or automatic adaptation affordable.
 
+The following Automatic/Single-row choices apply to frequency-domain mesh
+adaptation, not transient FIT. The wavelength, local-feature and cost estimates
+above apply to both; retain a previously accepted mesh for comparable work.
+
 - Electrically large or expensive geometry: usually keep the **Adapt. checkbox
   on the Automatic row off**, and select a few Single rows for adaptation.
   Two or three points covering band edges and a representative interior mode

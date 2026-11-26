@@ -15,7 +15,7 @@ description: Manage independent persistent CST environments for separate convers
 
 1. 确定用户授权的工程、已保存基线及操作范围。缺少这项确认时先取得确认；同一基线和范围内的授权跨轮有效。每次接续核对现场、文件身份与原任务。未确认写入、基线实质改变或现场不明时重新审阅。
 2. 首次建模前，以本仓库固定的 `work/sessions` 根目录、`work/conversations` 中新 UUID 引用建立会话。记录并告知恢复引用路径。新对话或分叉默认新绑定，有明确恢复要求时沿用旧绑定。后续通过同一 worker、DE 和明确的 `project_id` 操作；禁止无 PID 附加、按当前活动窗口选工程或用独立脚本接管已绑定工程。MCP 未启用时用同一虚拟环境的会话 CLI。见[首次绑定、状态查询与原任务接续](references/session-operations.md)。
-3. 新器件默认从空工程和已审阅代码开始；续改或恢复时保留原工程及必需内容。同拓扑扫描、重试复用原身份。提交几何前按真实参数预览并等待审阅，用稳定的 stage_id/request_id 标识阶段与重试。初始参数、角点核验、正式路径与交付按[工程生命周期](references/project-lifecycle.md)。实机阶段按[工程验证](../cst-in-situ-validation/SKILL.md)记录实际证据。
+3. 新器件默认从空工程和已审阅代码开始；续改或恢复时保留原工程及必需内容。同拓扑扫描、重试复用原身份。提交几何前按真实参数预览并等待审阅，用稳定的 stage_id/request_id 标识阶段与重试。初始参数、角点核验、正式路径与交付按[工程生命周期](references/project-lifecycle.md)。需要回馈可复用缺陷或登记库的实机证据时，再读[工程验证](../cst-in-situ-validation/SKILL.md)。
 4. 跨轮建模、EM→电路、优化或中断恢复先读[工程阶段清单](references/workflow-checkpoint.md)。保存当前要求、授权、工程和输入证据；用户纠正后先更新。提交依赖阶段前由调用方运行只读一致性检查。受管参数→EM→HB 链还须在空闲时绑定获准的规格，服务和 worker 自动执行[工作流检查](../../docs/guides/workflow_enforcement.md)。检查失败或旧 worker 缺少能力时保留现场与原回执，按安全接续程序办理。
 5. 常规状态、停止范围、参数更新和已审阅基线按[已有操作](../../docs/guides/reusable_operations.md)。当前版本的 `set_parameters` 调用所属 `app.update()` 做参数刷新并检查消息，后续 `solve` 无需追加完整重建。改变历史或拓扑前保全所需结果，按原生运行身份、参数和曲线核验留存。独立记录配置、保存或重开、几何、实际求解与数值验收。
 

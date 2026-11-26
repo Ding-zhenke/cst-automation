@@ -12,9 +12,8 @@ def write_touchstone(path, frequencies, s_matrix, reference_ohm, *,
                      frequency_unit, comments=()):
     """Write one full S matrix per frequency using Touchstone v1 RI ordering.
 
-    ``s_matrix[k, i, j]`` is written using Touchstone's column-major sequence
-    (S11, S21, ..., SN1, S12, ...). S values are preserved as supplied; this
-    function does not renormalize them.
+    Two-port data uses S11, S21, S12, S22; three and more ports use
+    matrix row order. S values are not renormalized.
     """
     path = Path(path)
     if frequency_unit not in FREQUENCY_UNITS:
@@ -40,10 +39,15 @@ def write_touchstone(path, frequencies, s_matrix, reference_ohm, *,
             stream.write(f'! {comment}\n')
         stream.write(f'# {frequency_unit} S RI R {float(reference_ohm):.17g}\n')
         for frequency, matrix in zip(f, s):
-            entries = matrix.T.reshape(-1)
-            values = [format(float(frequency), '.17g')]
-            for value in entries:
-                values.extend((format(float(value.real), '.17g'),
-                               format(float(value.imag), '.17g')))
-            stream.write(' '.join(values) + '\n')
+            if n <= 2:
+                groups = [matrix.T.reshape(-1)]
+            else:
+                groups = [matrix[row, start:start + 4]
+                          for row in range(n) for start in range(0, n, 4)]
+            for index, entries in enumerate(groups):
+                values = [format(float(frequency), '.17g')] if index == 0 else []
+                for value in entries:
+                    values.extend((format(float(value.real), '.17g'),
+                                   format(float(value.imag), '.17g')))
+                stream.write(' '.join(values) + '\n')
     return str(path.resolve())

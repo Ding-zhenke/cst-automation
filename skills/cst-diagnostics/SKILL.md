@@ -17,7 +17,9 @@ project readback and solver execution separately.
 Use the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1) for either
 noninteractive Python command on Windows; keep CST diagnostic dialogs visible.
 
-For a stall or timeout, inspect the original job/exception, messages, logs and PID-scoped window title, complete body, buttons and owning process. Raw View can recover missing text; unresolved text remains unknown. Keep the original failure. A dismissed dialog or a ready session cannot certify the solver or authorize replay of an unresolved write. Prefer structured evidence before screenshots.
+For a stall or timeout, start with the original job/exception, messages and logs, then the PID-scoped dialog snapshot. If a dialog exists, inspect its title, complete body, buttons and owner; Raw View can recover missing text. Use Computer Use only for unresolved window content or a necessary action unsupported by the programmatic path. A complete error message does not need a second screenshot. Keep the original failure; dismissing a dialog cannot certify the solver or authorize replay of an unresolved write.
+
+The recognized `Quiet/Scripting mode` notice alone is not a blocked API task. Keep API work in scripting mode; switch to interactive mode only for a concrete UI task after the owning operation is idle. See [dialog classification](../../docs/guides/cst_dialogs.md).
 
 | Observed condition | Required procedure before acting |
 |---|---|

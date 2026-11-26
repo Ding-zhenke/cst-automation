@@ -3,6 +3,8 @@ import inspect
 from tpc_service.errors import ServiceError
 
 SETTINGS_ONLY_CAPABILITY = 'solver-settings-no-rebuild-v1'
+FEM_SETTINGS_CAPABILITY = 'fem-settings-no-rebuild-v1'
+FEM_DISCRETE_CAPABILITY = 'fem-discrete-sweep-v1'
 MESH_SETTINGS_CAPABILITY = 'mesh-settings-no-rebuild-v1'
 MODEL_BAND_CAPABILITY = 'model-band-no-rebuild-v1'
 HF_TET_ADAPTATION_CAPABILITY = 'hf-tet-adaptation-controls-v1'
@@ -12,14 +14,32 @@ HF_TET_CURVATURE_POLICY_CAPABILITY = 'hf-tet-curvature-policy-v1'
 PORT_IDENTITY_CAPABILITY = 'port-identity-edit-v1'
 POINT_LUMPED_CAPABILITY = 'point-lumped-element-v1'
 FACE_LUMPED_CAPABILITY = 'picked-lumped-face-element-v1'
+SAT_IMPORT_CAPABILITY = 'sat-import-v1'
+TD_EM_SETTINGS_CAPABILITY = 'td-em-settings-v1'
+TD_MESH_MINIMUM_STEP_CAPABILITY = 'td-mesh-minimum-step-v1'
+TD_EM_SETTINGS_METHODS = frozenset(('configure_time_solver', 'set_gpu_acceleration',
+    'set_parallel_threads', 'set_mesh_adaption', 'set_steady_state_limit', 'set_mesh_auto'))
 SETTINGS_ONLY_METHODS = frozenset(('clear_em_results', 'configure_td_controls',
                                  'configure_fd_excitation', 'configure_fd_linear_solver',
                                  'configure_fd_frequency',
-                                 'configure_fd_parallelization', 'configure_tetrahedral_mesh', 'set_frequency_range'))
+                                 'configure_fd_parallelization', 'configure_tetrahedral_mesh',
+                                 'set_frequency_range', 'configure_fem_solver'))
 
 
 def settings_only(calls):
     return bool(calls) and all(call.get('method') in SETTINGS_ONLY_METHODS for call in calls)
+
+
+def uses_fem_discrete(calls):
+    from cst_solver import setup as CstSetup
+    for call in calls:
+        if call.get('method') == 'configure_fem_solver':
+            bound = inspect.signature(CstSetup.configure_fem_solver).bind(
+                None, *call.get('args', []), **call.get('kwargs', {}))
+            bound.apply_defaults()
+            if bound.arguments['sweep_method'] == 'Discrete samples only':
+                return True
+    return False
 
 
 def uses_hf_tet_curvature(calls):
@@ -134,6 +154,40 @@ def _preflight_settings(method, bound):
             validate_name(description, kind='parameter description')
         if type(values['log_flag']) is not int or values['log_flag'] != 0:
             raise ValueError('Initial model_api para calls must use log_flag=0; the stage rebuild is managed by the session')
+    elif method == 'configure_fem_solver':
+        from cst_solver.expressions import check_vba_text
+        if (values['sweep_method'] not in ('General purpose', 'Discrete samples only')
+                or type(values['mesh_adaption']) is not bool
+                or not check_vba_text(str(values['accuracy'])).ok):
+            raise ValueError('Invalid FEM solver settings')
+    elif method in TD_EM_SETTINGS_METHODS:
+        import math
+        def number(value, *, integer=False, positive=False):
+            if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+                raise ValueError('Numeric setting required')
+            if isinstance(value, str) and (not value or any(c in value for c in '"\r\n')):
+                raise ValueError('Invalid numeric setting')
+            try:
+                parsed = float(value)
+            except (ValueError, OverflowError):
+                raise ValueError('Invalid numeric setting')
+            if not math.isfinite(parsed) or (positive and parsed <= 0) or (integer and not parsed.is_integer()):
+                raise ValueError('Invalid numeric setting')
+        if method in ('set_gpu_acceleration', 'set_parallel_threads', 'set_mesh_adaption'):
+            if type(values['enable']) is not bool:
+                raise ValueError('Enable must be boolean')
+        if method == 'set_gpu_acceleration':
+            number(values['gpus'], integer=True, positive=True)
+        elif method == 'set_parallel_threads':
+            number(values['threads'], integer=True, positive=True)
+        elif method == 'set_steady_state_limit':
+            number(values['db'])
+        elif method == 'set_mesh_auto':
+            for key in ('lines_per_wavelength', 'lower_mesh_limit', 'ratio_limit'):
+                number(values[key], positive=True)
+            number(values['smallest_mesh_step'], positive=True)
+            if values['mesh_type'] not in ('PBA', 'Tetrahedral', 'Hexahedral'):
+                raise ValueError('Unsupported mesh type')
     elif method == 'clear_em_results':
         if values['confirm_delete'] is not True: raise ValueError('Explicit archived-result deletion confirmation required')
     elif method == 'configure_td_controls':
@@ -145,15 +199,14 @@ def _preflight_settings(method, bound):
     elif method == 'import_sat':
         from pathlib import Path
         path = values['filename']
-        if not isinstance(path, str) or not Path(path).is_absolute() or Path(path).suffix.lower() not in ('.sat', '.sab') or not Path(path).is_file():
-            raise ValueError('Existing absolute SAT/SAB file required')
-        if any(c in path for c in ('"', '\r', '\n')):
-            raise ValueError('SAT filename must be a safe path string')
+        if (not isinstance(path, str) or any(c in path for c in '"\r\n')
+                or not Path(path).is_absolute() or Path(path).suffix.lower() not in ('.sat', '.sab')
+                or not Path(path).is_file()):
+            raise ValueError('Existing absolute SAT or SAB file required')
+        if not isinstance(values['tpn'], str) or values['tpn'] not in ('True', 'False'):
+            raise ValueError('SAT material option must be True or False')
         if type(values['scale_to_unit']) is not bool:
             raise ValueError('scale_to_unit must be boolean')
-        tpn = values['tpn']
-        if type(tpn) is not bool and tpn not in ('True', 'False'):
-            raise ValueError('tpn must be boolean or True/False string')
     elif method == 'import_step':
         from pathlib import Path
         path = values['filename']
@@ -215,6 +268,17 @@ def validate_calls(calls):
     from cst_solver import setup as CstSetup
     if not isinstance(calls,list) or not 1 <= len(calls) <= 5000:
         raise ServiceError('invalid_session_argument','Bounded modeling calls required')
+    time_solver_settings_seen = False
+    for call in calls:
+        if not isinstance(call, dict):
+            continue
+        method = call.get('method')
+        if method == 'configure_time_solver':
+            if time_solver_settings_seen:
+                raise ServiceError('invalid_session_argument', 'Time solver reset must precede solver settings')
+            time_solver_settings_seen = True
+        elif method in TD_EM_SETTINGS_METHODS - {'set_mesh_auto'}:
+            time_solver_settings_seen = True
     replacements = []
     if any(c.get('method') in ('delete_port', 'rename_port') for c in calls if isinstance(c, dict)) and len(calls) != 1:
         raise ServiceError('invalid_session_argument', 'Port identity edit must be a single-call batch')
