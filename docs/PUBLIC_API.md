@@ -2095,7 +2095,32 @@ A workflow specification may use `schema_version: 2` and `mode: "em_only"` with 
 After workflow binding, `para` is rejected: use bounded `set_parameters`.
 Solver and mesh calls do not themselves start a solve.
 
-`set_mesh_auto` now omits unsupported Mesh.Reset, maps legacy PBA/Hexahedral to HexahedralFIT, and uses MinimumStepNumber. These legacy Mesh density commands still require actual effective-mesh validation.
+`set_mesh_auto` maps PBA/Hexahedral to HexahedralFIT. For FIT it applies the requested lines per wavelength to `MeshSettings.Set "StepsPerWaveNear"` in the Hex group. The session checks `fit-mesh-density-v1` before dispatching this setting. The call does not independently set the far-field value. Native mesh output is needed to establish the effective density.
+
+### Read a saved gyrotropic material
+
+For offline inspection of a saved magnetic material,
+`cst_automation.material_snapshot.read_gyrotropic_material(project_path, material_name)`
+reads an exact named SI magnetic Gyrotropic material from the project's
+`ModelCache/Model.mif`. It reports `larmor_rad_s`, `gyro_rad_s`, `damping`,
+`bias_direction`, source path and file SHA-256 as `saved_model_cache` evidence.
+Missing, ambiguous or incompatible material data raises an error. The cache
+describes its saved snapshot and does not establish the current live material.
+
+### Export from an open 3D project
+
+Session operations `export_complex_field_ascii` and `capture_model_view_png` take
+`project_id` and use the existing native worker with capability
+`model3d-export-v1`. Both are available through session submit (CLI, Python and
+MCP). The field operation additionally takes a full `tree_path` below
+`2D/3D Results` and optional positive numeric `step` in project length units.
+It exports the currently stored complex Cartesian vector field at that leaf.
+Capture selects the model view and exports a PNG. Each successful job returns
+`path`, `sha256`, `bytes`, `project_id` and the registered `saved_digest`.
+Files are created in the session's `exports/<job_id>/` directory. A repeated
+request ID resolves to the original receipt. These operations change the native
+display selection and write an artifact without rebuilding or saving the project.
+The digest identifies the registered project file, not a specific result Run ID.
 
 ### Explicit single-port solver controls
 

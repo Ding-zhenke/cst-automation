@@ -29,6 +29,14 @@ ports and thin active regions locally; do not size the entire device by its
 smallest feature. Model ideal PEC, finite-conductivity skin depth and thin-sheet
 representations according to the intended physics and solver support.
 
+For FIT hex meshes, legacy `Mesh.LinesPerWavelength` alone may not affect the
+modern generator. `set_mesh_auto` and `set_mesh_properties` also write the
+requested near-model density via `MeshSettings.SetMeshType "Hex"` and
+`Set "StepsPerWaveNear", ...` for FIT aliases. With “Use same setting as near to model”
+enabled, CST applies that density to the far region too. The API leaves the
+link and any separately configured far value in place. The displayed setting
+and the generated mesh have separate evidence.
+
 For large-model few-point adaptation, submit an Automatic interval with
 `adaptation=False` plus the selected `adaptation_frequencies`. For affordable
 automatic adaptation, explicitly set the Automatic interval `adaptation=True`.

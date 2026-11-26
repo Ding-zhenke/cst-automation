@@ -75,7 +75,11 @@ def execute(runtime, job):
                 raise ServiceError('workflow_worker_upgrade_required', 'FEM settings require a compatible execution worker')
             from .model_api import (PORT_IDENTITY_CAPABILITY, SAT_IMPORT_CAPABILITY,
                                     TD_EM_SETTINGS_CAPABILITY, TD_EM_SETTINGS_METHODS,
-                                    TD_MESH_MINIMUM_STEP_CAPABILITY)
+                                    TD_MESH_MINIMUM_STEP_CAPABILITY,
+                                    FIT_MESH_DENSITY_CAPABILITY, uses_fit_mesh_density)
+            if (uses_fit_mesh_density(params['calls'])
+                    and FIT_MESH_DENSITY_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'FIT mesh density requires a compatible execution worker')
             if (any(c['method'] == 'set_mesh_auto' for c in params['calls'])
                     and TD_MESH_MINIMUM_STEP_CAPABILITY not in runtime.state().get('worker_capabilities', [])):
                 raise ServiceError('workflow_worker_upgrade_required', 'Mesh auto settings require the corrected worker')
@@ -131,6 +135,9 @@ def _execute_operation(runtime, job):
     if operation == 'accept_saved_baseline':
         from .saved_baseline import execute as accept_baseline
         return accept_baseline(runtime, job)
+    from . import model_exports
+    if operation in model_exports.OPERATIONS:
+        return model_exports.execute(runtime, job)
     if operation == 'qualify_saved_em':
         from .em_qualification import execute as qualify_saved
         return qualify_saved(runtime, job)

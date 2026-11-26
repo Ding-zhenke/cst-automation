@@ -10,12 +10,13 @@ from uuid import uuid4
 
 from tpc_service.errors import ServiceError
 from .job_index import JobIndex
+from . import model_exports
 from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY
 from .static_fenced_recovery import CAPTURE as STATIC_CAPTURE, COMPLETE as STATIC_COMPLETE, INSPECT as STATIC_INSPECT, EXCLUDE as STATIC_EXCLUDE, READ_IMPEDANCES as STATIC_IMPEDANCES
 from .static_sp_run import OPERATION as STATIC_RUN, READ_OPERATION as STATIC_READ
 from .store import alive, assert_environment_unclaimed, contained, digest, identifier, lock, process_identity, read, write
 
-OPERATIONS = frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
+OPERATIONS = model_exports.OPERATIONS | frozenset(('start', 'create_project', 'import_project', 'adopt_project', 'close_project', 'configure_sweep', 'inspect', 'history',
                         'set_parameters', 'initialize_parameters', 'model_api', 'solve', 'circuit', 'reload_project', 'close', 'accept_workflow_evidence', 'fit_em_network', 'update_hb_network', 'qualify_saved_em', 'qualify_exploratory_em', 'prepare_hb_embedded_network', 'prepare_exploratory_sp_network', 'configure_exploratory_linear_sp', 'run_exploratory_linear_sp', 'prepare_static_sp', 'prepare_native_static_sp', 'review_native_static_sp', 'run_native_static_sp', 'read_native_static_sp', 'accept_saved_baseline', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ))
 FENCED_OPERATIONS = frozenset(('inspect', 'close', SCHEMATIC_RECOVERY, STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ))
 UPGRADE_CAPABILITY = 'cooperative-worker-upgrade-v1'
@@ -136,6 +137,10 @@ class SessionManager:
                 check_project_intent(state, index.active_jobs(), operation, params)
                 assert_path_unclaimed(self.root, folder, operation, params)
             from .workflow import preflight
+            if operation in model_exports.OPERATIONS:
+                model_exports.check_worker(state, params['project_id'])
+                if not alive(state.get('worker')):
+                    raise ServiceError('session_export_unavailable', 'Export requires the existing live worker')
             if operation == 'circuit' and params.get('settings', {}).get('operation') == 'read_sp_impedances':
                 if not state.get('worker') or not alive(state['worker']):
                     raise ServiceError('session_query_requires_open_project', 'SP query cannot launch a worker or restore a project')
@@ -193,7 +198,12 @@ class SessionManager:
                 raise ServiceError('workflow_worker_upgrade_required', 'FEM settings require a compatible worker')
             from .model_api import (FACE_LUMPED_CAPABILITY, POINT_LUMPED_CAPABILITY,
                                     SAT_IMPORT_CAPABILITY, TD_EM_SETTINGS_CAPABILITY,
-                                    TD_EM_SETTINGS_METHODS, TD_MESH_MINIMUM_STEP_CAPABILITY)
+                                    TD_EM_SETTINGS_METHODS, TD_MESH_MINIMUM_STEP_CAPABILITY,
+                                    FIT_MESH_DENSITY_CAPABILITY, uses_fit_mesh_density)
+            if (operation == 'model_api' and uses_fit_mesh_density(params['calls'])
+                    and state.get('worker') and alive(state['worker'])
+                    and FIT_MESH_DENSITY_CAPABILITY not in state.get('worker_capabilities', [])):
+                raise ServiceError('workflow_worker_upgrade_required', 'FIT mesh density requires a compatible worker')
             if (operation == 'model_api' and any(c['method'] == 'set_mesh_auto' for c in params['calls'])
                     and state.get('worker') and alive(state['worker'])
                     and TD_MESH_MINIMUM_STEP_CAPABILITY not in state.get('worker_capabilities', [])):
@@ -285,7 +295,7 @@ class SessionManager:
                 if state['status'] != 'needs_reconcile':
                     state['status'] = 'closing'
             write(folder / 'session.json', state)
-        if operation not in ('accept_saved_baseline', 'initialize_parameters', 'prepare_native_static_sp', 'review_native_static_sp', 'run_native_static_sp', 'read_native_static_sp', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ) and not (operation == 'inspect' and params.get('native_solver_status')):
+        if operation not in model_exports.OPERATIONS and operation not in ('accept_saved_baseline', 'initialize_parameters', 'prepare_native_static_sp', 'review_native_static_sp', 'run_native_static_sp', 'read_native_static_sp', STATIC_CAPTURE, STATIC_COMPLETE, STATIC_INSPECT, STATIC_EXCLUDE, STATIC_IMPEDANCES, STATIC_RUN, STATIC_READ) and not (operation == 'inspect' and params.get('native_solver_status')):
             self._launch(folder)
         return self.job(session_id, credential, job['job_id'])
 

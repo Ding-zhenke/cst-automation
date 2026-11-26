@@ -13,6 +13,13 @@ from cst_solver.simulation.frequency import (
 )
 
 
+def _fit_density_history(value):
+    return f'''\nWith MeshSettings
+     .SetMeshType "Hex"
+     .Set "StepsPerWaveNear", "{value}"
+End With'''
+
+
 def normalize_tetrahedral_mesh_settings(settings):
     """Pure validation of supported CST 2026 tetrahedral mesh settings.
 
@@ -154,15 +161,18 @@ class MeshMixin:
         """
         # CST 2026's Mesh object does not support Reset; leave unspecified
         # mesh properties intact and set only the values requested here.
+        native_type = {'PBA': 'HexahedralFIT', 'Hexahedral': 'HexahedralFIT'}.get(mesh_type, mesh_type)
         f1 = f"""With Mesh
      .LinesPerWavelength "{lines_per_wavelength}"
-     .MeshType "{mesh_type}"
+     .MeshType "{native_type}"
 """
         if max_cell:
             f1 += f'     .MaxCell "{max_cell}"\n'
         if min_cell:
             f1 += f'     .MinCell "{min_cell}"\n'
         f1 += """End With"""
+        if native_type == 'HexahedralFIT':
+            f1 += _fit_density_history(lines_per_wavelength)
         self.cst_file.model3d.add_to_history("Mesh Properties", f1)
 
     def configure_mesh_adaption(self, max_passes=6, max_refinement=1e-6,
@@ -211,6 +221,8 @@ End With"""
      .SmallestMeshStep "{smallest_mesh_step}"
      .Automesh "True"
 End With"""
+        if native_type == 'HexahedralFIT':
+            f1 += _fit_density_history(lines_per_wavelength)
         self.cst_file.model3d.add_to_history("Mesh Auto Config", f1)
 
     # ================================================================

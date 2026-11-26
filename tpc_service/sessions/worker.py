@@ -11,6 +11,7 @@ from tpc_service.errors import ServiceError
 from .store import lock, process_identity, read, write
 from .diagnostics import mark_stage, exception_diagnostics, exception_repr
 from .manager import FENCED_OPERATIONS
+from . import model_exports
 from .job_index import JobIndex
 from .schematic_recovery import OPERATION as SCHEMATIC_RECOVERY, ROLLBACK_ERROR, returned_vba_error
 
@@ -161,6 +162,9 @@ def _finish_failed_job(job, error, state, *, monitor_failure=None, monitor_snaps
     if job.get('operation') in ('qualify_saved_em', 'qualify_exploratory_em') and not monitor_failure:
         evidence.update(decision=prior, reason='read_only_qualification_preserved_state')
         return
+    if job.get('operation') in model_exports.OPERATIONS and not monitor_failure:
+        evidence.update(decision=prior, reason='model_export_did_not_write_project')
+        return
     if (job.get('operation') == 'inspect' and job.get('params', {}).get('read_only_review') is True
             and not monitor_failure):
         state['last_read_review_error'] = error
@@ -263,7 +267,7 @@ def run(folder):
             from . import model_api as optional_model_api
             state['worker_capabilities'] = [EXPLORATORY_CAPABILITY, BASELINE_CAPABILITY, EMBEDDED_CAPABILITY, QUALIFICATION_CAPABILITY, NETWORK_CAPABILITY, CAPABILITY, SETTINGS_ONLY_CAPABILITY, MESH_SETTINGS_CAPABILITY, MODEL_BAND_CAPABILITY, HF_TET_ADAPTATION_CAPABILITY, PORT_CAPABILITY, UPGRADE_CAPABILITY, READ_REVIEW_CAPABILITY]
             from .model_api import PORT_IDENTITY_CAPABILITY
-            for attr in ('TD_MESH_MINIMUM_STEP_CAPABILITY', 'TD_EM_SETTINGS_CAPABILITY', 'SAT_IMPORT_CAPABILITY', 'FEM_SETTINGS_CAPABILITY', 'FEM_DISCRETE_CAPABILITY'):
+            for attr in ('FIT_MESH_DENSITY_CAPABILITY', 'TD_MESH_MINIMUM_STEP_CAPABILITY', 'TD_EM_SETTINGS_CAPABILITY', 'SAT_IMPORT_CAPABILITY', 'FEM_SETTINGS_CAPABILITY', 'FEM_DISCRETE_CAPABILITY'):
                 capability = getattr(optional_model_api, attr, None)
                 if capability is not None:
                     state['worker_capabilities'].append(capability)
@@ -300,6 +304,7 @@ def run(folder):
             state['worker_capabilities'].append(FACE_LUMPED_CAPABILITY)
             state['worker_capabilities'].append('initial-parameters-v1')
             state['worker_capabilities'].append('native-solver-status-v1')
+            state['worker_capabilities'].append(model_exports.CAPABILITY)
             state['worker_capabilities'].append('native-static-sp-v3')
             from cst_automation.discrete_ports import CAPABILITY as DISCRETE_READ_CAPABILITY
             state['worker_capabilities'].append(DISCRETE_READ_CAPABILITY)

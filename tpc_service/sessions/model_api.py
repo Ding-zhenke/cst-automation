@@ -17,8 +17,20 @@ FACE_LUMPED_CAPABILITY = 'picked-lumped-face-element-v1'
 SAT_IMPORT_CAPABILITY = 'sat-import-v1'
 TD_EM_SETTINGS_CAPABILITY = 'td-em-settings-v1'
 TD_MESH_MINIMUM_STEP_CAPABILITY = 'td-mesh-minimum-step-v1'
+FIT_MESH_DENSITY_CAPABILITY = 'fit-mesh-density-v1'
 TD_EM_SETTINGS_METHODS = frozenset(('configure_time_solver', 'set_gpu_acceleration',
     'set_parallel_threads', 'set_mesh_adaption', 'set_steady_state_limit', 'set_mesh_auto'))
+
+def uses_fit_mesh_density(calls):
+    from cst_solver import setup as CstSetup
+    for call in calls:
+        if call.get('method') == 'set_mesh_auto':
+            bound = inspect.signature(CstSetup.set_mesh_auto).bind(
+                None, *call.get('args', []), **call.get('kwargs', {}))
+            bound.apply_defaults()
+            if bound.arguments['mesh_type'] in ('PBA', 'Hexahedral', 'HexahedralFIT'):
+                return True
+    return False
 SETTINGS_ONLY_METHODS = frozenset(('clear_em_results', 'configure_td_controls',
                                  'configure_fd_excitation', 'configure_fd_linear_solver',
                                  'configure_fd_frequency',
@@ -96,7 +108,7 @@ def settings_capability(calls):
     return (MESH_SETTINGS_CAPABILITY if any(call.get('method') == 'configure_tetrahedral_mesh'
             for call in calls) else SETTINGS_ONLY_CAPABILITY)
 
-METHODS = frozenset(('configure_td_controls','configure_fd_excitation','clear_em_results',
+METHODS = frozenset(('configure_time_solver','configure_td_controls','configure_fd_excitation','clear_em_results',
     'para','new_material','T_solver','set_gpu_acceleration','set_steady_state_limit',
     'set_parallel_threads','set_mesh_adaption','set_mesh_auto','set_units',
     'new_component','new_curve','square','polyline',
@@ -186,7 +198,7 @@ def _preflight_settings(method, bound):
             for key in ('lines_per_wavelength', 'lower_mesh_limit', 'ratio_limit'):
                 number(values[key], positive=True)
             number(values['smallest_mesh_step'], positive=True)
-            if values['mesh_type'] not in ('PBA', 'Tetrahedral', 'Hexahedral'):
+            if values['mesh_type'] not in ('PBA', 'Tetrahedral', 'Hexahedral', 'HexahedralFIT', 'HexahedralTLM'):
                 raise ValueError('Unsupported mesh type')
     elif method == 'clear_em_results':
         if values['confirm_delete'] is not True: raise ValueError('Explicit archived-result deletion confirmation required')

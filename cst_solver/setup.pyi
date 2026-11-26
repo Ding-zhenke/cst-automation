@@ -760,6 +760,9 @@ class _PlotMixin:
 # 结果导出 (ExportMixin)
 # ============================================================
 class _ExportMixin:
+    def export_complex_field_ascii(self, tree_path: str, save_path: str,
+                                   step: Optional[float] = None) -> str: ...
+    def capture_model_view_png(self, save_path: str) -> str: ...
     def export_result_1d(self, tree_path: str, save_path: str) -> None: ...
     def export_result_2d3d(self, tree_path: str, save_path: str,
                            mode: str = 'FixedWidth', step: int = -1,

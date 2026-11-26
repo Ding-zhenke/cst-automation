@@ -26,6 +26,10 @@ def validate(operation, params):
             raise ServiceError('invalid_session_argument', str(exc)) from exc
         return
     identifier(params.get('project_id'))
+    from . import model_exports
+    if operation in model_exports.OPERATIONS:
+        model_exports.validate(operation, params)
+        return
     if operation == 'initialize_parameters':
         from .initial_parameters import validate as validate_initial_parameters
         try:
