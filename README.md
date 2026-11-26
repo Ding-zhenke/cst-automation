@@ -203,7 +203,7 @@ args = ['-m', 'cst_mcp', '--enable-sessions', '--session-root', 'C:\repos\cst-au
 | 把已完成的扫参逐点导出 | [结果读取](skills/cst-results/SKILL.md) → Python `Result.export_touchstone_sweep` | 各 Run ID 的 S 参数文件和参数清单 |
 | 给 3D 工程添加自动导出步骤 | [结果模板](skills/cst-result-templates/SKILL.md) → 所属会话提交 `add_builtin_result_template` 操作 | 工程保存、重开后的模板注册回执 |
 
-2026-11-26 本机验证中，启用上述两项扩展后，stdio 握手发现 46 个工具，`get_capabilities` 调用成功。两个独立 Codex 会话在离线测试中选对了上表的入口和参数。此次测试覆盖调用准备，真实工程导出与模板写入需查对应工程回执。样例 CSV 测试还发现一项故障：`analyze_s_parameters` 和 `export_report` 因缺少 `_pick_column` 返回 `tool_failed`。
+2026-11-26 本机验证中，启用上述两项扩展后，stdio 握手发现 46 个工具，`get_capabilities` 调用成功。两个独立 Codex 会话在离线测试中选对了上表的入口和参数。此次测试覆盖调用准备，真实工程导出与模板写入需查对应工程回执。同一份三点 S21 样例 CSV 经 `analyze_s_parameters` 和 `export_report` 实际调用验证：以 ≥ −3 dB 为判据，合格采样区间为 2–3 GHz，带宽 1 GHz。已逐点核对导出 CSV，并核对 HTML 报告中的采样值和频带。
 
 ## 项目结构
 

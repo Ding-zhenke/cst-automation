@@ -201,7 +201,7 @@ From the project directory, run `codex mcp get cst_automation --json` to inspect
 | Export each point of a completed sweep | [Results](skills/cst-results/SKILL.md) → Python `Result.export_touchstone_sweep` | S-parameter files and a parameter manifest keyed by Run ID |
 | Add an automatic export step to a 3D project | [Result templates](skills/cst-result-templates/SKILL.md) → submit an `add_builtin_result_template` operation through the owning session | Receipt confirming template registration after save and reopen |
 
-On 2026-11-26, a local stdio client discovered 46 tools with both extensions enabled and successfully called `get_capabilities`. Two independent Codex sessions selected the expected routes and arguments in offline Touchstone trials. These trials checked call preparation. Actual export and template registration require project receipts. A sample CSV exposed a shared failure in `analyze_s_parameters` and `export_report`: both returned `tool_failed` because `_pick_column` was missing.
+On 2026-11-26, a local stdio client discovered 46 tools with both extensions enabled and successfully called `get_capabilities`. Two independent Codex sessions selected the expected routes and arguments in offline Touchstone trials. These trials checked call preparation. Actual export and template registration require project receipts. Both `analyze_s_parameters` and `export_report` were verified over stdio with the same three-point S21 CSV. The samples meeting the ≥ −3 dB criterion spanned 2–3 GHz, a bandwidth of 1 GHz. The exported CSV matched every input sample, and the HTML report reproduced the samples and qualifying band.
 
 ## Repository layout
 
