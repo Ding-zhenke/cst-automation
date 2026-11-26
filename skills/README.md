@@ -39,7 +39,8 @@ exit $LASTEXITCODE
 | 二极管建模、接口、极性、偏置 | [二极管加载](cst-diode-loading/SKILL.md) | 做性能评估时追加表征。 |
 | 工况、指标、逐管电压或性能结论 | [器件表征](cst-device-characterization/SKILL.md) | 二极管评估交付实际 VAK(t)、相应指标和来源。 |
 | 几何预览与科研图 | [绘图](cst-figures/SKILL.md) | 使用实际参数和结果；输出图片本身不授权工程变更。 |
-| 隔离器 EM、同工程静态 SP、SNP 或 ADS HB 迭代 | [隔离器流程](diode-isolator-design-workflow/SKILL.md) | 按用户要求选择阶段，读取对应实现和证据要求。 |
+| 单管同工程静态 SP，或将指定工况的已加载两端口矩阵导出为 S2P | [单管静态 SP 与 Touchstone](cst-single-diode-static-sp/SKILL.md) | 按配置、运行、读取已有 SP 或验证自动导出选择章节。 |
+| 隔离器 CST EM、同工程零偏静态 SP 与泵浦 ADS HB 的交接或候选迭代 | [隔离器流程](diode-isolator-design-workflow/SKILL.md) | 进入当前阶段时核对候选身份及上游证据。 |
 | 实际工程中遇到可复用缺陷或获得实机证据 | [现场验证](cst-in-situ-validation/SKILL.md) | 在当前授权内修复、脱敏记录；额外专项求解需另有任务依据。 |
 
 ## 跨阶段提交

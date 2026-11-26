@@ -1,6 +1,6 @@
 ---
 name: diode-isolator-design-workflow
-description: Coordinate parameterized diode isolator design through CST EM, native zero-bias circuit S-parameters, ADS HB and evidence-based iteration.
+description: Coordinate diode isolator iterations across CST EM, same-project zero-bias circuit S-parameters and pumped ADS HB. Use for stage handoffs, candidate reuse and resumption.
 ---
 
 # Diode isolator design workflow
@@ -8,6 +8,12 @@ description: Coordinate parameterized diode isolator design through CST EM, nati
 Read this entire entry and the sections required by the chosen stage. Follow the [complete reading rule](../README.md#完整阅读规则) after truncation or context loss.
 Use the current project configuration and original conversation session; never infer
 device dimensions, model parameters, port mappings or targets from another project.
+
+## Single-diode microstrip and static Touchstone export
+
+For a single loaded diode and its static S2P deliverable, use [single-diode static SP](../cst-single-diode-static-sp/SKILL.md).
+
+## Isolator workflow with pumped HB
 
 The sequence is parameters → CST EM → CST Design Studio S-parameters with diodes,
 zero external DC and pump → ADS HB with separately specified bias and pump → joint
@@ -35,7 +41,6 @@ SP and HB source settings distinct. Never claim a configured task was executed.
 
 ## Which handoff to use
 
-- For finite-width face ports and a static Touchstone export triggered by a line-width change, read [microstrip diode ports](references/engineering-handoffs.md#microstrip-diode-replaced-by-an-em-port). Verify actual contact edges, polarity, both native runs and the export against the matching circuit matrix.
 - When several ADS circuits or scans share one SNP, read [shared network input](references/engineering-handoffs.md#shared-snp-input-for-ads-circuits-and-scans) before changing source configuration or running a generated netlist.
 - For static SP preparation, reviewed recovery or measurement ports, read [static SP routes](references/engineering-handoffs.md#static-sp-routes) and the [integration contract](../../docs/guides/diode_workflow_integration.md). Verify the actual terminations and EM identity. Keep exploratory and formal acceptance separate.
 - For a requested diode performance evaluation, deliver actual VAK(t) with the matching metrics and source data under [device characterization](../cst-device-characterization/SKILL.md).
