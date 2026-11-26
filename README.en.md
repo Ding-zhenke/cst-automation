@@ -1,191 +1,101 @@
 # cst-automation
 
-**Connect CST Studio Suite modeling, simulation, result analysis, and task management with Python.**
+**Use AI to build CST models, run electromagnetic simulations and analyze S-parameters. In Keysight ADS, ask it to draw a circuit and run harmonic balance.**
 
-[简体中文](README.md) | **English**
+[简体中文](README.md) · **English**　|　[Try the CSV example](#start-with-a-csv) · [Set up Codex](#set-up-codex) · [Browse the skills](skills/README.md)
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](pyproject.toml)
-[![MCP](https://img.shields.io/badge/MCP-Python%203.10%2B-purple)](docs/guides/mcp-usage.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+With a CSV on hand, you can ask “Over which frequencies is my input well matched?” For a new waveguide, you can ask to see the port locations and directions before Codex writes the model to CST. The examples below pair prompts you can paste into a chat with the plots, projects and data files to expect.
 
-`cst-automation` is a general-purpose Python library for electromagnetic simulation workflows. It brings together CST project operations, parametric modeling, solver configuration, result reading, offline data analysis, and traceable task execution. MCP integration and repository-local Codex skills help scripts and AI tools reuse those capabilities.
+## Start with a CSV
 
-Use the standalone curve utilities on their own, or use the library as a foundation for a domain application that connects project preparation to result reporting.
+Open this repository in Codex with the Python package and plotting dependencies installed. The [setup instructions](#set-up-codex) cover a fresh checkout. This example runs on the synthetic data included in the repository and requires only Python.
 
-> Current development version: `0.2.0.dev0`. The core package supports Python 3.9+; the MCP extra requires Python 3.10+. Real CST operations require a local CST Studio Suite installation, an available license, and an interpreter compatible with its Python extension. Offline analysis and the fake backend can run without CST.
+> Read `fake_sparams_job.csv` in the repository root. Use `freq_GHz` for the x-axis. Find every consecutive set of samples where `S1,1` ≤ −10 dB. Report each band's start and end frequencies, bandwidth and minimum. Use Python to plot the original samples and threshold, and shade the qualifying bands. Export an HTML report and a point-by-point CSV, and give me the file paths.
 
-## Contents
+![81 synthetic S11 samples with the −10 dB band shaded from 325 to 335 GHz and the minimum at 330 GHz](docs/images/readme-s11-band.png)
 
-- [Use cases](#use-cases)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Quick start](#quick-start)
-- [Examples](#examples)
-- [MCP and AI workflows](#mcp-and-ai-workflows)
-- [Repository layout](#repository-layout)
-- [Validation and boundaries](#validation-and-boundaries)
-- [Documentation](#documentation)
-- [Development and contributions](#development-and-contributions)
-- [FAQ](#faq)
+With 1 GHz between samples, 11 points meet the criterion from **325 to 335 GHz**. The difference between those endpoints gives a **10 GHz bandwidth**. The minimum is **−17 dB at 330 GHz**. To analyze your own file, give Codex the frequency unit, the column to analyze and the threshold. [Sample CSV](fake_sparams_job.csv)
 
-## Use cases
+<details>
+<summary>See the HTML report generated from this CSV</summary>
 
-- **Parametric modeling:** turn repeated geometry, material, port, and boundary configuration into reusable Python operations.
-- **Simulation management:** submit solve jobs for existing CST projects and inspect status, logs, result summaries, and artifacts.
-- **Batch result analysis:** extract threshold bands from S-parameter curves, locate resonances, and compare resonance positions across designs.
-- **Domain applications:** register your own modeling or study handlers while reusing the common task lifecycle.
-- **AI-assisted operation:** discover capabilities, register projects, inspect jobs, and analyze data through MCP, with repository skills guiding the workflow.
+![HTML report with a Qualified bands table listing the band edges, bandwidth, sample count and amplitude range](docs/images/readme-report.png)
 
-## Features
+With MCP configured, Codex can call `analyze_s_parameters` to find bands and local extrema. The `export_report` tool writes the HTML and CSV files to the server's working directory. Compare the *Qualified bands* table with the shaded region in the plot, or inspect individual samples in the CSV.
 
-| Area | Capabilities | Entry point |
-| --- | --- | --- |
-| Projects and parameters | Open, save, close, attach to sessions, manage units and parameters | `cst_solver.setup` |
-| Geometry | Primitives, curves, Boolean operations, transforms, coordinate systems, picks, and face operations | `cst_solver.modeling` |
-| Simulation configuration | Materials, ports, sources, monitors, boundaries, mesh, and solver interfaces | `cst_solver.material` / `simulation` / `mesh` |
-| Postprocessing | Result reading, far fields, plot control, and result export interfaces | `cst_solver.Result` / `postprocessing` |
-| Curve analysis | Contiguous threshold bands, local resonances, matching, and criteria | `cst_automation.curves` |
-| Grouped S2P text | Read grouped data, filter frequencies, and select parameter groups | `cst_automation.s2p` |
-| Task execution | A serial worker queue, persisted state, logs, artifacts, and handler extensions | `tpc_service.RunService` |
-| Environment diagnostics | Installation discovery, configuration sources, Python ABI, and SDK import checks | `python -m cst_solver doctor --json` |
-| MCP integration | Projects, solving, job inspection, CSV analysis, reporting, and tool registration | `cst_mcp` |
-| Codex skills | Guidance for modeling, simulation, results, and diagnostics | [Skills index](skills/README.md) |
+</details>
 
-These entries describe the available code interfaces. Compatibility with a particular CST version, solver, or real project must be verified in the target environment.
+<details>
+<summary>Reproduce the result in Python</summary>
 
-## Architecture
+Run this code from the repository root. It prints the band edges in GHz, followed by the frequency and value of the minimum.
 
-```mermaid
-flowchart TD
-    A[Python scripts / Domain applications] --> B[cst_solver]
-    A --> C[tpc_service]
-    D[MCP clients / AI tools] --> E[cst_mcp]
-    E --> C
-    E --> F[cst_automation data analysis]
-    A --> F
-    C --> G[CstBackend / Explicitly registered handlers]
-    G --> B
-    C --> H[FakeBackend offline checks]
-    B --> I[Local CST Studio Suite]
+```python
+from cst_automation.curves import contiguous_bands
+from cst_mcp.analysis import read_series_csv
+
+samples = read_series_csv("fake_sparams_job.csv")
+bands = contiguous_bands(samples["freqs"], samples["columns"]["S1,1"], threshold_db=-10)
+for band in bands:
+    print(band["fmin_ghz"], band["fmax_ghz"], band["best_freq_ghz"], band["best_db"])
+# 325.0 335.0 330.0 -17.0
 ```
 
-The four import names serve distinct purposes: `cst_solver` handles CST operations, `cst_automation` supplies independent data utilities, `tpc_service` manages jobs, and `cst_mcp` exposes MCP tools. The library does not depend on TPC or em-enclosure; domain packages register their extensions explicitly.
+</details>
 
-Ordinary imports and offline parsing do not start CST. Its SDK is loaded when a real CST operation needs it.
+## Give Codex an engineering task
 
-## Quick start
+Specify the input, how far to proceed and what you want to check. “Show me the ports first,” “Run this project once” and “Read the saved results” give Codex three different jobs.
 
-### 1. Get the source and create an isolated environment
+### Review the ports, then build a waveguide
 
-The commands below use Windows PowerShell. Python 3.11 is recommended for the complete development and MCP setup.
+> I need a straight, vacuum-filled rectangular waveguide with a 22.86 × 10.16 mm inner cross section, extending 50 mm along x. Use PEC for all four side walls and one single-mode waveguide port at each end. The operating range is 8.2–12.4 GHz. First draw a dimensioned preview. Mark each port face and add arrows showing excitation into the guide. Wait for my review.
+
+![Waveguide preview showing the 50 mm length, port cross section and inward excitation directions](docs/images/readme-waveguide.png)
+
+Check the orientation of the wide and narrow sides. P1 should point into the guide along +x from `x = 0`, and P2 along −x from `x = 50 mm`. This preview lets you review the dimensions and port placement before the project is built. [Waveguide dimensions and coordinates](docs/REAL_CST_ACCEPTANCE.md)
+
+**After reviewing the drawing, you can continue in the same chat.**
+
+> Build and save the CST project from the preview we reviewed. Read the two port locations and directions back from CST. Send me those values and the project path, then stop after modeling.
+
+> Run the reviewed project once. When it finishes, give me the Run ID, the CST solver log and the S11 and S21 magnitude plots. If the run stalls, check the original job and tell me which step it reached.
+
+When you return the next day, give Codex the session reference and job ID so it can retrieve the same project's job status, logs and results. [Modeling](skills/cst-modeling/SKILL.md) · [EM simulation](skills/cst-simulation/SKILL.md) · [Sessions and job status](docs/guides/conversation_sessions.md)
+
+### Hand a completed CST sweep to a circuit designer
+
+> My two-port microstrip project is at `<project path>.cst` and its sweep results are saved. The ports are ordered input, output. The original reference impedance is 50 Ω and frequencies are in GHz. Use the saved runs only. For each positive Run ID, export the full complex S-matrix for that trace width to a new directory at `<export directory>`. Give me a table mapping widths to files and check the number of samples and the frequency range in each file.
+
+Codex can use `Result.export_touchstone_sweep` to produce one `run_<id>.s2p` per run and a `manifest.json`. In a recorded CST export, Run IDs 1, 2 and 3 corresponded to trace widths of 1.7, 1.9 and 2.1 mm. Each file contained all four complex S-parameters at 1,001 frequencies from 1 to 6 GHz. Each file's hash matched the manifest. [Export interface](skills/cst-results/references/exports-and-history.md) · [Validation record](docs/VALIDATION.md)
+
+### Measure the difference tone of an ADS mixer
+
+> Use the repository's ADS mixer example to build an editable diode mixer in a new workspace at `<workspace path>`. Set the LO to 1 GHz and the RF input to 1.1 GHz. Run harmonic balance (HB) and generate the report. Find the 100 MHz difference tone in the resulting dataset and tell me its actual frequency, amplitude and unit. Give me the schematic cell name and paths to the dataset and spectrum CSV.
+
+The example builds the `Mixer_HB` schematic using the ADS Python API. The two input frequencies predict the difference tone at 100 MHz. Its amplitude comes from the output dataset, `simulation/Mixer_HB.ds`. Running the script with `--with-report` also produces a spectrum CSV and a Chinese-language report. This example requires a licensed local ADS installation. [Mixer example script](skills/keysight-ads-simulation/scripts/mixer_smoke_test.py) · [ADS environment setup](skills/keysight-ads-simulation/references/environment-and-compatibility.md)
+
+## Set up Codex
+
+**Work from the source repository.** In Windows PowerShell, use Python 3.10 or later for the commands below. They create a virtual environment and install the plotting and Model Context Protocol (MCP) dependencies. The core Python library also supports Python 3.9.
 
 ```powershell
 git clone https://github.com/Ding-zhenke/cst-automation.git
 cd cst-automation
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[mcp,plot]"
 ```
 
-### 2. Choose an installation
+Open the cloned directory in Codex and start a chat with this prompt.
 
-| Purpose | Run from the repository root |
-| --- | --- |
-| Core library and offline analysis | `python -m pip install .` |
-| Core library and MCP server | `python -m pip install ".[mcp]"` |
-| Optional plotting dependencies | `python -m pip install ".[plot]"` |
-| Development, tests, and MCP | `python -m pip install -e ".[dev,mcp]"` |
+> Read `skills/README.md`, choose the skill that fits my task and use the repository's `.venv`. Start with the CSV example in the README. Send me the plot and report when the analysis is complete.
 
-NumPy is the core dependency. The MCP extra uses `mcp>=1.29,<2`, matching the SDK 1.x API used by the current implementation.
+**Work from another project.** Install the repository's skills as a Codex plugin to use the same modeling, simulation and analysis instructions in other projects. The skills guide Codex through the task, and the separately installed Python package supplies the CST interfaces. Native CST operations require a licensed installation and an interpreter compatible with its SDK. ADS tasks use the Keysight Python environment for your ADS installation. [Build and install the plugin](docs/guides/codex-plugin.md) · [Installation guide](docs/INSTALLATION.md) · [CST environment diagnostics](docs/guides/cst_environment.md)
 
-### 3. Diagnose the CST environment
+<details>
+<summary>Configure MCP for job queries, curve analysis and report export</summary>
 
-For offline analysis, continue directly to the examples. Before real CST operations, run:
-
-```powershell
-python -m cst_solver doctor --json
-```
-
-The `cst` Python module ships with CST Studio Suite. Do not use `pip install cst` as an installation step. If discovery fails, follow the [environment guide](docs/guides/cst_environment.md) to configure `CST_INSTALL_PATH`, `CST_PYTHON_LIB`, and `CST_MATERIAL_LIB`, and match the interpreter ABI to the CST extension. See [installation](docs/INSTALLATION.md) for details.
-
-The distribution has no machine-specific installation path. It discovers common directories when no path is configured; use environment variables or a user JSON file for other locations. `doctor --json` returns a nonzero exit code for missing paths or a known ABI mismatch; add `--probe` to test SDK imports.
-
-## Examples
-
-### Offline analysis: threshold bands and resonances
-
-This example needs no CST installation. Frequencies are in GHz and curve values are in dB.
-
-```python
-from cst_automation.curves import contiguous_bands, find_resonances
-
-freqs_ghz = [1.0, 1.1, 1.2, 1.3, 1.4]
-s11_db = [-8.0, -16.0, -20.0, -12.0, -5.0]
-
-bands = contiguous_bands(freqs_ghz, s11_db, threshold_db=-10.0)
-resonances = find_resonances(freqs_ghz, s11_db, kind="min")
-print("Bands:", bands)
-print("Resonances:", resonances)
-```
-
-Bands use contiguous sampled points; resonances use three-point local extrema without interpolation. Use `read_s2p_groups(filepath)` for grouped S2P text. Its supported format is described in the [public API contract](docs/PUBLIC_API.md).
-
-### CST project: open, save, and release a session
-
-Replace the path with an existing local project. This example connects to real CST and requires the environment checks above.
-
-```python
-from cst_solver import setup
-
-app = setup(r"C:\simulations\example.cst")
-try:
-    # Call the required parameter, modeling, or simulation methods here.
-    app.save()
-finally:
-    app.close()
-```
-
-Before writing geometry, generate and review a preview using the actual parameters. Rebuild in stages, read CST messages, and check artifacts afterward. See the [Python guide](docs/guides/python-usage.md).
-
-### Offline task service: register your own operation
-
-This example uses `FakeBackend` to demonstrate handlers and the job queue. It performs no real modeling or solving.
-
-```python
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
-from tpc_service import RunService
-from tpc_service.backends.base import ok_result
-from tpc_service.backends.fake import FakeBackend
-
-Path("./work").mkdir(exist_ok=True)
-workspace = TemporaryDirectory(dir="./work")
-project = Path(workspace.name) / "placeholder.cst"
-project.write_text("fake-only placeholder", encoding="utf-8")
-service = RunService(str(Path(workspace.name) / "jobs"), backend=FakeBackend())
-
-def offline_build(*, project, params, job, backend):
-    return ok_result(
-        saved=True,
-        log=[f"accepted {job['job_id']}"],
-        result_summary={"mode": "offline-example"},
-    )
-
-try:
-    service.register_handler("build", offline_build)
-    job = service.submit("build", project_path=str(project))
-    print(service.wait(job["job_id"], timeout=10))
-finally:
-    service.shutdown()
-    workspace.cleanup()
-```
-
-The real backend supports solving existing projects; domain-specific `build` and `study` operations require explicit handlers. Each service has a serial worker. A wait timeout returns the current state snapshot. On restart, leftover queued/running jobs become interrupted and are not automatically retried. See the [service contract](docs/PUBLIC_API.md) for fields and constraints.
-
-## MCP and AI workflows
-
-The Codex plugin provides [task-specific skills](skills/README.md). The MCP server exposes tools for submitting operations and reading job receipts. Install `.[mcp]` and use `python -m cst_mcp` for the base server. To enable persistent sessions and circuit tools, add the following to a trusted project's `.codex/config.toml`, replacing the example repository path with your absolute path.
+Add the following to a trusted project's `.codex/config.toml`. Replace every occurrence of `C:\repos\cst-automation` with the absolute path to your checkout. The `--enable-sessions` flag enables persistent CST sessions, and `--enable-circuit` enables CST Design Studio tools.
 
 ```toml
 [mcp_servers.cst_automation]
@@ -194,86 +104,22 @@ cwd = 'C:\repos\cst-automation'
 args = ['-m', 'cst_mcp', '--enable-sessions', '--session-root', 'C:\repos\cst-automation\work\sessions', '--enable-circuit', '--workdir', 'C:\repos\cst-automation\work\mcp']
 ```
 
-From the project directory, run `codex mcp get cst_automation --json` to inspect the configuration. Call `get_capabilities` in a new session to check the connection. [Plugin installation](docs/guides/codex-plugin.md) · [MCP guide](docs/guides/mcp-usage.md)
+Run `codex mcp get cst_automation --json` from the project directory to inspect the configuration. In a new chat, ask “Call `get_capabilities` and tell me the active backend and working directory” to verify that Codex can reach the server. [MCP guide](docs/guides/mcp-usage.md)
 
-| Touchstone request | Skill and execution path | Evidence of completion |
+</details>
+
+## Find a workflow
+
+| Task | What you can get | Where to start |
 | --- | --- | --- |
-| Export each point of a completed sweep | [Results](skills/cst-results/SKILL.md) → Python `Result.export_touchstone_sweep` | S-parameter files and a parameter manifest keyed by Run ID |
-| Add an automatic export step to a 3D project | [Result templates](skills/cst-result-templates/SKILL.md) → submit an `add_builtin_result_template` operation through the owning session | Receipt confirming template registration after save and reopen |
+| Build, mesh or solve a CST 3D model | A parametric project, port settings read back from CST, native solver logs and curves by Run ID | [Modeling](skills/cst-modeling/SKILL.md) · [Mesh and frequency](skills/cst-mesh-frequency/SKILL.md) · [EM simulation](skills/cst-simulation/SKILL.md) |
+| Sweep parameters and archive results | Sweep settings, a Touchstone file for each case and a parameter manifest | [Parameter studies](skills/cst-parameter-study/SKILL.md) · [Results](skills/cst-results/SKILL.md) |
+| Couple a field model to a CST Design Studio circuit | A schematic connected to the EM block, circuit task settings and static S-parameters or transient results | [Schematics](skills/cst-schematic/SKILL.md) · [Circuit tasks](skills/cst-circuit/SKILL.md) |
+| Design circuits and layouts in ADS | Editable schematics, DC/SP/HB datasets, Data Displays and physical layouts | [Schematics](skills/keysight-ads-schematic/SKILL.md) · [Simulation](skills/keysight-ads-simulation/SKILL.md) · [Results](skills/keysight-ads-results/SKILL.md) · [Layout](skills/keysight-ads-layout/SKILL.md) |
+| Develop a Python workflow | Call curve analysis and CST APIs directly, register job handlers and expose tools over MCP | [Python guide](docs/guides/python-usage.md) · [Public API](docs/PUBLIC_API.md) |
 
-On 2026-11-26, a local stdio client discovered 46 tools with both extensions enabled and successfully called `get_capabilities`. Two independent Codex sessions selected the expected routes and arguments in offline Touchstone trials. These trials checked call preparation. Actual export and template registration require project receipts. Both `analyze_s_parameters` and `export_report` were verified over stdio with the same three-point S21 CSV. The samples meeting the ≥ −3 dB criterion spanned 2–3 GHz, a bandwidth of 1 GHz. The exported CSV matched every input sample, and the HTML report reproduced the samples and qualifying band.
+To build these workflows into your own program, use `cst_solver` for CST operations and `cst_automation` for offline data analysis. The `tpc_service` package queues jobs and persists their status, and `cst_mcp` exposes tools to AI clients.
 
-## Repository layout
+For field–circuit co-simulation, the repository includes a native CST run report and a time-step convergence study. [Co-simulation run report](docs/CIRCUIT_LIVE_REPORT.md) · [Time-step study](docs/CIRCUIT_TIMESTEP_REPORT.md)
 
-```text
-cst-automation/
-├── cst_automation/    # Standalone curve and grouped S2P utilities
-├── cst_solver/        # CST projects, modeling, simulation, results, diagnostics
-├── tpc_service/       # General task service and backends
-├── cst_mcp/           # MCP adapter and tool registration
-├── skills/            # Task-specific Codex skills
-├── docs/              # Installation, usage, contracts, migration, validation
-├── tests/             # Repository tests; packages also contain their own tests
-├── .github/workflows/ # Windows CI tests and builds
-└── pyproject.toml     # Package metadata, dependencies, test configuration
-```
-
-## Validation and boundaries
-
-- Regular tests use fakes, stubs, and offline files without requiring CST. Interactive Windows desktop tests run separately.
-- FakeBackend produces synthetic data. Passing offline tests does not establish real geometry rebuild, result readback, or solver success.
-- Installation discovery, ABI matching, SDK imports, project readback, and real solving are separate checks. A successful doctor report does not establish solver acceptance.
-- Validation records for this extracted release do not report real CST geometry rebuild, result readback, or solver acceptance. Consult [VALIDATION.md](docs/VALIDATION.md) for the actual evidence.
-- The grouped S2P reader does not promise support for every Touchstone format or complex network matrices.
-- During `0.x`, cross-package protocol changes are recorded in minor versions. See [PUBLIC_API.md](docs/PUBLIC_API.md) for contracts and compatibility policy.
-
-## Documentation
-
-| Document | What it covers |
-| --- | --- |
-| [Installation](docs/INSTALLATION.md) | Environment, dependencies, development setup |
-| [CST environment](docs/guides/cst_environment.md) | Discovery, paths, ABI compatibility |
-| [Python usage](docs/guides/python-usage.md) | Data analysis, sessions, service entry points |
-| [MCP usage](docs/guides/mcp-usage.md) | stdio startup, environment variables, extensions |
-| [Troubleshooting](docs/guides/troubleshooting.md) | Environment, execution, diagnostic issues |
-| [Public API](docs/PUBLIC_API.md) | Handlers, states, errors, version contracts |
-| [Migration map](docs/MIGRATION_MAP.md) | Module origins and migration scope |
-| [Validation records](docs/VALIDATION.md) | Observed checks and unverified areas |
-| [Repository skills](skills/README.md) | Modeling, simulation, results, diagnostics |
-| [Contributing](CONTRIBUTING.md) | Development rules and verification |
-
-This English README provides the same onboarding coverage as the Chinese homepage. The detailed documents linked above retain their existing languages, primarily Chinese.
-
-## Development and contributions
-
-Use [Issues](https://github.com/Ding-zhenke/cst-automation/issues) for bug reports and feature requests, or submit a pull request. Useful reports include Python/CST versions, a minimal reproduction, the actual error, and diagnostic output with sensitive details removed.
-
-Install development dependencies in an isolated environment and run:
-
-```powershell
-python -m pip install -e ".[dev,mcp]"
-python -m pytest -o addopts='' -m "not gui and not cst_live" -q
-python -m build --wheel --sdist
-```
-
-Real desktop UI Automation tests require an interactive Windows session and explicit execution:
-
-```powershell
-python -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py
-```
-
-Update the public contract before changing cross-package protocols, keep domain logic in extensions, and record offline checks, project readback, and real solving separately. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## FAQ
-
-**Can I use this without CST?** Yes: curve analysis, grouped text parsing, and offline job workflows with an explicitly selected `FakeBackend` are available. Real project operations require CST.
-
-**Why keep the name `tpc_service`?** It preserves Python import compatibility. The module is a general service and does not require TPC; callers register domain functionality.
-
-**Can MCP run on Python 3.9?** The core supports Python 3.9, while the MCP extra requires Python 3.10+. Python 3.11 is recommended for the full development setup.
-
-**Are specific antenna, topology, or enclosure designs included?** The library supplies common infrastructure. External applications implement domain-specific builds and studies through handlers.
-
-## License
-
-Released under the [MIT License](LICENSE). Use of CST Studio Suite remains subject to its own license terms.
+Consult the validation record for other tested cases, the troubleshooting guide for run failures and the contribution guide for development and testing. [Validation record](docs/VALIDATION.md) · [Troubleshooting](docs/guides/troubleshooting.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
