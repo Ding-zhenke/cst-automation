@@ -2,22 +2,7 @@
 
 ## Microstrip diode replaced by an EM port
 
-For finite-width terminals, preview the two contact edges of each face port at
-both requested widths. For board-edge excitation, place the RF feed planes at
-the substrate ends, with equal-width contacts on strip and ground. Mark the
-substrate ends and outer simulation boundaries separately. At the floating
-junction, pick the facing pad edges and identify the physical anode and cathode.
-Use the [microstrip contact example](../../cst-modeling/references/model-operations.md#微带接触边)
-for the pick order. After approval, check the realized face widths, polarity
-and connectivity to the diode on the same project's schematic.
-
-To validate a width-triggered static Touchstone export, vary only the line width
-and hold the diode model and bias fixed. For each width, record the actual
-three-port EM run, two-port schematic SP run, and the file produced by the
-configured export task. Check both port order and reference impedance. Compare
-all four complex S-parameters on their frequency grid with that SP run, retain
-both files, and report the measured difference between widths. For CST-native
-export, record the task sequence and its actual trigger.
+See the [single-diode contact and width-change checks](../../cst-single-diode-static-sp/references/static-sp.md#microstrip-diode-replaced-by-an-em-port).
 
 ## Shared SNP input for ADS circuits and scans
 
@@ -38,6 +23,16 @@ the path-resolution check before reuse. Keep existing duplicate files in place
 during migration; do not delete them as part of changing references. Archive or
 record the canonical file's identity (including a content hash when practical) with
 results so reused data can be traced to the exact network.
+
+## Scan resumption and project journals
+
+First inspect the original session and job. If the job is active or its write outcome is unknown, continue tracking that identity. For an interrupted ADS scan, `cst_automation.workflow_resume.missing_cases` lists offline candidates for review. Check each point's actual artifact bytes, input identity, solver status and numerical validity before reuse or submission.
+
+For adapters that reserve requests or retain immutable attempts, `cst_automation.design_state.DesignState` supplies a project-owned SQLite journal. Follow the [integration contract](../../../docs/guides/diode_workflow_integration.md) for reservation and case identity. The caller supplies the journal's assertions. Use native receipts, archived data and solver acceptance checks to establish each stage's outcome.
+
+## Windows background processes
+
+For unattended helpers, tests and solver child processes, use `cst_automation.process.hidden_console_flags` with the existing process flags. Preserve pipes, logs, process groups and lifecycle handling. An already detached worker retains `DETACHED_PROCESS` and omits `CREATE_NO_WINDOW`. Interactive user tools and CST diagnostic windows keep their own UI.
 
 ## Static SP routes
 

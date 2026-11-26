@@ -11,7 +11,7 @@ description: Use when designing or configuring CST parameter sweeps, choosing li
 
 | 任务 | 支持的路径 |
 |---|---|
-| 准备服务器扫描 | 在指定工程用专用会话 `configure_sweep` 配置，核对角点、恢复基线并保存工程、必要配套数据和配置 Python。按[工程生命周期](../cst-sessions/references/project-lifecycle.md)交付。服务器准备授权仅含配置和交付。 |
+| 准备服务器扫描 | 在指定工程用专用会话 `configure_sweep` 配置，核对角点、恢复基线并保存工程、必要配套数据和配置 Python。按[工程生命周期](../cst-project-lifecycle/SKILL.md)交付。服务器准备授权仅含配置和交付。 |
 | 配置原生 EM 序列 | 底层 `app.configure_sweep` 写原生配置；专用会话操作另执行常规模型重建、消息检查和保存。变更前保存所需结果。正常返回的重建可通过 INFO-only 队列；WARNING、ERROR、未知消息或重建未正常完成，按原回执审阅。绑定工程使用专用操作，按[绑定检查](../../docs/guides/workflow_enforcement.md)处理失效；受保护工程禁止通过 raw history 或 `model_api` 扫参配置方法旁路。 |
 | 执行原生 EM 扫描 | 先确认独立的启动授权、具体原生任务及可用执行入口。当前发布会话没有注册扫描启动操作；底层有 `start_parameter_sweep()`，不等于会话已支持。普通 `solve` 调用单次 EM。需要在所属会话执行且缺少受支持入口时，说明缺口；保留工程绑定。按原生日志及实际结果判断执行状态。 |
 | 每点依赖上个结果、原生任务无法表达要求，或用户明确指定逐点控制 | 已绑定会话按[参数修改示例](../../docs/guides/reusable_operations.md#参数修改示例)执行 `set_parameters`，审阅回执后提交已授权的 `solve`。当前发布的 `app.update()` 用 `RebuildOnParametricChange(False, False)` 刷新，假返回值报错；`run_checked` 不附加一次重建。核查实际 worker 版本。一次工程观察保留过两组参数和四条 S 叶，其他工程及保存重开仍须核验。 |

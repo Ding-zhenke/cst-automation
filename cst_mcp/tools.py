@@ -168,7 +168,7 @@ def handle_close_project(arguments: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _load_analysis(arguments: Dict[str, Any]):
-    from cst_mcp.analysis import _pick_column, analyze_series, read_series_csv
+    from cst_mcp.analysis import analyze_series, read_series_csv
 
     path = arguments.get("csv_path")
     if not isinstance(path, str) or not path:
@@ -177,12 +177,15 @@ def _load_analysis(arguments: Dict[str, Any]):
     metric = str(arguments.get("metric") or next(iter(series["columns"]), ""))
     if not metric:
         raise ToolError("analysis_failed", "CSV 中没有可分析的参数列", path=path)
-    values = _pick_column(series, metric)
+    columns = series["columns"]
+    if metric not in columns:
+        raise ToolError("invalid_arguments", f"CSV 中找不到参数列 {metric!r}",
+                        metric=metric, available=list(columns))
     threshold = arguments.get("threshold_db")
     if isinstance(threshold, bool) or not isinstance(threshold, (float, int)):
         raise ToolError("invalid_arguments", "threshold_db 必须是数值 (dB)")
     analysis = analyze_series(
-        series["freqs"], values, metric=metric, threshold_db=float(threshold),
+        series["freqs"], columns[metric], metric=metric, threshold_db=float(threshold),
         criterion=str(arguments.get("criterion") or "below"),
         max_gap_ghz=arguments.get("max_gap_ghz"),
         resonance_kind=arguments.get("resonance_kind"),

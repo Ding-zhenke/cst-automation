@@ -1,6 +1,8 @@
 # Design Studio 接口与当前边界
 
-按[场路联合入口](../../skills/cst-circuit/SKILL.md)确认授权、所属工程和本轮操作。CST 2026.1 的既有验收覆盖特定纯电路、批准几何/端口、线性 network 和线性瞬态联合样例。线性联合核对了实际时间步、三种负载、两侧端口量、独立局部电场积分和普通网络对照。该运行无插值警告，早期带警告的运行仍为未验证。仓库维护记录见 `docs/CIRCUIT_DEVELOPMENT.md`、`docs/CIRCUIT_TIMESTEP_REPORT.md` 和 `docs/CIRCUIT_LIVE_REPORT.md`。
+编辑 Design Studio 元件、连接和布局，从[原理图技能](../../skills/cst-schematic/SKILL.md)进入。配置或运行网络与场路联合任务，从[场路联合技能](../../skills/cst-circuit/SKILL.md)进入。操作前确认授权、所属工程和本轮目标。
+
+CST 2026.1 的既有验收覆盖特定纯电路、批准几何/端口、线性 network 和线性瞬态联合样例。线性联合核对了实际时间步、三种负载、两侧端口量、独立局部电场积分和普通网络对照。该运行无插值警告，早期带警告的运行仍为未验证。仓库维护记录见 `docs/CIRCUIT_DEVELOPMENT.md`、`docs/CIRCUIT_TIMESTEP_REPORT.md` 和 `docs/CIRCUIT_LIVE_REPORT.md`。
 
 ## 不连接 CST 的使用方式
 
@@ -19,24 +21,17 @@ preview_circuit({"schema_version": 1}, "work/empty-circuit-preview")
 ## 用户审批后的原理图操作
 
 ```python
-from cst_solver.circuit import CircuitResult
-
 # app 为所属会话按 project_id 取得的工程，沿用其 worker 和句柄。
 snapshot = app.circuit.inspect()
-# app.circuit.apply(spec, conflict="error")
-# app.circuit.link_em(block_name=..., source="self", port_map=..., parameter_map={})
-# outcome = app.circuit.run_checked(task_name, mode="transient_cosim",
-#     expected_results=[{"tree_path": actual_path, "run_id": actual_run_id}])
-
-# reader = CircuitResult("work/reviewed-project.cst")
-# reader.get_tree_items()  # 再选择真实路径和实际 run ID
 ```
 
-上例注释表示需要调用方提供真实读回数据，不能把注释中的符号当成有效配置。
+按当前工程的对象、引脚、连接和单位准备待改规格。用 `validate_circuit_spec` 校验规格，`preview_circuit` 生成拓扑预览。涉及三维几何或物理端口改变，使用真实坐标预览并等候审阅。仅移动已批准电路的二维符号时，按[紧凑布局与整图可读性](#紧凑布局与整图可读性)核对位置与连接。
+
+### 增量接线与元件属性
 
 schema v1 包含 units、parameters、blocks、external_ports、nets、probes、em_links、tasks；元件属性通过 `property_units` 指定单位，net 端点必须包含 `component_kind/component_name/pin_name`。参数只允许已声明变量和加减乘除，不执行 Python 表达式。已存在三维模块通过 `em_links` 引用，不复制创建自身模块。
 
-允许分阶段 `apply`：先创建元件/端口，之后仅提交 `nets`，再添加探针或任务。
+可分阶段调用 `app.circuit.apply(spec, conflict="error")`。先创建元件和端口，之后仅提交 `nets`，再添加探针或任务。
 每次从当前工程重新读回引用对象及连接，不依赖上一次调用的缓存，不把已有元件
 重复列入待创建规格。`list_pins` 的 `pin_name` 是连接名，`display_pin_name` 是界面
 显示名，两者可能不同；使用实际 `pin_name`，不把显示标签或 pin_index 当作连接索引。
@@ -45,9 +40,9 @@ schema v1 包含 units、parameters、blocks、external_ports、nets、probes、
 
 物理属性在当前适配器中安全求值后写成 SI 数值，并为该属性选用对应局部单位；不会为了改一个元件而改变已有工程的全局单位。原始参数表达式保存在规格/审计中。**修改 CST 全局参数不会自动改变已固化的元件值**：调用方应按本次核对的参数值显式计算，再通过 `set_properties` 写入带单位的数值，并核对属性读回。该接口不会读取当前原生参数表重新求值；它只可能使用本 API 对象上次 `apply` 的参数缓存，且尝试属性写入后会清空缓存。因此不要将旧表达式再次传给它来实现联动，跨调用或重开后也不能依赖该缓存。参数序列按每点明确的属性和 expected_results 执行，不冒充原生 DS 参数扫描。
 
-用 `validate_circuit_spec` 校验规格，`preview_circuit` 生成拓扑预览。涉及三维几何或物理端口改变，使用真实坐标预览并等候审阅。原理图位置按下节紧凑布局要求设置；仅移动已批准电路的二维符号不等于改变三维几何或端口截面。
+### EM 块与端口映射
 
-同工程已有 EM 块用 `source="self"`，逐项提供 `pin_name/port_id/mode/reference/polarity` 及显式 `parameter_map`。MOR 拟合按公共协议显式选用极点参数，并以实际拟合数据验收。已有 Transient 或 Spectral Lines 的并行度及结果选项使用 `app.circuit.configure_task_execution` 和具备 `circuit-task-execution-v1` 的所属 worker；只传当前任务支持的值，实际线程数以运行日志为准。
+同工程已有 EM 块用 `source="self"`，逐项提供 `pin_name/port_id/mode/reference/polarity` 及显式 `parameter_map`。可在所属会话的配置规格中提交 `em_links`，对应的 Python 接口为 `app.circuit.link_em(block_name=block_name, source="self", port_map=port_map, parameter_map=parameter_map)`。
 
 当前 `link_em` 对 `source="self"` 选择已有块，对外部源创建文件块；随后核对连接引脚，
 返回 `requested_port_map` 和 `requested_parameter_map`。这些字段是映射意图记录，
@@ -85,7 +80,7 @@ schema v1 包含 units、parameters、blocks、external_ports、nets、probes、
    按请求值宣称位置已读回。
    不用请求值、XML 或裸 history 代替。整理已有工程只改授权范围内的位置，核对前后
    引脚—网络成员、极性和元件属性一致；不删除重建电路，不中断进行中的任务。
-4. **在原生视图验收。** 放置后检查 CST 原理图的常用窗口及阅读缩放：完整电路是否
+4. **验收整图布局。** 交付整张图的布局或可读性时，在常用 CST 窗口及阅读缩放下检查完整电路是否
    可见、名称和关键参数是否清晰、是否有大片无用途空白、符号/标签重叠或过长连线。
    若 Fit All 后字小到难读，回到坐标表缩短间距或重新分组；不能只留下 Fit All 就称为
    布局已修复。按当前可用的原生图像/视图检查方式保留整图证据；无法查看时明确
@@ -99,11 +94,34 @@ schema v1 包含 units、parameters、blocks、external_ports、nets、probes、
 
 ## 任务运行与停止条件
 
+已有 Transient 或 Spectral Lines 的并行度及结果选项使用 `app.circuit.configure_task_execution` 和具备 `circuit-task-execution-v1` 的所属 worker。只传当前任务支持的值，实际线程数以运行日志为准。MOR 拟合按公共协议显式选用极点参数，并以实际拟合数据验收。
+
 - 保存工作副本，核对任务、工程、依赖路径及摘要，然后使用 `run_checked(task_name, mode=..., expected_results=..., reuse="never")`，为每个结果提供真实树路径和整数运行 ID。依赖缺失、已迁移或原生更新无法验证时记录具体缺项，不用 Update File References 对话框代替受管操作。
 - `transient_cosim` 需原生 transient 任务的 `circuit simulator=cosimulation` 与本次三维侧证据。普通网络瞬态在未绑定工作流且无保护标记时可用 `circuit/solve/run_network_transient`，明确提供 `task_name` 与 `expected_results`；先原生核对 transient、cst 网络模式及无子任务。保护中的工程服从已有入口，保留失败原因，禁止裸 Update 或 SDK 绕过。
 - `reuse="verified"` 检查已有结果缓存；MOR 文件存在、时间戳和单次耗时均不能证明本轮 MOR 命中。上述普通网络瞬态入口不保证强制 MOR 复用或原生取消。用户要求必须复用而无法在启动前保证时，不提交可能冷启动的计算。
 - 用户规定可取消的时间上限时，先核验独立控制路径能向所属任务发出原生取消、读回并证明停止。能力未经核实时记录未实现并停止提交。Python 等待超时、线程中断和强杀进程均不能证明 CST 已停。
 - 3D Abort 返回、Model3D `is_solver_running=False`、EM 完成日志和 session ready 均不能证明 DS 序列或后处理空闲。`GetNameOfCurrentTask` 与 `GetActivePostprocessingTask` 的观察范围有限，尚未验收为外部 idle 门槛。按[停止范围](solver_stop_scope.md)核对原任务、回执及原生状态；不明时禁止新写入和交接。SDK 停滞时按[弹窗诊断](../../skills/cst-diagnostics/SKILL.md)读取真实标题、正文、按钮及进程归属，窗口消失不证明成功。
+
+已授权的瞬态联合任务在核对上述条件后，用真实任务名、结果树路径和整数运行 ID 提交。
+
+```python
+outcome = app.circuit.run_checked(
+    task_name, mode="transient_cosim", reuse="never",
+    expected_results=[{"tree_path": actual_path, "run_id": actual_run_id}],
+)
+```
+
+读取已保存结果时，可从指定工程的 schematic 结果树直接选择任务和运行 ID。
+
+```python
+from cst_solver.circuit import CircuitResult
+
+reader = CircuitResult(saved_project_path)
+paths = reader.get_tree_items(task_name=task_name)
+# 根据 paths 和请求的工况选定 actual_path，再核对该路径的实际运行 ID。
+run_ids = reader.get_run_ids(actual_path)
+curve = reader.read_curve(actual_path, run_id=actual_run_id)
+```
 
 ## 当前刻意保留为未验证的能力
 

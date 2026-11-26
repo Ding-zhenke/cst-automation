@@ -43,6 +43,22 @@ def test_unknown_tool_and_failed_result_are_structured():
     assert dispatch("not_registered")["error"]["code"] == "unknown_tool"
 
 
+def test_csv_tools_share_metric_selection(env):
+    source = env["work"] / "curves.csv"
+    source.write_text('freq_GHz,"S1,1","S2,1"\n1,-12,-8\n2,-15,-2\n3,-13,-1\n')
+    args = {"csv_path": str(source), "threshold_db": -3, "criterion": "above"}
+    default = dispatch("analyze_s_parameters", args)["analysis"]
+    assert (default["metric"], default["n_bands"]) == ("S1,1", 0)
+    args["metric"] = "S2,1"
+    analysis = dispatch("analyze_s_parameters", args)["analysis"]
+    summary = dispatch("export_report", args)["summary"]
+    assert analysis["total_bandwidth_ghz"] == summary["total_bandwidth_ghz"] == 1
+    for tool in ("analyze_s_parameters", "export_report"):
+        error = dispatch(tool, dict(args, metric="missing"))["error"]
+        assert error["code"] == "invalid_arguments"
+        assert error["details"]["available"] == ["S1,1", "S2,1"]
+
+
 def test_domain_tool_extension_defaults_to_write_and_is_dispatchable():
     register_tool("demo_domain_tool",
                   {"name": "demo_domain_tool", "inputSchema": {"type": "object"}},

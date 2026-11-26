@@ -77,9 +77,17 @@ GHz/mm，色散频率参数应按它转换，不能直接按当前工程单位�
 
 ## 边界、背景、端口与监视器
 
+### 边界与背景
+
 `boundary` 分别设置 xmin/xmax/ymin/ymax/zmin/zmax；核对坐标面名和对称性。
 `set_background` 的材料名只对支持的背景映射有效；背景不是任意 Material 指派，
 未知介质须按 API 给 epsilon/mu，边界 open 不等于背景材料 Open。
+
+场监视器 `monitor2d` 在省略范围时可能查询模型包围盒，`create_field_monitor` 按类型和频率建监视器。F 求解器 Single/Automatic 采样行及自适应频点另按其频率表核对。
+
+### 端口创建与替换
+
+结合端口旋转、模式极化、参考面和实际几何选择端口。
 
 `create_waveguide_port_free` 用显式空间范围。范围引用工程参数或公式时，必须显式给
 `parameterized_ranges=True`，例如 `xrange=("L/2", "L/2"), yrange=("-Pw", "Pw"),
@@ -113,14 +121,11 @@ fold 仅接受空值，官方 FacePort 对象无已核实的 Folder 命令。
 settings, expected_type=..., preserve_ports=...)`。必须给全部数值坐标范围、朝向、
 模式数及布尔 port_on_bound；此版本不接受符号坐标。保留端口用编号字符串→类型映射。
 批次只能含此替换方法，目标编号不重复且不能同时列为保留端口。它先读原生编号、
-类型和模式数，查询不可用时在删除前拒绝；替换后及完整重建后再核对。此为拓扑编辑，
+类型和模式数，查询不可用时在删除前拒绝；替换后及完整重建后再核对。所属 worker 需要
+`port-replacement-readback-v1`；正在求解的 worker 保持原版本。此为拓扑编辑，
 先归档需要保留的结果。部分失败不得盲目重放，按回执查现场。
 编号/类型/模式数一致不证明截面、边界兼容、模式场、模式阻抗或保留端口电气可用；
 这些必须另行验收。模式阻抗与导出矩阵归一化阻抗分开记录。
-
-端口旋转、模式极化、参考面与几何一起检查；monitor2d 在省略范围时可能查询模型
-包围盒，create_field_monitor 则按类型和频率建监视器。监视器行与 F 求解器 Single/
-Automatic 采样行不同，不凭监视器行判断自适应频点是否已设置。
 
 ## 微带接触边
 

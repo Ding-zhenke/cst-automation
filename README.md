@@ -1,290 +1,123 @@
 # cst-automation
 
-**用 Python 串联 CST Studio Suite 建模、仿真、结果分析与任务管理。**
+**让 AI 帮你画出 CST 模型、运行电磁仿真、读出 S 参数，也能在 Keysight ADS 中搭电路、做谐波平衡分析。**
 
-**简体中文** | [English](README.en.md)
+**简体中文** · [English](README.en.md)　|　[动手试一个例子](#用一份-csv-开始) · [接入 Codex](#接入-codex) · [全部技能](skills/README.md)
 
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue)](pyproject.toml)
-[![MCP](https://img.shields.io/badge/MCP-Python%203.10%2B-purple)](docs/guides/mcp-usage.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+如果你有一份 S 参数 CSV，可以直接问「哪些频率满足匹配要求？」。如果你要建一个波导，可以先让 AI 画出两个端口的位置和方向，审过图再写入 CST。下面的例子给出了可以直接发给 Codex 的指令，以及应该收到的图、工程和数据文件。
 
-`cst-automation` 是面向电磁仿真工作流的通用 Python 工具库。它将 CST 工程操作、参数化建模、求解配置、结果读取、离线数据分析和可追踪的任务执行组织在同一个项目中，也提供 MCP 接口与仓库内 Codex skills，便于脚本和 AI 工具复用这些能力。
+## 用一份 CSV 开始
 
-你可以只使用其中的曲线分析工具，也可以把它作为领域建模程序的底层依赖，逐步搭建从工程准备到结果报告的自动化流程。
+在 Codex 中打开本仓库，使用已安装核心包和绘图依赖的 Python 环境。第一次使用可先按下方的[安装步骤](#接入-codex)准备。这一例只需仓库自带的合成样本，可以在没有 CST 或 ADS 的电脑上完成。
 
-> 当前开发版本为 `0.2.0.dev0`。核心包支持 Python 3.9+；MCP extra 需要 Python 3.10+。真实 CST 操作需要本机 CST Studio Suite、可用许可证以及与 CST Python 扩展兼容的解释器。离线分析与 fake backend 可在没有 CST 的环境使用。
+> 读取仓库根目录的 `fake_sparams_job.csv`。用 `freq_GHz` 作横轴，找出 `S1,1` ≤ −10 dB 的所有连续采样区间，列出起止频率、带宽和最低点。用 Python 画出原始采样和阈值，在图上标出合格区间。再导出 HTML 报告和逐点 CSV，把文件路径给我。
 
-## 导航
+![81 个合成 S11 采样点，曲线在 325 至 335 GHz 满足 −10 dB 阈值，谷值在 330 GHz](docs/images/readme-s11-band.png)
 
-- [适用场景](#适用场景)
-- [主要功能](#主要功能)
-- [项目架构](#项目架构)
-- [快速开始](#快速开始)
-- [使用示例](#使用示例)
-- [MCP 与 AI 工作流](#mcp-与-ai-工作流)
-- [项目结构](#项目结构)
-- [验证范围与使用边界](#验证范围与使用边界)
-- [文档导航](#文档导航)
-- [开发与贡献](#开发与贡献)
-- [常见问题](#常见问题)
+这份样本以 1 GHz 为步长。**325–335 GHz** 之间共有 11 个合格点，按两端之差计算带宽为 **10 GHz**。最低点在 **330 GHz，为 −17 dB**。换成自己的文件时，给出频率单位、列名和判据即可。[查看示例 CSV](fake_sparams_job.csv)
 
-## 适用场景
+<details>
+<summary>查看这个例子实际导出的 HTML 报告截图</summary>
 
-- **参数化建模**：把重复的几何、材料、端口和边界配置整理成可复用的 Python 操作。
-- **仿真流程管理**：对已有 CST 工程提交求解任务，读取状态、日志、结果摘要和产物。
-- **批量结果分析**：根据 S 参数曲线提取阈值频带、寻找谐振点、比较不同设计的谐振位置。
-- **领域工具开发**：通过显式注册 handler 连接自己的建模或研究逻辑，复用通用任务生命周期。
-- **AI 辅助操作**：通过 MCP 工具发现能力、登记工程、检查任务和分析数据，并结合仓库 skills 约束操作流程。
+![HTML 报告截图，Qualified bands 表列出频带端点、带宽、采样点数及幅值范围](docs/images/readme-report.png)
 
-## 主要功能
+接入 MCP 后，Codex 可以用 `analyze_s_parameters` 算频带和局部极值，用 `export_report` 将 HTML 和 CSV 写入服务工作目录。报告中的 *Qualified bands* 表可与图上的阴影区间核对，CSV 保留逐点数值。
 
-| 能力 | 提供的内容 | 主要入口 |
-| --- | --- | --- |
-| 工程与参数 | 工程打开、保存、关闭、会话连接、单位和参数管理 | `cst_solver.setup` |
-| 几何建模 | 基本实体、曲线、布尔运算、变换、坐标系、选取与面操作 | `cst_solver.modeling` |
-| 仿真配置 | 材料、端口、激励、监视器、边界、网格与求解器配置接口 | `cst_solver.material` / `simulation` / `mesh` |
-| 后处理 | 结果读取、远场、绘图控制及结果导出接口 | `cst_solver.Result` / `postprocessing` |
-| 曲线分析 | 连续合格频带、局部谐振点、谐振匹配与判据 | `cst_automation.curves` |
-| 分组 S2P 文本 | 分组数据读取、频率筛选、参数条件筛选 | `cst_automation.s2p` |
-| 任务运行 | 单 worker 串行队列、状态持久化、日志、产物和 handler 扩展 | `tpc_service.RunService` |
-| 环境诊断 | CST 安装发现、配置来源、Python ABI 与 SDK 导入检查 | `python -m cst_solver doctor --json` |
-| MCP 集成 | 工程、求解、任务查询、CSV 分析、报告与工具扩展 | `cst_mcp` |
-| Codex skills | 建模、仿真、结果与故障诊断操作指引 | [skills 索引](skills/README.md) |
+</details>
 
-仓库技能可打包为一个 Codex 插件，按当前任务加载入口与专项参考。构建和使用方式见 [Codex 插件指南](docs/guides/codex-plugin.md)。
+<details>
+<summary>用 Python 复核同一个结果</summary>
 
-上述功能描述的是代码提供的接口范围；具体 CST 版本、求解器与真实工程的可用性仍需在目标环境验证。
+在仓库根目录运行下面的代码。输出依次是合格区间的起点、终点、最低点频率和最低值。
 
-## 项目架构
+```python
+from cst_automation.curves import contiguous_bands
+from cst_mcp.analysis import read_series_csv
 
-```mermaid
-flowchart TD
-    A[Python 脚本 / 领域应用] --> B[cst_solver]
-    A --> C[tpc_service]
-    D[MCP 客户端 / AI 工具] --> E[cst_mcp]
-    E --> C
-    E --> F[cst_automation 数据分析]
-    A --> F
-    C --> G[CstBackend / 显式注册的 handler]
-    G --> B
-    C --> H[FakeBackend 离线验证]
-    B --> I[本机 CST Studio Suite]
+samples = read_series_csv("fake_sparams_job.csv")
+bands = contiguous_bands(samples["freqs"], samples["columns"]["S1,1"], threshold_db=-10)
+for band in bands:
+    print(band["fmin_ghz"], band["fmax_ghz"], band["best_freq_ghz"], band["best_db"])
+# 325.0 335.0 330.0 -17.0
 ```
 
-四个 Python 导入名各司其职：`cst_solver` 面向 CST 操作，`cst_automation` 提供独立数据工具，`tpc_service` 管理任务，`cst_mcp` 暴露 MCP 接口。通用库不依赖 TPC 或 em-enclosure；领域包向本库注册扩展。
+</details>
 
-普通导入和离线解析不会启动 CST。CST SDK 在执行真实 CST 操作时按需加载。
+## 让 AI 参与建模和仿真
 
-## 快速开始
+对一个实际工程，说清楚 **输入在哪里、这次做到哪一步、用什么核对结果**。例如「先给我看端口图」「现在可以运行一次」「只读已保存的结果」会让 Codex 选择不同的操作。下面是三个常见任务。
 
-### 1. 下载源码并创建独立环境
+### 先看端口怎么放，再建波导
 
-以下命令以 Windows PowerShell 为例；建议使用 Python 3.11 体验完整开发与 MCP 功能。
+> 我想建一个真空矩形直波导，内截面 22.86 × 10.16 mm，沿 x 方向长 50 mm，四侧为 PEC 壁。两端各设一个单模波导端口，工作频率 8.2–12.4 GHz。先给我尺寸图，标出每个端口所在的面和指向波导内部的激励箭头，等我审图。
+
+![矩形波导的参数预览，标出 50 mm 长度、端口截面和两端向内的激励方向](docs/images/readme-waveguide.png)
+
+审图时先看截面的宽、高是否对应你想要的方向，再看 P1 是否从 `x = 0` 指向 +x、P2 是否从 `x = 50 mm` 指向 −x。图中展示的是写入工程前可交付的参数预览。[波导尺寸与坐标表](docs/REAL_CST_ACCEPTANCE.md)
+
+**审图后可以继续说**
+
+> 按刚才的预览创建并保存 CST 工程，读回两端口的位置和方向，把工程路径和读回值给我。这一步做到建模为止。
+
+> 现在可以运行这份已审阅的工程。完成后给我本次 Run ID、原生求解日志和 S11、S21 幅频曲线。如果中途停下来，沿用原任务查状态，告诉我停在哪一步。
+
+隔天继续时，把会话引用和 job ID 发给 Codex，就可以查回同一工程的任务状态、日志和结果。[建模技能](skills/cst-modeling/SKILL.md) · [求解技能](skills/cst-simulation/SKILL.md) · [会话与任务状态](docs/guides/conversation_sessions.md)
+
+### 把已有 CST 扫参结果交给电路设计者
+
+> 我的两端口微带线工程在 `<工程路径>.cst`，结果已保存，端口顺序是输入、输出，原始参考阻抗为 50 Ω，频率单位 GHz。只读已有运行，按正 Run ID 把每个线宽的完整复数 S 矩阵导出到新目录 `<导出目录>`。给我参数和文件的对照表，检查每个文件的频点数和频率范围。
+
+Codex 可以通过 `Result.export_touchstone_sweep` 交付每个工况的 `run_<id>.s2p` 和 `manifest.json`。在仓库的微带线实机验证中，同一工程的 1.7、1.9、2.1 mm 三种线宽分别对应 Run 1、2、3。每个文件都含 1–6 GHz 的 1001 个采样点和四条复数 S 参数，文件哈希与清单逐一匹配。[导出接口](skills/cst-results/references/exports-and-history.md) · [实机验证记录](docs/VALIDATION.md)
+
+### 用 ADS 验证双音混频器
+
+> 用仓库的 ADS 混频器示例，在新目录 `<工作区路径>` 搭一个可编辑的二极管混频器。LO 设为 1 GHz，RF 设为 1.1 GHz，运行谐波平衡（HB）并生成报告。请从结果数据集找到 100 MHz 差频分量，列出实际频率、幅值和单位，给我原理图所在的 cell、数据集和频谱 CSV。
+
+这个例子通过 ADS 自带的 Python API 搭建 `Mixer_HB` 原理图。1.1 GHz − 1 GHz 给出预期差频，实际幅值从求解生成的 `simulation/Mixer_HB.ds` 中提取。示例脚本的 `--with-report` 选项还会生成频谱 CSV 和中文报告。运行需要本机 ADS 及相应许可证。[混频器示例脚本](skills/keysight-ads-simulation/scripts/mixer_smoke_test.py) · [ADS 运行环境](skills/keysight-ads-simulation/references/environment-and-compatibility.md)
+
+## 接入 Codex
+
+**在源码仓库内使用。** 在 Windows PowerShell 中克隆仓库、创建虚拟环境并安装依赖，然后用 Codex 打开这个目录。Python 核心库支持 3.9+。下面的命令请使用 **Python 3.10 或更高版本**，它会同时安装绘图与 MCP 依赖，适合从上面的 CSV 例子开始。
 
 ```powershell
 git clone https://github.com/Ding-zhenke/cst-automation.git
 cd cst-automation
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e ".[mcp,plot]"
 ```
 
-### 2. 选择安装方式
+在 Codex 的第一个对话中输入这段话即可开始。
 
-| 用途 | 在仓库根目录运行 |
-| --- | --- |
-| 核心库与离线数据分析 | `python -m pip install .` |
-| 核心库与 MCP 服务 | `python -m pip install ".[mcp]"` |
-| 可选绘图依赖 | `python -m pip install ".[plot]"` |
-| 开发、测试与 MCP | `python -m pip install -e ".[dev,mcp]"` |
+> 先读 `skills/README.md`，按我的任务选技能，使用仓库的 `.venv`。先从 README 的 CSV 例子开始，算出结果后把图和报告发给我。
 
-核心依赖为 NumPy。MCP extra 使用 `mcp>=1.29,<2`，对应当前适配的 SDK 1.x API。
+**在自己的工程目录里使用。** 将仓库技能安装成 Codex 插件后，可以从其他项目调用同一套建模、仿真和结果读取指引。插件指导 Codex 选择操作，Python 运行库提供具体接口。真实 CST 操作还需要与本机 CST SDK 匹配的解释器和许可证，ADS 操作使用对应安装的 Keysight Python 环境。[插件构建与安装](docs/guides/codex-plugin.md) · [安装指南](docs/INSTALLATION.md) · [CST 环境诊断](docs/guides/cst_environment.md)
 
-### 3. 检查本机 CST 环境
+<details>
+<summary>给 Codex 配置 MCP 工具，查询任务、分析曲线和导出报告</summary>
 
-如果只做离线分析，可直接进入下方示例。真实 CST 操作前运行：
+在受信任项目的 `.codex/config.toml` 中添加下面的配置，把所有 `C:\repos\cst-automation` 替换为实际的仓库绝对路径。`--enable-sessions` 开启持久 CST 会话，`--enable-circuit` 开启 CST Design Studio 电路工具。
 
-```powershell
-python -m cst_solver doctor --json
+```toml
+[mcp_servers.cst_automation]
+command = 'C:\repos\cst-automation\.venv\Scripts\python.exe'
+cwd = 'C:\repos\cst-automation'
+args = ['-m', 'cst_mcp', '--enable-sessions', '--session-root', 'C:\repos\cst-automation\work\sessions', '--enable-circuit', '--workdir', 'C:\repos\cst-automation\work\mcp']
 ```
 
-CST 的 `cst` 模块随 CST Studio Suite 提供，请勿将 `pip install cst` 作为安装步骤。自动发现失败时，按[环境配置指南](docs/guides/cst_environment.md)设置 `CST_INSTALL_PATH`、`CST_PYTHON_LIB`、`CST_MATERIAL_LIB`，并确认 Python ABI 与 CST 扩展匹配。完整步骤见[安装文档](docs/INSTALLATION.md)。
+从该项目目录运行 `codex mcp get cst_automation --json` 查看配置。在新对话里问「调用 `get_capabilities`，告诉我当前后端和工作目录」，即可检查 Codex 与服务的实际连接。[MCP 使用指南](docs/guides/mcp-usage.md)
 
-发行包不预设任何电脑的安装路径。未配置时自动发现常见目录；非标准安装目录通过环境变量或用户 JSON 指定。`doctor --json` 会对路径缺失或已知 ABI 不匹配返回非零退出码；加上 `--probe` 才执行 SDK 导入检查。
+</details>
 
-## 使用示例
+## 按任务找入口
 
-### 离线分析：提取合格频带与谐振点
+| 你手里的任务 | 可以交付什么 | 从这里开始 |
+| --- | --- | --- |
+| CST 三维建模、网格、单次仿真 | 参数化工程、端口读回、原生日志、按 Run ID 读取的曲线 | [建模](skills/cst-modeling/SKILL.md) · [网格与频率](skills/cst-mesh-frequency/SKILL.md) · [EM 求解](skills/cst-simulation/SKILL.md) |
+| 扫参和结果归档 | 扫描设置、每个工况的 Touchstone 文件、参数清单 | [参数研究](skills/cst-parameter-study/SKILL.md) · [结果读取](skills/cst-results/SKILL.md) |
+| CST Design Studio 场路联合 | 连接 EM 块的原理图、电路任务设置、静态 S 参数或瞬态结果 | [原理图](skills/cst-schematic/SKILL.md) · [电路任务](skills/cst-circuit/SKILL.md) |
+| ADS 电路与版图 | 可编辑原理图、DC/SP/HB 数据集、原生数据显示页面、物理版图 | [原理图](skills/keysight-ads-schematic/SKILL.md) · [仿真](skills/keysight-ads-simulation/SKILL.md) · [结果](skills/keysight-ads-results/SKILL.md) · [版图](skills/keysight-ads-layout/SKILL.md) |
+| 开发自己的 Python 流程 | 独立调用曲线分析和 CST API，注册任务处理函数，通过 MCP 暴露工具 | [Python 用法](docs/guides/python-usage.md) · [公共接口](docs/PUBLIC_API.md) |
 
-此示例不需要安装 CST，输入频率单位为 GHz、幅度为 dB。
+如果你想把相同流程封装进自己的程序，`cst_solver` 提供 CST 接口，`cst_automation` 提供离线数据分析，`tpc_service` 负责排队与保存任务状态，`cst_mcp` 提供 AI 工具服务。
 
-```python
-from cst_automation.curves import contiguous_bands, find_resonances
-
-freqs_ghz = [1.0, 1.1, 1.2, 1.3, 1.4]
-s11_db = [-8.0, -16.0, -20.0, -12.0, -5.0]
-
-bands = contiguous_bands(freqs_ghz, s11_db, threshold_db=-10.0)
-resonances = find_resonances(freqs_ghz, s11_db, kind="min")
-print("Bands:", bands)
-print("Resonances:", resonances)
-```
-
-频带按连续采样点划分，谐振点按三点局部极值判定，不进行插值。分组 S2P 文本可使用 `read_s2p_groups(filepath)` 读取；该函数的格式范围见[公共接口](docs/PUBLIC_API.md)。
-
-### CST 工程：打开、保存与释放会话
-
-将路径替换为已有的本机工程。执行此示例会连接真实 CST，需要先完成环境检查。
-
-```python
-from cst_solver import setup
-
-app = setup(r"C:\simulations\example.cst")
-try:
-    # 在此调用所需的参数、建模或仿真配置方法。
-    app.save()
-finally:
-    app.close()
-```
-
-几何写入前应先按真实参数生成预览并审阅；随后分阶段重建、读取 CST 消息并检查产物。更多用法见[Python 使用指南](docs/guides/python-usage.md)。
-
-### 离线任务服务：注册自己的操作
-
-下面使用 `FakeBackend` 演示 handler 与任务队列，不进行真实建模或求解。
-
-```python
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
-from tpc_service import RunService
-from tpc_service.backends.base import ok_result
-from tpc_service.backends.fake import FakeBackend
-
-Path("./work").mkdir(exist_ok=True)
-workspace = TemporaryDirectory(dir="./work")
-project = Path(workspace.name) / "placeholder.cst"
-project.write_text("fake-only placeholder", encoding="utf-8")
-service = RunService(str(Path(workspace.name) / "jobs"), backend=FakeBackend())
-
-def offline_build(*, project, params, job, backend):
-    return ok_result(
-        saved=True,
-        log=[f"accepted {job['job_id']}"],
-        result_summary={"mode": "offline-example"},
-    )
-
-try:
-    service.register_handler("build", offline_build)
-    job = service.submit("build", project_path=str(project))
-    print(service.wait(job["job_id"], timeout=10))
-finally:
-    service.shutdown()
-    workspace.cleanup()
-```
-
-真实 backend 对已有工程提供求解；领域 `build` / `study` 由调用方显式注册。单个服务的 worker 串行运行任务，超时返回当前状态快照；重启会将遗留 queued/running 任务标记为 interrupted，不自动重跑。详细字段与约束见[任务服务协议](docs/PUBLIC_API.md)。
-
-## MCP 与 AI 工作流
-
-安装 MCP extra 后，由支持 stdio 的 MCP 客户端启动：
-
-```powershell
-python -m cst_mcp
-```
-
-客户端配置时，将 command 指向独立环境中的 Python，将 args 设为 `["-m", "cst_mcp"]`。这是一项由宿主客户端启动的协议服务，具体配置格式以客户端为准。
-
-| 环境变量 | 用途 |
-| --- | --- |
-| `CST_AUTOMATION_WORKDIR` | 设置可写的任务与产物目录 |
-| `CST_AUTOMATION_BACKEND=fake` | 使用离线模拟 backend 调试工具流程 |
-
-写操作通过 `RunService` 执行；标准输出专供 MCP 协议，诊断写入标准错误或产物。领域工具通过 `cst_mcp.register_tool(...)` 显式注册。服务不会安装或改写用户全局 MCP 配置。详见[MCP 使用指南](docs/guides/mcp-usage.md)。
-
-使用 Codex 处理本仓库任务时，先阅读 [AGENTS.md](AGENTS.md) 和 [skills 索引](skills/README.md)，再按任务选择建模、仿真、结果或诊断 skill。
-
-## 项目结构
-
-```text
-cst-automation/
-├── cst_automation/    # 独立曲线与分组 S2P 数据工具
-├── cst_solver/        # CST 工程、建模、仿真、结果与诊断
-├── tpc_service/       # 通用任务服务及 backend
-├── cst_mcp/           # MCP 适配与工具注册
-├── skills/            # 按任务选择的 Codex skills
-├── docs/              # 安装、使用、接口、迁移与验证说明
-├── tests/             # 仓库级测试；各包还包含自己的 tests
-├── .github/workflows/ # Windows CI 测试与构建
-└── pyproject.toml     # 包元数据、依赖与测试配置
-```
-
-## 验证范围与使用边界
-
-- 常规测试使用 fake、stub 和离线文件，不要求本机 CST；交互式 Windows 桌面测试单独运行。
-- FakeBackend 返回合成数据。离线测试通过不代表真实几何重建、结果读回或 solver 求解通过。
-- 安装发现、ABI 匹配、SDK 导入、工程读回和真实求解分别检查；doctor 通过不能替代求解验收。
-- 当前拆分版本的验证记录未报告真实 CST 几何重建、结果读回或求解验收；请以 [VALIDATION.md](docs/VALIDATION.md) 的具体证据为准。
-- 分组 S2P 读取接口不承诺覆盖所有 Touchstone 格式或复数网络矩阵。
-- `0.x` 跨包协议变更按次要版本记录；公共协议与兼容策略见 [PUBLIC_API.md](docs/PUBLIC_API.md)。
-
-## 文档导航
-
-| 文档 | 内容 |
-| --- | --- |
-| [安装与配置](docs/INSTALLATION.md) | 环境、依赖与本地开发安装 |
-| [CST 环境](docs/guides/cst_environment.md) | 安装发现、路径与 ABI |
-| [Python 使用](docs/guides/python-usage.md) | 数据分析、会话与服务入口 |
-| [MCP 使用](docs/guides/mcp-usage.md) | stdio 启动、环境变量与扩展 |
-| [故障定位](docs/guides/troubleshooting.md) | 环境、运行与诊断问题 |
-| [公共 API](docs/PUBLIC_API.md) | handler、状态、错误与版本协议 |
-| [迁移映射](docs/MIGRATION_MAP.md) | 模块来源及迁移范围 |
-| [验证记录](docs/VALIDATION.md) | 已执行检查与尚未验证的范围 |
-| [仓库 skills](skills/README.md) | 建模、仿真、结果与诊断规范 |
-| [贡献指南](CONTRIBUTING.md) | 开发约定与检查流程 |
-
-英文版主页提供同等的入门内容；上述深入文档保留各自现有语言。
-
-## 开发与贡献
-
-欢迎通过 [Issues](https://github.com/Ding-zhenke/cst-automation/issues) 反馈问题、提出功能建议，或提交 Pull Request。问题报告建议包含 Python/CST 版本、最小复现、实际错误和脱敏后的诊断输出。
-
-在独立环境安装开发依赖后运行：
-
-```powershell
-python -m pip install -e ".[dev,mcp]"
-python -m pytest -o addopts='' -m "not gui and not cst_live" -q
-python -m build --wheel --sdist
-```
-
-真实桌面 UI Automation 测试需要交互式 Windows 会话，显式执行：
-
-```powershell
-python -m pytest -o addopts='' -m gui -q cst_solver/tests/test_dialog_windows.py
-```
-
-请在修改跨包协议前同步公共接口文档，保持领域逻辑通过扩展接入，并分别记录离线检查、工程读回与真实求解证据。完整约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 常见问题
-
-**没有 CST 也能使用吗？** 可以使用曲线分析、分组文本解析和显式指定 `FakeBackend` 的离线任务流程。真实工程操作仍需要 CST。
-
-**为什么保留 `tpc_service` 名称？** 为保持 Python 导入兼容。该模块是通用服务，不要求安装 TPC；领域功能由调用方注册。
-
-**能直接用 Python 3.9 运行 MCP 吗？** 核心包支持 Python 3.9，MCP extra 需要 Python 3.10+。完整开发环境建议使用 Python 3.11。
-
-**是否内置具体天线、拓扑或腔体设计？** 通用库提供底层能力；具体领域的构建和研究任务由外部应用通过 handler 实现。
-
-## 许可证
-
-本项目采用 [MIT License](LICENSE)。CST Studio Suite 的使用仍受其自身许可证约束。
-
-## Design Studio 扩展状态
-
-`0.2.0.dev0` 增加原理图、电路任务、独立电路结果、依赖清点、服务和 MCP 的显式接口。CST 2026.1 已实测纯电路、批准的三维样例和三种线性 network 负载。后续复核通过真实线性瞬态联合的实际时间步收敛、两侧端口量、局部电场积分及普通网络对照；Simulated 采样的新运行无插值警告。非线性、通用映射、缓存及外部工程搬运仍按各自证据判定。详见 [时间步复核](docs/CIRCUIT_TIMESTEP_REPORT.md) 和 [首轮实机记录](docs/CIRCUIT_LIVE_REPORT.md)。
-
-见 [电路接口指南](docs/guides/circuit_cosimulation.md) 和 [验证记录](docs/VALIDATION.md)。三维样例须先审阅预览，再建模求解。
-
-常用瞬态任务设置已封装为 `app.circuit.configure_transient_task(...)`，并接入 service/MCP；配置不会启动求解。当前优先完善功能和 [场路联合 skill](skills/cst-circuit/SKILL.md)，暂缓追加专项实机验证。非线性现有失败及未验证项保留在 [非线性记录](docs/CIRCUIT_NONLINEAR_REPORT.md)。
-
-EM 稳定因子和时间信号每步输出可用 `app.configure_em_time_settings({"stability_factor": 0.5, "output_sampling": "every_step"})` 配置，service/MCP 同名入口只配置保存。新封装仅完成离线验证；请求因子不代表实际积分步长，历史提交不代表原生读回或物理验收。
+仓库保留了[场路联合实机记录](docs/CIRCUIT_LIVE_REPORT.md)和[时间步复核](docs/CIRCUIT_TIMESTEP_REPORT.md)。查找其他实测项目或排查运行问题，可从[验证记录](docs/VALIDATION.md)和[故障定位](docs/guides/troubleshooting.md)进入。开发与测试流程见[贡献指南](CONTRIBUTING.md)。本仓库采用 [MIT 许可证](LICENSE)。

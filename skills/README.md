@@ -6,7 +6,7 @@
 
 读完所选 `SKILL.md` 和当前操作标为必读的引用章节，再执行依赖它的写入或求解。按当前工况选择引用；其他分支留待触发时读取。搜索命中、文件头、哈希、已读标记和历史摘要都不能代替原文。输出截断时连续补齐缺段。上下文压缩后若只剩摘要，先重新读取相关规则、恢复工程要求；已完整保留且未改的原文可继续使用。由执行者主动完成，无需用户提醒。
 
-仓库维护使用根目录 `skills/`，安装版使用该插件自带技能。首次记录实际选用的技能路径和运行库模块位置；检查正在运行的 worker 能力，避免混用副本或为加载新版中断工程。
+仓库维护使用根目录 `skills/`，安装版使用该插件自带技能。首次记录实际选用的技能路径。调用运行库时核对模块位置，使用原生 worker 时检查该 worker 的能力。已有导出文件、日志或匹配回执可直接读取。
 
 ## 执行环境
 
@@ -30,11 +30,16 @@ exit $LASTEXITCODE
 | 给 3D 工程或 Design Studio Post 任务添加内置 Result Template，例如自动 Touchstone Export | [结果模板配置](cst-result-templates/SKILL.md) | 按目标选 3D 或 DS 设置；仅配置时止于模板保存重开的回执。 |
 | 单次运行已有、已审阅的 EM 工程 | [EM 仿真](cst-simulation/SKILL.md) | 可直接在宿主运行 `setup(path)`、`app.run()`。已有绑定或在途工作按原身份处理。 |
 | 配置服务器扫描或选择逐点控制 | [参数研究](cst-parameter-study/SKILL.md) | 准备服务器任务只配置、核对并保存。启动与结果导出有各自入口。 |
-| 建模、改几何、材料、端口 | [建模](cst-modeling/SKILL.md) | 实际写入用所属会话；真实参数预览经审阅后再分阶段构建。 |
-| 选择网格、频率采样或自适应策略 | [网格与频率](cst-mesh-frequency/SKILL.md) | 按求解器和所改设置读取专项说明。 |
-| 绑定、恢复、交接或清理工程 | [持久会话](cst-sessions/SKILL.md) | 未知写入先查原任务、状态、回执；发生弹窗或停滞再读诊断。 |
-| SDK、许可证、阻塞或弹窗 | [诊断](cst-diagnostics/SKILL.md) | 按实际窗口类型和进程归属选择恢复流程。 |
-| Design Studio 原理图、静态 SP、场路协同、原生 HB | [场路联合](cst-circuit/SKILL.md) | HB 验证默认 ADS；只有用户明确要求启动 CST HB 才提交。 |
+| 建模、改几何或材料 | [建模](cst-modeling/SKILL.md) | 实际写入用所属会话；真实参数预览经审阅后再分阶段构建。 |
+| 创建或替换三维物理端口 | [建模：创建或替换端口](cst-modeling/SKILL.md#创建或替换端口) | 核对实际端点、参考面、方向与阻抗，审阅后写入并读回。 |
+| 仅读取已有离散端口的有序端点、长度或阻抗 | [离散端口只读检查](cst-modeling/SKILL.md#只读检查离散端口) | 从指定工程读取请求字段，报告原生值和缺项。 |
+| 选择网格、频率采样或自适应策略 | [网格与频率设置](cst-mesh-frequency/SKILL.md#选择或修改设置) | 先确认求解器，再读对应设置。 |
+| 检查已有网格告警、自适应记录或残差 | [网格与收敛记录](cst-mesh-frequency/SKILL.md#诊断已有网格或收敛记录) | 按告警类型核对该次网格、日志或曲线。 |
+| 绑定会话、接续原任务或交接 worker | [持久会话](cst-sessions/SKILL.md) | 识别原工程、worker、job 和回执；只有遇到故障才读取对应恢复程序。 |
+| 交付正式 CST 工程，关闭、退休或清理本任务的过程工程 | [工程交付与清理](cst-project-lifecycle/SKILL.md) | 核验正式文件与依赖，按所属工程的保存、关闭和退休回执确定清理范围。 |
+| SDK、许可证、原任务异常、超时或弹窗 | [诊断](cst-diagnostics/SKILL.md) | 核对原 job、工程、PID 与日志，遇到弹窗再查窗口归属。需要接续原任务时进入所属会话。 |
+| 查看或编辑 CST Design Studio 原理图，补连引脚、改元件属性、移动符号或连接 EM 块 | [Design Studio 原理图](cst-schematic/SKILL.md) | 只读时交付请求项；改图后保存并核对位置、连接或属性。 |
+| 配置或运行已有 Design Studio 电路任务，包括静态 SP、瞬态场路联合、CST 原生 HB | [电路任务与场路联合](cst-circuit/SKILL.md) | 仅配置时止于保存和读回。常规 HB 验证用 ADS，启动 CST HB 需明确请求。 |
 | 创建、打开或编辑 ADS 原理图，把静态参数复制到 HB 供手调 | [ADS 原理图](keysight-ads-schematic/SKILL.md) | 核对目标 cell、保存值和网表。要求打开窗口时追加桌面 API 章节。 |
 | 配置或运行 ADS DC、SP、HB、原生扫频或优化 | [ADS 电路仿真](keysight-ads-simulation/SKILL.md) | 仅配置时止于控制器和网表核对；运行时核对本次日志、数据集及完整扫描轴。 |
 | 读取已有 ADS `.ds`、提取曲线、生成或打开 `.dds` | [ADS 结果与显示](keysight-ads-results/SKILL.md) | 读数止于已保存的数据；要求原生显示窗口时追加窗口核验。 |
@@ -43,7 +48,8 @@ exit $LASTEXITCODE
 | 二极管建模、接口、极性、偏置 | [二极管加载](cst-diode-loading/SKILL.md) | 做性能评估时追加表征。 |
 | 工况、指标、逐管电压或性能结论 | [器件表征](cst-device-characterization/SKILL.md) | 二极管评估交付实际 VAK(t)、相应指标和来源。 |
 | 几何预览与科研图 | [绘图](cst-figures/SKILL.md) | 使用实际参数和结果；输出图片本身不授权工程变更。 |
-| 隔离器 EM、同工程静态 SP、SNP 或 ADS HB 迭代 | [隔离器流程](diode-isolator-design-workflow/SKILL.md) | 按用户要求选择阶段，读取对应实现和证据要求。 |
+| 单管同工程静态 SP，或将指定工况的已加载两端口矩阵导出为 S2P | [单管静态 SP 与 Touchstone](cst-single-diode-static-sp/SKILL.md) | 按配置、运行、读取已有 SP 或验证自动导出选择章节。 |
+| 隔离器 CST EM、同工程零偏静态 SP 与泵浦 ADS HB 的交接或候选迭代 | [隔离器流程](diode-isolator-design-workflow/SKILL.md) | 进入当前阶段时核对候选身份及上游证据。 |
 | 实际工程中遇到可复用缺陷或获得实机证据 | [现场验证](cst-in-situ-validation/SKILL.md) | 在当前授权内修复、脱敏记录；额外专项求解需另有任务依据。 |
 
 ## 跨阶段提交

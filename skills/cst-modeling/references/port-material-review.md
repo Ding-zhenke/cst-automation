@@ -50,11 +50,9 @@
 调用示例和证据边界见 [端口原生读取](model-operations.md#离散端口原生只读)。
 不为获得缓存而保存、建网格或重建，不从默认 50 Ω 推断真实端口阻抗。
 
-替换已有端口使用 `replace_port_with_waveguide`，明确目标编号、原类型和保留端口；
-提交前读 [端口替换限制](model-operations.md)。必须使用具备
-`port-replacement-readback-v1` 的 worker；不能重启正在求解的 worker 来升级。
-离散 edge→face 的备用路线使用显式 `create_discrete_face_port` 与有序拾取边；先读
-同一引用中的面端口说明，记录并核对原属性，不能把创建默认值误当成自动保持。
+同编号波导端口替换、离散 edge→face 创建的原属性记录、有序拾取和 worker 要求见[端口创建与替换](model-operations.md#端口创建与替换)。
+
+## 阻抗与匹配
 
 阻抗要求拆成四项：EM 端口参考阻抗、电路源/负载阻抗、传输线几何阻抗、导出矩阵
 归一化阻抗。设置端口数值不会改线宽；重归一化数据也不会改变实际匹配。基板厚度/

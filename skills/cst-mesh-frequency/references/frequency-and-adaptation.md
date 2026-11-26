@@ -1,5 +1,22 @@
 # 频率表、模型频带与网格自适应
 
+## 设置项与频率轴
+
+| Control | Purpose / API |
+|---|---|
+| Model band | `set_frequency_range`; preserve parameter references |
+| Actual broadband frequency sampling | `configure_fd_frequency` → `sampling_intervals` |
+| Mesh-adaptation frequencies | same API → `adaptation_frequencies` (Single, Adapt=True), or explicit interval `adaptation` boolean |
+| Display/interpolated result resolution | `output_samples`, strict integer >=3; a dense curve is not that many independent solves |
+| Shared sweep/result axis mode | `output_spacing`; CST applies it to adaptive sampling and output axes |
+| Global tetrahedral density, material refinement | `configure_tetrahedral_mesh` |
+| Local tetrahedral solid size | same API → `local_solids` |
+| Pass/Delta-S refinement convergence | same API → `adaptation` |
+| Linear-equation residual | `configure_fem_solver(accuracy=...)`; independent of mesh/Delta-S convergence |
+| HF tetrahedral polynomial order | `configure_fd_linear_solver` → `tet_order` and `mixed_order`; changes discretization, not residual/Delta-S acceptance |
+
+## 模型频带与采样行
+
 For a parameter-linked EM model band, define the project parameters first and
 call `app.set_frequency_range("fmin", "fmax")` with expression strings. Numeric
 Python variables passed as `set_frequency_range(fmin, fmax)` produce fixed
@@ -21,13 +38,6 @@ sampling table or evidence that DC or all retained HB products are covered.
 accept numeric values only. They do not create parameter references or update
 the model band. Recheck those separately configured rows when changing band
 parameters; quoted model-band expressions alone do not establish their linkage.
-
-Use focused typed settings and inspect runtime signatures. For F tetrahedral
-mesh, do not substitute hexahedral `LinesPerWavelength`, arbitrary MeshSettings
-keys or old MeshShapes region wrappers. Refine actual high-field gaps, contacts,
-ports and thin active regions locally; do not size the entire device by its
-smallest feature. Model ideal PEC, finite-conductivity skin depth and thin-sheet
-representations according to the intended physics and solver support.
 
 For FIT hex meshes, legacy `Mesh.LinesPerWavelength` alone may not affect the
 modern generator. `set_mesh_auto` and `set_mesh_properties` also write the
@@ -58,6 +68,15 @@ at least three display/evaluation samples. Keep the two Single intervals and
 omit output_samples to preserve it, or explicitly choose an integer >=3.
 The shared validator rejects invalid display counts before the entire batch runs.
 
+## 局部网格与自适应预算
+
+Use focused typed settings and inspect runtime signatures. For F tetrahedral
+mesh, do not substitute hexahedral `LinesPerWavelength`, arbitrary MeshSettings
+keys or old MeshShapes region wrappers. Refine actual high-field gaps, contacts,
+ports and thin active regions locally; do not size the entire device by its
+smallest feature. Model ideal PEC, finite-conductivity skin depth and thin-sheet
+representations according to the intended physics and solver support.
+
 Set a bounded adaptation pass count and Delta-S criterion, plus independent
 broadband interpolation error and sample/check budgets as needed.
 
@@ -70,6 +89,17 @@ do not encode it as min=max=1. This does not relax formal convergence criteria.
 Material-only sweeps can change skin depth or field localization; geometry sweeps can require
 remeshing. Do not promise cross-case mesh/solution reuse from a generic restart
 flag. Use [cst-parameter-study](../../cst-parameter-study/SKILL.md) for scan design.
+
+同一工况完成网格自适应后，用该网格进行宽带采样；每个显示或插值频点都重新自适应会重复计算。实际 cells/DOF 只能在已建网格后报告。
+
+## 设置提交与读回
+
+If the user explicitly waives a named noncritical settings readback for the current
+authorized EM run, record the submitted settings and mark the missing native
+observation `warning / unverified`. Proceed with that run without requiring a
+getter, screenshot or worker upgrade for the waived item. Project identity,
+unresolved mutations and other requested checks still apply. Frequency coverage
+and mesh convergence require evidence from the run.
 
 Configuration receipts currently have native settings readback unsupported and
 readback_verified/mesh_verified/solver_verified False. Session rebuild/save does
@@ -90,6 +120,3 @@ now check messages and save without a full Rebuild. Require the actual worker's
 `mesh-settings-no-rebuild-v1` capability; the earlier solver-settings capability
 does not cover mesh batches. Mixed geometry calls still rebuild: keep them separate.
 No-rebuild is not a guarantee of native result retention; archive and verify required IDs.
-
-
-同一工况完成网格自适应后，用该网格进行宽带采样；每个显示或插值频点都重新自适应会重复计算。实际 cells/DOF 只能在已建网格后报告。

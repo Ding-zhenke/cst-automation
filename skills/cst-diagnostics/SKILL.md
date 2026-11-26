@@ -1,33 +1,27 @@
 ---
 name: cst-diagnostics
-description: Diagnose CST installation, Python ABI, SDK import, solver stalls, dialogs, and structured task failures without guessing.
+description: Diagnose CST installation and SDK failures, or determine what happened to an existing job from its logs, process identity, dialogs and receipts.
 ---
-
-读完本入口和当前操作要求的引用章节，按[完整阅读规则](../README.md#完整阅读规则)补读和恢复。
 
 # CST diagnostics
 
-For installation discovery, `python -m cst_solver doctor --json` can run in the
-sandbox. For an SDK import check, run `python -m cst_solver doctor --json --probe`
-on the approved host on the first attempt. In Codex command tools, set
-`sandbox_permissions="require_escalated"` on that call and on commands that
-check the native license. Preserve the complete report. Assess installation
-discovery, Python ABI compatibility, SDK/DLL loading, license availability,
-project readback and solver execution separately.
-Use the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1) for either
-noninteractive Python command on Windows; keep CST diagnostic dialogs visible.
+Follow the [complete reading rule](../README.md#完整阅读规则) for the observed symptom.
 
-For a stall or timeout, start with the original job/exception, messages and logs, then the PID-scoped dialog snapshot. If a dialog exists, inspect its title, complete body, buttons and owner; Raw View can recover missing text. Use Computer Use only for unresolved window content or a necessary action unsupported by the programmatic path. A complete error message does not need a second screenshot. Keep the original failure; dismissing a dialog cannot certify the solver or authorize replay of an unresolved write.
+For a stall, timeout or failure, identify the original job, owning session, project and CST PID. Read the job state, original exception, messages and logs. If the native outcome or a write is still unknown, retain the original failure and leave the operation pending review. To continue that job or recover its project, use the [owning session](../cst-sessions/SKILL.md).
 
-The recognized `Quiet/Scripting mode` notice alone is not a blocked API task. Keep API work in scripting mode; switch to interactive mode only for a concrete UI task after the owning operation is idle. See [dialog classification](../../docs/guides/cst_dialogs.md).
+For a possible dialog, read the [PID-scoped dialog snapshot](../../docs/guides/cst_dialogs.md). Check its owner, title, complete body and buttons. Use Raw View for missing text and Computer Use for unresolved content or a necessary action unavailable through the API. After a dialog action, check the original call and its outcome. A recognized Quiet/Scripting mode notice permits API work to continue in scripting mode. Switch to interactive mode only for a concrete UI task after the owning operation is idle.
 
-| Observed condition | Required procedure before acting |
+| Observed symptom or request | Read the corresponding procedure |
 |---|---|
-| Run or stop status only | Use [read-only status operations](../../docs/guides/reusable_operations.md). Separate status inspection from answering a prompt. |
-| Stop scope uncertain or Qt abort prompt | Read [3D/DS stop scope](../../docs/guides/solver_stop_scope.md) and [explicit Qt confirmation](../../docs/guides/cst_dialogs.md#qt-停止确认的显式-yes). Confirm only an exactly matched prompt under existing stop authorization; pending or unknown DS state blocks new writes and handoff. |
-| History error or unavailable VBA method | Follow [history error diagnosis](../../docs/guides/cst_dialogs.md#历史错误优先代码诊断). Use installed official help and the actual wrapper to repair the source. Preserve the error and wait for the original call to return before writing. |
-| Result invalidation, cache selection or repeated INFO | Read [result-retention decisions](../../docs/guides/cst_dialogs.md#结果失效弹窗的-api-预处理). Preserve and verify required data first. For the known authorized cache choice, inspect, select, independently inspect, then confirm. Freeze and read the saved copy noninteractively before a rerun. Repeated messages remain evidence; quiet mode, window disappearance or a selection receipt cannot verify cache integrity. |
-| Ordinary session exception | Read [bounded exception diagnostics](../../docs/guides/session_exception_diagnostics.md). Record the failing stage, OS error and bounded stack. Prior receipts without these fields stay unknown. |
-| Returned/saved action with a latched monitoring failure | Read [completion evidence](../../docs/guides/session_completion_monitor_evidence.md). Record the original error, first monitor failure, final snapshot and loaded worker identity. A clear final snapshot does not release a prior fence. |
+| Check whether a job is still running or has stopped | [Read-only status of the original job](../../docs/guides/reusable_operations.md#原任务联合只读核查). |
+| Stop scope is unclear, or a Qt abort confirmation is open | [3D/DS stop scope](../../docs/guides/solver_stop_scope.md) and, for an already authorized stop, [exact Qt confirmation](../../docs/guides/cst_dialogs.md#qt-停止确认的显式-yes). |
+| History Error or missing VBA method | [Failed command, installed official help and original call](../../docs/guides/cst_dialogs.md#历史错误优先代码诊断). |
+| Result invalidation, cache choice or repeated INFO | [Retention and message evidence](../../docs/guides/cst_dialogs.md#结果失效弹窗的-api-预处理). For an authorized cache choice, follow [selection, independent readback, confirmation and frozen-data checks](../../docs/guides/reusable_operations.md#有限缓存选项流程). |
+| Ordinary session exception | [Failing stage, OS error and bounded stack](../../docs/guides/session_exception_diagnostics.md). |
+| Monitoring failed even though the call later returned or saved | [Original error, first monitor failure, final snapshot and loaded worker](../../docs/guides/session_completion_monitor_evidence.md). Preserve the first failure when the final snapshot is clear. |
 
-For setup and further diagnosis, use [environment setup](../../docs/guides/cst_environment.md), [dialog inspection](../../docs/guides/cst_dialogs.md) or [troubleshooting](../../docs/guides/troubleshooting.md). Keep the active worker intact when its diagnostics are older than the source.
+## Installation and SDK checks
+
+For installation discovery, `python -m cst_solver doctor --json` can run in the sandbox. For an SDK import check, run `python -m cst_solver doctor --json --probe` on the licensed host on the first attempt with `sandbox_permissions="require_escalated"`. Use the same host permission for a license check. Launch unattended Windows Python through the [hidden launcher](../keysight-ads-simulation/scripts/invoke_hidden.ps1) and preserve the full report.
+
+Report the observed stage of installation discovery, interpreter ABI, SDK/DLL loading, license access, project readback or solver execution. For that stage, use the [environment guide](../../docs/guides/cst_environment.md) or [troubleshooting](../../docs/guides/troubleshooting.md). Keep the active worker intact when its diagnostics predate the source.
